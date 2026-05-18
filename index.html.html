@@ -573,6 +573,7 @@ window.supabase = {
         select: function(cols){ return q; },
         eq: function(col,val){ _filters.push(col+'=eq.'+encodeURIComponent(val)); return q; },
         order: function(col,opts){ _order=col+(opts&&opts.ascending===false?'.desc':'.asc'); return q; },
+        limit: function(n){ return q; },
         single: function(){ _single=true; return q; },
         upsert: function(data, upsertOpts) {
           const h = {...headers, 'Prefer':'resolution=merge-duplicates,return=minimal'};
@@ -584,10 +585,11 @@ window.supabase = {
           return fetch(furl,{method:'DELETE',headers}).then(r=>({error:r.ok?null:{message:'HTTP '+r.status}})).catch(e=>({error:{message:e.message}}));
         },
         then: function(resolve, reject) {
-          let furl = _url + '?';
-          if(_filters.length) furl += _filters.join('&') + '&';
-          if(_order) furl += 'order='+_order+'&';
-          furl += 'limit=5000';
+          const params = [];
+          if(_filters.length) params.push(..._filters);
+          if(_order) params.push('order='+_order);
+          params.push('limit=5000');
+          let furl = _url + '?' + params.join('&');
           const h = {...headers, 'Accept':'application/json'};
           if(_single) h['Accept']='application/vnd.pgrst.object+json';
           return fetch(furl,{headers:h}).then(r=>{
@@ -2248,12 +2250,13 @@ const PROJ_COLORS=['#2A5C45','#1A4A7A','#8B6914','#B83030','#4A3A9A','#993556','
 const DEF_PROJ={id:'rucachue',name:'Alto Rucachue',client:'Estudio Bianco Spa',addr:'Lo Barnechea, Santiago',startDate:'2025-09-01',status:'En obra',color:'#2A5C45',notes:'Remodelación integral'};
 
 function ldProjects(){
-  // Check if Supabase already loaded projects
-  if(window._sbData && window._sbData.projects && window._sbData.projects.length){
+  // 1. Best: Supabase already loaded
+  if(window._sbData && window._sbData.projects && window._sbData.projects.length>1){
     return window._sbData.projects;
   }
-  // Fallback to localStorage
-  try{const v=localStorage.getItem('ar6_projects');if(v){const p=JSON.parse(v);if(p.length)return p;}}catch(e){}
+  // 2. Fast: localStorage cache
+  try{const v=localStorage.getItem('ar6_projects');if(v){const p=JSON.parse(v);if(p.length>0)return p;}}catch(e){}
+  // 3. Fallback
   return [DEF_PROJ];
 }
 function svProjects(projs){
@@ -2350,7 +2353,8 @@ function renderHome(){
   if(cp&&!cp.children.length){PROJ_COLORS.forEach((c,i)=>{const d=document.createElement('div');d.className='cp-dot'+(i===0?' selected':'');d.style.background=c;d.dataset.color=c;d.onclick=function(){document.querySelectorAll('.cp-dot').forEach(x=>x.classList.remove('selected'));this.classList.add('selected');};cp.appendChild(d);});}
   grid.innerHTML='';
   projects.forEach(p=>{
-    const s=getProjectStats(p.id);
+    // Only show stats for currently loaded project
+    const s = p.id===currentProjId ? getProjectStats(p.id) : {total:0,desembolsado:0,saldo:0,items:0};
     const card=document.createElement('div');
     card.className='proj-card';
     card.onclick=function(e){if(!e.target.closest('.pc-actions'))openProject(p.id);};
@@ -3483,15 +3487,19 @@ if(_loadMsg)_loadMsg.textContent='Cargando proyectos...';
 const _initTimeout = setTimeout(function(){
   console.warn('Supabase timeout - loading offline');
   _startApp([DEF_PROJ]);
-}, 8000);
+}, 15000);
 
 function _startApp(projs) {
   clearTimeout(_initTimeout);
   // Store in window so main script can pick it up
   window._sbData = window._sbData || {};
   window._sbData.projects = projs;
-  // Also cache in localStorage for offline use
-  try{if(projs.length)localStorage.setItem('ar6_projects',JSON.stringify(projs));}catch(e){}
+  // Cache in localStorage for faster next load
+  try{
+    if(projs.length){
+      localStorage.setItem('ar6_projects',JSON.stringify(projs));
+    }
+  }catch(e){}
   const ov=document.getElementById('loadingOv');
   if(ov)ov.style.display='none';
   if(_loadBar)_loadBar.style.width='0%';
