@@ -554,256 +554,8 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
 .app-logo-placeholder{font-size:22px;}
 
 </style>
-<script>
-// Lightweight Supabase REST wrapper (no iframe, works from file://)
-window.supabase = {
-  createClient: function(url, key, opts) {
-    const headers = {
-      'apikey': key,
-      'Authorization': 'Bearer ' + key,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation'
-    };
-    function from(table) {
-      let _url = url + '/rest/v1/' + table;
-      let _filters = [];
-      let _order = null;
-      let _single = false;
-      const q = {
-        select: function(cols){ return q; },
-        eq: function(col,val){ _filters.push(col+'=eq.'+encodeURIComponent(val)); return q; },
-        order: function(col,opts){ _order=col+(opts&&opts.ascending===false?'.desc':'.asc'); return q; },
-        limit: function(n){ return q; },
-        single: function(){ _single=true; return q; },
-        upsert: function(data, upsertOpts) {
-          const h = {...headers, 'Prefer':'resolution=merge-duplicates,return=minimal'};
-          const body = JSON.stringify(Array.isArray(data)?data:[data]);
-          return fetch(_url, {method:'POST',headers:h,body}).then(r=>r.ok?{data:null,error:null}:{error:{message:'HTTP '+r.status}}).catch(e=>({error:{message:e.message}}));
-        },
-        delete: function() {
-          const furl = _filters.length ? _url+'?'+_filters.join('&') : _url;
-          return fetch(furl,{method:'DELETE',headers}).then(r=>({error:r.ok?null:{message:'HTTP '+r.status}})).catch(e=>({error:{message:e.message}}));
-        },
-        then: function(resolve, reject) {
-          const params = [];
-          if(_filters.length) params.push(..._filters);
-          if(_order) params.push('order='+_order);
-          params.push('limit=5000');
-          let furl = _url + '?' + params.join('&');
-          const h = {...headers, 'Accept':'application/json'};
-          if(_single) h['Accept']='application/vnd.pgrst.object+json';
-          return fetch(furl,{headers:h}).then(r=>{
-            if(!r.ok) return r.text().then(t=>{throw new Error(t||'HTTP '+r.status);});
-            return r.json();
-          }).then(data=>resolve({data,error:null})).catch(e=>{
-            console.warn('Supabase error:',e.message);
-            resolve({data:_single?null:[],error:{message:e.message}});
-          });
-        }
-      };
-      return q;
-    }
-    return { from };
-  }
-};
-</script>
-<script>
-// ── SUPABASE ──────────────────────────────────────────────────────────────────
-const _SB_URL = "https://iucjhzsnlotojvpyjcfo.supabase.co";
-const _SB_KEY = "sb_publishable_ISx7dyiYpe-uQOcIoI1E1A_Tv0jDW5d";
-let _sb;
-try {
-  _sb = supabase.createClient(_SB_URL, _SB_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-} catch(e) {
-  console.error('Supabase init error:', e);
-}
 
 
-// ── SUPABASE STORAGE ──────────────────────────────────────────────────────────
-const _BUCKET = "Imágenes app estudio bianco";
-const _BUCKET_ENC = "Im%C3%A1genes%20app%20estudio%20bianco";
-const _STORAGE_URL = "https://iucjhzsnlotojvpyjcfo.supabase.co/storage/v1";
-
-async function uploadImage(file, path) {
-  const url = _STORAGE_URL + '/object/' + _BUCKET_ENC + '/' + encodeURIComponent(path);
-  const headers = {
-    'apikey': 'sb_publishable_ISx7dyiYpe-uQOcIoI1E1A_Tv0jDW5d',
-    'Authorization': 'Bearer sb_publishable_ISx7dyiYpe-uQOcIoI1E1A_Tv0jDW5d',
-    'x-upsert': 'true'
-  };
-  const res = await fetch(url, {method:'POST', headers, body: file});
-  if(!res.ok) {
-    const err = await res.text();
-    throw new Error('Upload error: ' + err);
-  }
-  // Return public URL
-  return _STORAGE_URL + '/object/public/' + _BUCKET_ENC + '/' + encodeURIComponent(path);
-}
-
-async function deleteImage(path) {
-  const url = _STORAGE_URL + '/object/' + _BUCKET_ENC + '/' + encodeURIComponent(path);
-  await fetch(url, {method:'DELETE', headers: {'apikey':'sb_publishable_ISx7dyiYpe-uQOcIoI1E1A_Tv0jDW5d','Authorization':'Bearer sb_publishable_ISx7dyiYpe-uQOcIoI1E1A_Tv0jDW5d'}});
-}
-
-function handleImageUpload(itemId, inputEl) {
-  const file = inputEl.files[0];
-  if(!file) return;
-  const maxSize = 5 * 1024 * 1024; // 5MB
-  if(file.size > maxSize) {alert('Imagen muy grande. Máximo 5MB.');return;}
-  const ext = file.name.split('.').pop();
-  const path = 'items/' + currentProjId + '/' + itemId + '.' + ext;
-  const previewEl = document.getElementById('imgPreview-' + itemId);
-  const btnEl = document.getElementById('imgBtn-' + itemId);
-  if(btnEl) btnEl.textContent = '⏳ Subiendo...';
-  uploadImage(file, path).then(url => {
-    const r = items.find(x=>x.id==itemId);
-    if(r) {
-      r.imageUrl = url;
-      // Save to Supabase items table
-      _sb.from('items').update({image_url: url}).eq('id', itemId).eq('project_id', currentProjId).then({error})=>{
-        if(error) console.error('Save image URL:', error);
-      });
-      sAll();
-      if(previewEl) { previewEl.src=url; previewEl.style.display='block'; }
-      // Update thumbnail in table
-      const thumb = document.getElementById('thumb-'+itemId);
-      if(thumb) thumb.outerHTML = '<img id="thumb-'+itemId+'" class="img-thumb" src="'+url+'" onclick="tE(\'cp-'+itemId+'\',\'cb-'+itemId+'\')"/>';
-      if(btnEl) btnEl.textContent = '✓ Imagen guardada';
-      setTimeout(()=>{if(btnEl)btnEl.textContent='📷 Cambiar imagen';}, 2000);
-    }
-  }).catch(err => {
-    console.error(err);
-    alert('Error al subir: ' + err.message);
-    if(btnEl) btnEl.textContent = '📷 Subir imagen';
-  });
-}
-
-function handleLogoUpload(inputEl) {
-  const file = inputEl.files[0];
-  if(!file) return;
-  uploadImage(file, 'logo/logo.' + file.name.split('.').pop()).then(url => {
-    localStorage.setItem('eb_logo_url', url);
-    renderLogo();
-    tst('Logo actualizado ✓');
-  }).catch(err => alert('Error: ' + err.message));
-}
-
-function renderLogo() {
-  const url = localStorage.getItem('eb_logo_url');
-  const el = document.getElementById('appLogo');
-  if(!el) return;
-  if(url) {
-    el.innerHTML = '<img class="app-logo" src="'+url+'" alt="Estudio Bianco">';
-  } else {
-    el.innerHTML = '<span class="app-logo-placeholder">🏠</span>';
-  }
-}
-
-// ── ITEM MAPPERS ──────────────────────────────────────────────────────────────
-function itemToDb(r, pid) {
-  return {
-    id: r.id, project_id: pid,
-    cat: r.cat||'', item: r.item||'', supplier: r.supplier||'',
-    qty: r.qty||1, unit: r.unit||0, space: r.space||'',
-    notes: r.notes||'', specs: r.specs||'', product_url: r.productUrl||'',
-    pay_status: r.payStatus||'Pendiente',
-    delivery_status: r.deliveryStatus||'Sin iniciar',
-    install_status: r.installStatus||'Pendiente',
-    client_status: r.clientStatus||'',
-    client_approval_date: r.clientApprovalDate||'',
-    last_review_date: r.lastReviewDate||'',
-    p1pct:r.p1pct||0,p1amt:r.p1amt||0,p1date:r.p1date||'',p1method:r.p1method||'',p1note:r.p1note||'',
-    p2pct:r.p2pct||0,p2amt:r.p2amt||0,p2date:r.p2date||'',p2method:r.p2method||'',p2note:r.p2note||'',
-    p3pct:r.p3pct||0,p3amt:r.p3amt||0,p3date:r.p3date||'',p3method:r.p3method||'',p3note:r.p3note||'',
-    p4pct:r.p4pct||0,p4amt:r.p4amt||0,p4date:r.p4date||'',p4method:r.p4method||'',p4note:r.p4note||'',
-    order_date:r.orderDate||'',lead_weeks:r.leadWeeks||null,
-    est_delivery:r.estDelivery||'',actual_delivery:r.actualDelivery||'',
-    install_date:r.installDate||'',track_note:r.trackNote||'',image_url:r.imageUrl||''
-  };
-}
-function itemFromDb(row) {
-  return {
-    id:row.id, cat:row.cat, item:row.item, supplier:row.supplier,
-    qty:row.qty, unit:row.unit, space:row.space||'',
-    notes:row.notes||'', specs:row.specs||'', productUrl:row.product_url||'',
-    payStatus:row.pay_status, deliveryStatus:row.delivery_status,
-    installStatus:row.install_status, clientStatus:row.client_status||'',
-    clientApprovalDate:row.client_approval_date||'',
-    lastReviewDate:row.last_review_date||'',
-    p1pct:row.p1pct||0,p1amt:row.p1amt||0,p1date:row.p1date||'',p1method:row.p1method||'',p1note:row.p1note||'',
-    p2pct:row.p2pct||0,p2amt:row.p2amt||0,p2date:row.p2date||'',p2method:row.p2method||'',p2note:row.p2note||'',
-    p3pct:row.p3pct||0,p3amt:row.p3amt||0,p3date:row.p3date||'',p3method:row.p3method||'',p3note:row.p3note||'',
-    p4pct:row.p4pct||0,p4amt:row.p4amt||0,p4date:row.p4date||'',p4method:row.p4method||'',p4note:row.p4note||'',
-    orderDate:row.order_date||'',leadWeeks:row.lead_weeks||'',
-    estDelivery:row.est_delivery||'',actualDelivery:row.actual_delivery||'',
-    installDate:row.install_date||'',trackNote:row.track_note||'',imageUrl:row.image_url||''
-  };
-}
-
-// ── SUPABASE DATA LAYER ───────────────────────────────────────────────────────
-async function sbLoadProjects() {
-  const {data,error} = await _sb.from('projects').select('*').order('created_at');
-  if(error){ console.error('Load projects:',error); return []; }
-  return data.map(p=>({
-    id:p.id, name:p.name, client:p.client||'',
-    color:p.color||'#2A5C45', status:p.status||'Activo',
-    addr:p.addr||'', startDate:p.start_date||'', notes:p.notes||''
-  }));
-}
-async function sbSaveProject(p) {
-  const row={id:p.id,name:p.name,client:p.client||'',color:p.color,status:p.status||'Activo',addr:p.addr||'',start_date:p.startDate||'',notes:p.notes||''};
-  const {error} = await _sb.from('projects').upsert(row,{onConflict:'id'});
-  if(error) console.error('Save project:',error);
-}
-async function sbDeleteProject(pid) {
-  await _sb.from('projects').delete().eq('id',pid);
-}
-async function sbLoadItems(pid) {
-  const {data,error} = await _sb.from('items').select('*').eq('project_id',pid);
-  if(error){ console.error('Load items:',error); return []; }
-  return data.map(itemFromDb);
-}
-async function sbSaveItems(pid, items) {
-  if(!items.length) return;
-  const rows = items.map(r=>itemToDb(r,pid));
-  const {error} = await _sb.from('items').upsert(rows,{onConflict:'id,project_id'});
-  if(error) console.error('Save items:',error);
-}
-async function sbDeleteItem(pid, id) {
-  await _sb.from('items').delete().eq('project_id',pid).eq('id',id);
-}
-async function sbLoadPagos(pid) {
-  const {data,error} = await _sb.from('pagos').select('*').eq('project_id',pid);
-  if(error){ console.error('Load pagos:',error); return []; }
-  return data.map(p=>({id:p.id,date:p.date||'',amount:p.amount||0,note:p.note||'',docType:p.doc_type||'',docNum:p.doc_num||'',source:p.source||'manual'}));
-}
-async function sbSavePagos(pid, pagos) {
-  if(!pagos.length) return;
-  const rows=pagos.map(p=>({id:p.id,project_id:pid,date:p.date||'',amount:p.amount||0,note:p.note||'',doc_type:p.docType||'',doc_num:p.docNum||'',source:p.source||'manual'}));
-  const {error} = await _sb.from('pagos').upsert(rows,{onConflict:'id,project_id'});
-  if(error) console.error('Save pagos:',error);
-}
-async function sbLoadLogs(pid) {
-  const {data,error} = await _sb.from('logs').select('*').eq('project_id',pid).order('date',{ascending:false});
-  if(error){ console.error('Load logs:',error); return []; }
-  return data.map(l=>({id:l.id,date:l.date||'',type:l.type||'',title:l.title||'',desc:l.description||'',commits:l.commits||'',responsible:l.responsible||'',dueDate:l.due_date||'',status:l.status||'Pendiente'}));
-}
-async function sbSaveLogs(pid, logs) {
-  if(!logs.length) return;
-  const rows=logs.map(l=>({id:l.id,project_id:pid,date:l.date||'',type:l.type||'',title:l.title||'',description:l.desc||'',commits:l.commits||'',responsible:l.responsible||'',due_date:l.dueDate||'',status:l.status||'Pendiente'}));
-  const {error} = await _sb.from('logs').upsert(rows,{onConflict:'id,project_id'});
-  if(error) console.error('Save logs:',error);
-}
-async function sbLoadGlobal(pid) {
-  const {data} = await _sb.from('project_global').select('*').eq('project_id',pid).single();
-  return data ? {lastReview:data.last_review||'',...data.data} : {};
-}
-async function sbSaveGlobal(pid, gd) {
-  await _sb.from('project_global').upsert({project_id:pid,last_review:gd.lastReview||'',data:gd},{onConflict:'project_id'});
-}
-</script>
 </head>
 <body>
 
@@ -1399,6 +1151,255 @@ async function sbSaveGlobal(pid, gd) {
 
 <div id="toast"></div>
 <script>
+// Lightweight Supabase REST wrapper (no iframe, works from file://)
+window.supabase = {
+  createClient: function(url, key, opts) {
+    const headers = {
+      'apikey': key,
+      'Authorization': 'Bearer ' + key,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    };
+    function from(table) {
+      let _url = url + '/rest/v1/' + table;
+      let _filters = [];
+      let _order = null;
+      let _single = false;
+      const q = {
+        select: function(cols){ return q; },
+        eq: function(col,val){ _filters.push(col+'=eq.'+encodeURIComponent(val)); return q; },
+        order: function(col,opts){ _order=col+(opts&&opts.ascending===false?'.desc':'.asc'); return q; },
+        limit: function(n){ return q; },
+        single: function(){ _single=true; return q; },
+        upsert: function(data, upsertOpts) {
+          const h = {...headers, 'Prefer':'resolution=merge-duplicates,return=minimal'};
+          const body = JSON.stringify(Array.isArray(data)?data:[data]);
+          return fetch(_url, {method:'POST',headers:h,body}).then(r=>r.ok?{data:null,error:null}:{error:{message:'HTTP '+r.status}}).catch(e=>({error:{message:e.message}}));
+        },
+        delete: function() {
+          const furl = _filters.length ? _url+'?'+_filters.join('&') : _url;
+          return fetch(furl,{method:'DELETE',headers}).then(r=>({error:r.ok?null:{message:'HTTP '+r.status}})).catch(e=>({error:{message:e.message}}));
+        },
+        then: function(resolve, reject) {
+          const params = [];
+          if(_filters.length) params.push(..._filters);
+          if(_order) params.push('order='+_order);
+          params.push('limit=5000');
+          let furl = _url + '?' + params.join('&');
+          const h = {...headers, 'Accept':'application/json'};
+          if(_single) h['Accept']='application/vnd.pgrst.object+json';
+          return fetch(furl,{headers:h}).then(r=>{
+            if(!r.ok) return r.text().then(t=>{throw new Error(t||'HTTP '+r.status);});
+            return r.json();
+          }).then(data=>resolve({data,error:null})).catch(e=>{
+            console.warn('Supabase error:',e.message);
+            resolve({data:_single?null:[],error:{message:e.message}});
+          });
+        }
+      };
+      return q;
+    }
+    return { from };
+  }
+};
+
+
+// ── SUPABASE ──────────────────────────────────────────────────────────────────
+const _SB_URL = "https://iucjhzsnlotojvpyjcfo.supabase.co";
+const _SB_KEY = "sb_publishable_ISx7dyiYpe-uQOcIoI1E1A_Tv0jDW5d";
+let _sb;
+try {
+  _sb = supabase.createClient(_SB_URL, _SB_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  });
+} catch(e) {
+  console.error('Supabase init error:', e);
+}
+
+
+// ── SUPABASE STORAGE ──────────────────────────────────────────────────────────
+const _BUCKET = "Imágenes app estudio bianco";
+const _BUCKET_ENC = "Im%C3%A1genes%20app%20estudio%20bianco";
+const _STORAGE_URL = "https://iucjhzsnlotojvpyjcfo.supabase.co/storage/v1";
+
+async function uploadImage(file, path) {
+  const url = _STORAGE_URL + '/object/' + _BUCKET_ENC + '/' + encodeURIComponent(path);
+  const headers = {
+    'apikey': 'sb_publishable_ISx7dyiYpe-uQOcIoI1E1A_Tv0jDW5d',
+    'Authorization': 'Bearer sb_publishable_ISx7dyiYpe-uQOcIoI1E1A_Tv0jDW5d',
+    'x-upsert': 'true'
+  };
+  const res = await fetch(url, {method:'POST', headers, body: file});
+  if(!res.ok) {
+    const err = await res.text();
+    throw new Error('Upload error: ' + err);
+  }
+  // Return public URL
+  return _STORAGE_URL + '/object/public/' + _BUCKET_ENC + '/' + encodeURIComponent(path);
+}
+
+async function deleteImage(path) {
+  const url = _STORAGE_URL + '/object/' + _BUCKET_ENC + '/' + encodeURIComponent(path);
+  await fetch(url, {method:'DELETE', headers: {'apikey':'sb_publishable_ISx7dyiYpe-uQOcIoI1E1A_Tv0jDW5d','Authorization':'Bearer sb_publishable_ISx7dyiYpe-uQOcIoI1E1A_Tv0jDW5d'}});
+}
+
+function handleImageUpload(itemId, inputEl) {
+  const file = inputEl.files[0];
+  if(!file) return;
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  if(file.size > maxSize) {alert('Imagen muy grande. Máximo 5MB.');return;}
+  const ext = file.name.split('.').pop();
+  const path = 'items/' + currentProjId + '/' + itemId + '.' + ext;
+  const previewEl = document.getElementById('imgPreview-' + itemId);
+  const btnEl = document.getElementById('imgBtn-' + itemId);
+  if(btnEl) btnEl.textContent = '⏳ Subiendo...';
+  uploadImage(file, path).then(url => {
+    const r = items.find(x=>x.id==itemId);
+    if(r) {
+      r.imageUrl = url;
+      // Save to Supabase items table
+      _sb.from('items').update({image_url: url}).eq('id', itemId).eq('project_id', currentProjId).then({error})=>{
+        if(error) console.error('Save image URL:', error);
+      });
+      sAll();
+      if(previewEl) { previewEl.src=url; previewEl.style.display='block'; }
+      // Update thumbnail in table
+      const thumb = document.getElementById('thumb-'+itemId);
+      if(thumb) thumb.outerHTML = '<img id="thumb-'+itemId+'" class="img-thumb" src="'+url+'" onclick="tE(\'cp-'+itemId+'\',\'cb-'+itemId+'\')"/>';
+      if(btnEl) btnEl.textContent = '✓ Imagen guardada';
+      setTimeout(()=>{if(btnEl)btnEl.textContent='📷 Cambiar imagen';}, 2000);
+    }
+  }).catch(err => {
+    console.error(err);
+    alert('Error al subir: ' + err.message);
+    if(btnEl) btnEl.textContent = '📷 Subir imagen';
+  });
+}
+
+function handleLogoUpload(inputEl) {
+  const file = inputEl.files[0];
+  if(!file) return;
+  uploadImage(file, 'logo/logo.' + file.name.split('.').pop()).then(url => {
+    localStorage.setItem('eb_logo_url', url);
+    renderLogo();
+    tst('Logo actualizado ✓');
+  }).catch(err => alert('Error: ' + err.message));
+}
+
+function renderLogo() {
+  const url = localStorage.getItem('eb_logo_url');
+  const el = document.getElementById('appLogo');
+  if(!el) return;
+  if(url) {
+    el.innerHTML = '<img class="app-logo" src="'+url+'" alt="Estudio Bianco">';
+  } else {
+    el.innerHTML = '<span class="app-logo-placeholder">🏠</span>';
+  }
+}
+
+// ── ITEM MAPPERS ──────────────────────────────────────────────────────────────
+function itemToDb(r, pid) {
+  return {
+    id: r.id, project_id: pid,
+    cat: r.cat||'', item: r.item||'', supplier: r.supplier||'',
+    qty: r.qty||1, unit: r.unit||0, space: r.space||'',
+    notes: r.notes||'', specs: r.specs||'', product_url: r.productUrl||'',
+    pay_status: r.payStatus||'Pendiente',
+    delivery_status: r.deliveryStatus||'Sin iniciar',
+    install_status: r.installStatus||'Pendiente',
+    client_status: r.clientStatus||'',
+    client_approval_date: r.clientApprovalDate||'',
+    last_review_date: r.lastReviewDate||'',
+    p1pct:r.p1pct||0,p1amt:r.p1amt||0,p1date:r.p1date||'',p1method:r.p1method||'',p1note:r.p1note||'',
+    p2pct:r.p2pct||0,p2amt:r.p2amt||0,p2date:r.p2date||'',p2method:r.p2method||'',p2note:r.p2note||'',
+    p3pct:r.p3pct||0,p3amt:r.p3amt||0,p3date:r.p3date||'',p3method:r.p3method||'',p3note:r.p3note||'',
+    p4pct:r.p4pct||0,p4amt:r.p4amt||0,p4date:r.p4date||'',p4method:r.p4method||'',p4note:r.p4note||'',
+    order_date:r.orderDate||'',lead_weeks:r.leadWeeks||null,
+    est_delivery:r.estDelivery||'',actual_delivery:r.actualDelivery||'',
+    install_date:r.installDate||'',track_note:r.trackNote||'',image_url:r.imageUrl||''
+  };
+}
+function itemFromDb(row) {
+  return {
+    id:row.id, cat:row.cat, item:row.item, supplier:row.supplier,
+    qty:row.qty, unit:row.unit, space:row.space||'',
+    notes:row.notes||'', specs:row.specs||'', productUrl:row.product_url||'',
+    payStatus:row.pay_status, deliveryStatus:row.delivery_status,
+    installStatus:row.install_status, clientStatus:row.client_status||'',
+    clientApprovalDate:row.client_approval_date||'',
+    lastReviewDate:row.last_review_date||'',
+    p1pct:row.p1pct||0,p1amt:row.p1amt||0,p1date:row.p1date||'',p1method:row.p1method||'',p1note:row.p1note||'',
+    p2pct:row.p2pct||0,p2amt:row.p2amt||0,p2date:row.p2date||'',p2method:row.p2method||'',p2note:row.p2note||'',
+    p3pct:row.p3pct||0,p3amt:row.p3amt||0,p3date:row.p3date||'',p3method:row.p3method||'',p3note:row.p3note||'',
+    p4pct:row.p4pct||0,p4amt:row.p4amt||0,p4date:row.p4date||'',p4method:row.p4method||'',p4note:row.p4note||'',
+    orderDate:row.order_date||'',leadWeeks:row.lead_weeks||'',
+    estDelivery:row.est_delivery||'',actualDelivery:row.actual_delivery||'',
+    installDate:row.install_date||'',trackNote:row.track_note||'',imageUrl:row.image_url||''
+  };
+}
+
+// ── SUPABASE DATA LAYER ───────────────────────────────────────────────────────
+async function sbLoadProjects() {
+  const {data,error} = await _sb.from('projects').select('*').order('created_at');
+  if(error){ console.error('Load projects:',error); return []; }
+  return data.map(p=>({
+    id:p.id, name:p.name, client:p.client||'',
+    color:p.color||'#2A5C45', status:p.status||'Activo',
+    addr:p.addr||'', startDate:p.start_date||'', notes:p.notes||''
+  }));
+}
+async function sbSaveProject(p) {
+  const row={id:p.id,name:p.name,client:p.client||'',color:p.color,status:p.status||'Activo',addr:p.addr||'',start_date:p.startDate||'',notes:p.notes||''};
+  const {error} = await _sb.from('projects').upsert(row,{onConflict:'id'});
+  if(error) console.error('Save project:',error);
+}
+async function sbDeleteProject(pid) {
+  await _sb.from('projects').delete().eq('id',pid);
+}
+async function sbLoadItems(pid) {
+  const {data,error} = await _sb.from('items').select('*').eq('project_id',pid);
+  if(error){ console.error('Load items:',error); return []; }
+  return data.map(itemFromDb);
+}
+async function sbSaveItems(pid, items) {
+  if(!items.length) return;
+  const rows = items.map(r=>itemToDb(r,pid));
+  const {error} = await _sb.from('items').upsert(rows,{onConflict:'id,project_id'});
+  if(error) console.error('Save items:',error);
+}
+async function sbDeleteItem(pid, id) {
+  await _sb.from('items').delete().eq('project_id',pid).eq('id',id);
+}
+async function sbLoadPagos(pid) {
+  const {data,error} = await _sb.from('pagos').select('*').eq('project_id',pid);
+  if(error){ console.error('Load pagos:',error); return []; }
+  return data.map(p=>({id:p.id,date:p.date||'',amount:p.amount||0,note:p.note||'',docType:p.doc_type||'',docNum:p.doc_num||'',source:p.source||'manual'}));
+}
+async function sbSavePagos(pid, pagos) {
+  if(!pagos.length) return;
+  const rows=pagos.map(p=>({id:p.id,project_id:pid,date:p.date||'',amount:p.amount||0,note:p.note||'',doc_type:p.docType||'',doc_num:p.docNum||'',source:p.source||'manual'}));
+  const {error} = await _sb.from('pagos').upsert(rows,{onConflict:'id,project_id'});
+  if(error) console.error('Save pagos:',error);
+}
+async function sbLoadLogs(pid) {
+  const {data,error} = await _sb.from('logs').select('*').eq('project_id',pid).order('date',{ascending:false});
+  if(error){ console.error('Load logs:',error); return []; }
+  return data.map(l=>({id:l.id,date:l.date||'',type:l.type||'',title:l.title||'',desc:l.description||'',commits:l.commits||'',responsible:l.responsible||'',dueDate:l.due_date||'',status:l.status||'Pendiente'}));
+}
+async function sbSaveLogs(pid, logs) {
+  if(!logs.length) return;
+  const rows=logs.map(l=>({id:l.id,project_id:pid,date:l.date||'',type:l.type||'',title:l.title||'',description:l.desc||'',commits:l.commits||'',responsible:l.responsible||'',due_date:l.dueDate||'',status:l.status||'Pendiente'}));
+  const {error} = await _sb.from('logs').upsert(rows,{onConflict:'id,project_id'});
+  if(error) console.error('Save logs:',error);
+}
+async function sbLoadGlobal(pid) {
+  const {data} = await _sb.from('project_global').select('*').eq('project_id',pid).single();
+  return data ? {lastReview:data.last_review||'',...data.data} : {};
+}
+async function sbSaveGlobal(pid, gd) {
+  await _sb.from('project_global').upsert({project_id:pid,last_review:gd.lastReview||'',data:gd},{onConflict:'project_id'});
+}
+
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const STAGES=['Sin iniciar','Cotizado','Pedido realizado','En producción','En tránsito','Entregado','Instalado'];
 const SS=['–','Cotiz.','Pedido','Produc.','Tráns.','Entreg.','Instal.'];
@@ -2250,13 +2251,7 @@ const PROJ_COLORS=['#2A5C45','#1A4A7A','#8B6914','#B83030','#4A3A9A','#993556','
 const DEF_PROJ={id:'rucachue',name:'Alto Rucachue',client:'Estudio Bianco Spa',addr:'Lo Barnechea, Santiago',startDate:'2025-09-01',status:'En obra',color:'#2A5C45',notes:'Remodelación integral'};
 
 function ldProjects(){
-  // 1. Best: Supabase already loaded
-  if(window._sbData && window._sbData.projects && window._sbData.projects.length>1){
-    return window._sbData.projects;
-  }
-  // 2. Fast: localStorage cache
-  try{const v=localStorage.getItem('ar6_projects');if(v){const p=JSON.parse(v);if(p.length>0)return p;}}catch(e){}
-  // 3. Fallback
+  try{const v=localStorage.getItem('ar6_projects');if(v){const p=JSON.parse(v);if(p&&p.length)return p;}}catch(e){}
   return [DEF_PROJ];
 }
 function svProjects(projs){
