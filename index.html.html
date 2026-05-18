@@ -3470,60 +3470,36 @@ function importSuppliersFromItems(){
 // ── INIT ──────────────────────────────────────────────────────────────────────
 appMode = localStorage.getItem('ar6_mode') || 'worker';
 
-// Load projects from Supabase on startup
-const _loadBar=document.getElementById('loadingBar');
-const _loadMsg=document.getElementById('loadingMsg');
-if(_loadBar)_loadBar.style.width='40%';
-if(_loadMsg)_loadMsg.textContent='Cargando proyectos...';
+// Hide loading overlay immediately - show app right away
+(function(){
+  const ov = document.getElementById('loadingOv');
+  if(ov) ov.style.display = 'none';
+})();
 
-// Timeout fallback: if Supabase doesn't respond in 8s, continue anyway
-// Note: Supabase loading is handled in the script tag above
-// This is just a fallback in case it fails
-const _initTimeout = setTimeout(function(){
-  console.warn('Supabase timeout - loading offline');
-  _startApp([DEF_PROJ]);
-}, 15000);
-
-function _startApp(projs) {
-  clearTimeout(_initTimeout);
-  // Store in window so main script can pick it up
-  window._sbData = window._sbData || {};
-  window._sbData.projects = projs;
-  // Cache in localStorage for faster next load
-  try{
-    if(projs.length){
-      localStorage.setItem('ar6_projects',JSON.stringify(projs));
-    }
-  }catch(e){}
-  const ov=document.getElementById('loadingOv');
-  if(ov)ov.style.display='none';
-  if(_loadBar)_loadBar.style.width='0%';
-  // If main script already ran, refresh projects and renderHome
-  if(typeof renderHome==='function'){
-    if(typeof projects!=='undefined') projects=projs.length?projs:[DEF_PROJ];
-    applyMode();
-    renderLogo();
-    renderHome();
-    if(!localStorage.getItem('ar6_mode')) openAccessModal();
-  }
+// Show app with whatever we have
+try { applyMode(); } catch(e) { console.error('applyMode:', e); }
+try { renderLogo(); } catch(e) { console.error('renderLogo:', e); }
+try { renderHome(); } catch(e) { console.error('renderHome:', e); }
+if(!localStorage.getItem('ar6_mode')) {
+  try { openAccessModal(); } catch(e) {}
 }
 
-// Check if Supabase script already loaded and stored data
-if(window._sbData && window._sbData.projects) {
-  _startApp(window._sbData.projects);
-} else if(!_sb) {
-  console.warn('Supabase not initialized - loading offline');
-  _startApp([DEF_PROJ]);
-} else {
-  sbLoadProjects().then(function(_projs){
-    if(_loadBar)_loadBar.style.width='90%';
-    _startApp(_projs);
-  }).catch(function(err){
-    console.error('Startup error:', err);
-    _startApp([DEF_PROJ]);
+// Load fresh data from Supabase in background
+if(_sb) {
+  sbLoadProjects().then(function(freshProjects) {
+    if(freshProjects && freshProjects.length) {
+      projects = freshProjects;
+      try { localStorage.setItem('ar6_projects', JSON.stringify(freshProjects)); } catch(e) {}
+      // Refresh home if visible
+      try {
+        const hp = document.getElementById('homePage');
+        if(hp && !hp.classList.contains('hidden')) renderHome();
+      } catch(e) {}
+    }
+  }).catch(function(e) {
+    console.warn('Background Supabase load failed:', e.message);
   });
 }
-
 
 // ── GESTIÓN DE PROYECTO ────────────────────────────────────────────────────
 const LOG_TYPES=['Reunión cliente','Bitácora de obra','Hito','Compromiso','Nota general'];
