@@ -542,6 +542,17 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
 .sup-edit-grid .fg input:focus{outline:none;border-color:var(--ac);}
 .sup-full{grid-column:1/-1;}
 
+
+/* ── IMÁGENES ────────────────────────────────────────── */
+.img-thumb{width:44px;height:44px;object-fit:cover;border-radius:5px;border:1px solid var(--bd);cursor:pointer;flex-shrink:0;}
+.img-thumb-empty{width:44px;height:44px;border-radius:5px;border:1.5px dashed var(--bd2);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;flex-shrink:0;background:var(--s2);}
+.img-upload-area{border:2px dashed var(--bd2);border-radius:var(--rs);padding:14px;text-align:center;cursor:pointer;transition:all .13s;background:var(--s2);}
+.img-upload-area:hover{border-color:var(--ac);background:var(--acl);}
+.img-preview{width:100%;max-height:200px;object-fit:contain;border-radius:var(--rs);margin-top:8px;}
+/* Logo */
+.app-logo{height:36px;width:auto;object-fit:contain;}
+.app-logo-placeholder{font-size:22px;}
+
 </style>
 <script>
 // Lightweight Supabase REST wrapper (no iframe, works from file://)
@@ -607,6 +618,87 @@ try {
   console.error('Supabase init error:', e);
 }
 
+
+// ── SUPABASE STORAGE ──────────────────────────────────────────────────────────
+const _BUCKET = "Imágenes app estudio bianco";
+const _BUCKET_ENC = "Im%C3%A1genes%20app%20estudio%20bianco";
+const _STORAGE_URL = "https://iucjhzsnlotojvpyjcfo.supabase.co/storage/v1";
+
+async function uploadImage(file, path) {
+  const url = _STORAGE_URL + '/object/' + _BUCKET_ENC + '/' + encodeURIComponent(path);
+  const headers = {
+    'apikey': 'sb_publishable_ISx7dyiYpe-uQOcIoI1E1A_Tv0jDW5d',
+    'Authorization': 'Bearer sb_publishable_ISx7dyiYpe-uQOcIoI1E1A_Tv0jDW5d',
+    'x-upsert': 'true'
+  };
+  const res = await fetch(url, {method:'POST', headers, body: file});
+  if(!res.ok) {
+    const err = await res.text();
+    throw new Error('Upload error: ' + err);
+  }
+  // Return public URL
+  return _STORAGE_URL + '/object/public/' + _BUCKET_ENC + '/' + encodeURIComponent(path);
+}
+
+async function deleteImage(path) {
+  const url = _STORAGE_URL + '/object/' + _BUCKET_ENC + '/' + encodeURIComponent(path);
+  await fetch(url, {method:'DELETE', headers: {'apikey':'sb_publishable_ISx7dyiYpe-uQOcIoI1E1A_Tv0jDW5d','Authorization':'Bearer sb_publishable_ISx7dyiYpe-uQOcIoI1E1A_Tv0jDW5d'}});
+}
+
+function handleImageUpload(itemId, inputEl) {
+  const file = inputEl.files[0];
+  if(!file) return;
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  if(file.size > maxSize) {alert('Imagen muy grande. Máximo 5MB.');return;}
+  const ext = file.name.split('.').pop();
+  const path = 'items/' + currentProjId + '/' + itemId + '.' + ext;
+  const previewEl = document.getElementById('imgPreview-' + itemId);
+  const btnEl = document.getElementById('imgBtn-' + itemId);
+  if(btnEl) btnEl.textContent = '⏳ Subiendo...';
+  uploadImage(file, path).then(url => {
+    const r = items.find(x=>x.id==itemId);
+    if(r) {
+      r.imageUrl = url;
+      // Save to Supabase items table
+      _sb.from('items').update({image_url: url}).eq('id', itemId).eq('project_id', currentProjId).then({error})=>{
+        if(error) console.error('Save image URL:', error);
+      });
+      sAll();
+      if(previewEl) { previewEl.src=url; previewEl.style.display='block'; }
+      // Update thumbnail in table
+      const thumb = document.getElementById('thumb-'+itemId);
+      if(thumb) thumb.outerHTML = '<img id="thumb-'+itemId+'" class="img-thumb" src="'+url+'" onclick="tE(\'cp-'+itemId+'\',\'cb-'+itemId+'\')"/>';
+      if(btnEl) btnEl.textContent = '✓ Imagen guardada';
+      setTimeout(()=>{if(btnEl)btnEl.textContent='📷 Cambiar imagen';}, 2000);
+    }
+  }).catch(err => {
+    console.error(err);
+    alert('Error al subir: ' + err.message);
+    if(btnEl) btnEl.textContent = '📷 Subir imagen';
+  });
+}
+
+function handleLogoUpload(inputEl) {
+  const file = inputEl.files[0];
+  if(!file) return;
+  uploadImage(file, 'logo/logo.' + file.name.split('.').pop()).then(url => {
+    localStorage.setItem('eb_logo_url', url);
+    renderLogo();
+    tst('Logo actualizado ✓');
+  }).catch(err => alert('Error: ' + err.message));
+}
+
+function renderLogo() {
+  const url = localStorage.getItem('eb_logo_url');
+  const el = document.getElementById('appLogo');
+  if(!el) return;
+  if(url) {
+    el.innerHTML = '<img class="app-logo" src="'+url+'" alt="Estudio Bianco">';
+  } else {
+    el.innerHTML = '<span class="app-logo-placeholder">🏠</span>';
+  }
+}
+
 // ── ITEM MAPPERS ──────────────────────────────────────────────────────────────
 function itemToDb(r, pid) {
   return {
@@ -626,7 +718,7 @@ function itemToDb(r, pid) {
     p4pct:r.p4pct||0,p4amt:r.p4amt||0,p4date:r.p4date||'',p4method:r.p4method||'',p4note:r.p4note||'',
     order_date:r.orderDate||'',lead_weeks:r.leadWeeks||null,
     est_delivery:r.estDelivery||'',actual_delivery:r.actualDelivery||'',
-    install_date:r.installDate||'',track_note:r.trackNote||''
+    install_date:r.installDate||'',track_note:r.trackNote||'',image_url:r.imageUrl||''
   };
 }
 function itemFromDb(row) {
@@ -644,7 +736,7 @@ function itemFromDb(row) {
     p4pct:row.p4pct||0,p4amt:row.p4amt||0,p4date:row.p4date||'',p4method:row.p4method||'',p4note:row.p4note||'',
     orderDate:row.order_date||'',leadWeeks:row.lead_weeks||'',
     estDelivery:row.est_delivery||'',actualDelivery:row.actual_delivery||'',
-    installDate:row.install_date||'',trackNote:row.track_note||''
+    installDate:row.install_date||'',trackNote:row.track_note||'',imageUrl:row.image_url||''
   };
 }
 
@@ -1567,9 +1659,11 @@ function rC(){
       <th style="width:105px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">ESPACIO</th>
       <th style="min-width:185px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">ÍTEM</th>
       <th style="width:120px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">PROVEEDOR</th>
-      <th style="width:40px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">CANT.</th>
-      <th style="width:88px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">PRECIO</th>
-      <th style="width:88px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">TOTAL</th>
+      <th style="width:60px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:right;">CANT.</th>
+      <th style="width:100px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:right;">PRECIO UNIT.</th>
+      <th style="width:110px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:right;">TOTAL ÍTEM</th>
+      <th style="width:110px;background:var(--s2);font-size:10px;font-weight:600;color:#2A5C45;padding:7px 9px;border-bottom:1px solid var(--bd);text-align:right;">✓ PAGADO</th>
+      <th style="width:110px;background:var(--s2);font-size:10px;font-weight:600;color:#B83030;padding:7px 9px;border-bottom:1px solid var(--bd);text-align:right;">⏳ SALDO</th>
       <th style="width:118px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">EST. CLIENTE</th>
       <th style="width:115px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">EST. PAGO</th>
       <th style="width:105px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">EST. ENTREGA</th>
@@ -1588,14 +1682,22 @@ function rC(){
       const tr=document.createElement('tr');
       tr.style.borderBottom='1px solid var(--bd)';
       tr.innerHTML=`
-        <td style="padding:5px 8px;"><button class="xb" id="${bid}" onclick="tE('${pid}','${bid}')">›</button></td>
+        <td style="padding:5px 8px;display:flex;align-items:center;gap:5px;">
+          <button class="xb" id="${bid}" onclick="tE('${pid}','${bid}')">›</button>
+          ${r.imageUrl
+            ? `<img id="thumb-${r.id}" class="img-thumb" src="${r.imageUrl}" onclick="tE('${pid}','${bid}')" title="Ver detalles"/>`
+            : `<div id="thumb-${r.id}" class="img-thumb-empty" onclick="tE('${pid}','${bid}')" title="Sin imagen">📷</div>`
+          }
+        </td>
         <td style="padding:5px 8px;"><select onchange="changeCat(${r.id},this.value)" style="font-size:11.5px;height:28px;border:1px solid var(--bd);border-radius:4px;padding:0 5px;background:var(--surface);color:var(--tx);width:100%;cursor:pointer;font-family:'DM Sans',sans-serif;">${CAT_OPTS.filter(c=>c!=='Honorarios'||appMode==='admin').map(c=>'<option value="'+c+'"'+(c===r.cat?' selected':'')+'>'+c+'</option>').join('')}</select></td>
         <td style="padding:5px 8px;"><input type="text" value="${es(r.space||'')}" oninput="uIQ(${r.id},'space',this.value)" onchange="uI(${r.id},'space',this.value)" placeholder="Espacio…" style="${IS}"></td>
         <td style="padding:5px 8px;"><input type="text" value="${es(r.item)}" onchange="uI(${r.id},'item',this.value)" style="${IS}">${urlIcon}</td>
         <td style="padding:5px 8px;"><input type="text" value="${es(r.supplier)}" onchange="uI(${r.id},'supplier',this.value)" style="${IS}"></td>
-        <td style="padding:5px 8px;"><input type="number" value="${r.qty}" min="0" onchange="uI(${r.id},'qty',+this.value)" style="${ISN}width:38px;"></td>
+        <td style="padding:5px 8px;"><input type="number" value="${r.qty}" min="0" onchange="uI(${r.id},'qty',+this.value)" style="${ISN}width:55px;text-align:right;"></td>
         <td style="padding:5px 8px;"><input type="number" value="${r.unit}" min="0" onchange="uI(${r.id},'unit',+this.value)" style="${ISN}"></td>
-        <td style="padding:5px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;padding-right:10px;">${t>0?fm(t):'—'}</td>
+        <td style="padding:5px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;padding-right:10px;font-weight:600;">${t>0?fm(t):'—'}</td>
+        <td style="padding:5px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;color:#2A5C45;">${tp(r)>0?fm(tp(r)):'—'}</td>
+        <td style="padding:5px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;color:${tpend(r)>0?'#B83030':'#2A5C45'};font-weight:${tpend(r)>0?'600':'400'};">${tpend(r)>0?fm(tpend(r)):'✓'}</td>
         <td style="padding:5px 8px;"><select onchange="uI(${r.id},'clientStatus',this.value)" class="${csc}" style="${ISS}">${CS_OPTS.map(s=>`<option value="${s}"${s===r.clientStatus?' selected':''}>${s||'Sin estado'}</option>`).join('')}</select></td>
         <td style="padding:5px 8px;"><select onchange="uI(${r.id},'payStatus',this.value)" class="${pc}" style="${ISS}">${PAY_OPTS.map(s=>`<option${s===r.payStatus?' selected':''}>${s}</option>`).join('')}</select></td>
         <td style="padding:5px 8px;"><select onchange="uI(${r.id},'deliveryStatus',this.value)" class="${dc}" style="${ISS}">${DEL_OPTS.map(s=>`<option${s===r.deliveryStatus?' selected':''}>${s}</option>`).join('')}</select></td>
@@ -1604,7 +1706,21 @@ function rC(){
       tbody.appendChild(tr);
       const ep=document.createElement('tr');ep.id=pid;ep.className='xp';
     const tpd=tp(r),tpn=tpend(r);
-    ep.innerHTML=`<td colspan="13"><div class="xi">
+    ep.innerHTML=`<td colspan="15"><div class="xi">
+      <div style="margin-bottom:12px;padding:10px 12px;background:var(--surface);border:1px solid var(--bd);border-radius:var(--rs);">
+        <div style="font-size:11px;font-weight:600;color:var(--tx2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">📷 Imagen del producto</div>
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          ${r.imageUrl ? `<img id="imgPreview-${r.id}" class="img-preview" src="${r.imageUrl}" style="max-width:140px;max-height:120px;border-radius:var(--rs);object-fit:cover;" />` : `<img id="imgPreview-${r.id}" style="display:none;max-width:140px;max-height:120px;" />`}
+          <div style="flex:1;">
+            <label id="imgBtn-${r.id}" class="btn" style="cursor:pointer;height:30px;display:inline-flex;align-items:center;gap:5px;font-size:12px;">
+              📷 ${r.imageUrl?'Cambiar imagen':'Subir imagen'}
+              <input type="file" accept="image/*" style="display:none;" onchange="handleImageUpload(${r.id},this)">
+            </label>
+            ${r.imageUrl?`<button class="db" onclick="removeItemImage(${r.id})" style="margin-left:6px;height:30px;padding:0 8px;font-size:11px;">✕ Quitar</button>`:''}
+            <div style="font-size:11px;color:var(--tx3);margin-top:5px;">PNG, JPG o pantallazo · máx 5MB</div>
+          </div>
+        </div>
+      </div>
       <div class="xtit">Especificaciones e información</div>
       <div class="xg">
         <div class="fg xg2"><label>Especificaciones del producto</label><textarea oninput="uIQ(${r.id},'specs',this.value)" placeholder="Descripción, materiales, dimensiones, código…">${es(r.specs||'')}</textarea></div>
@@ -1925,7 +2041,7 @@ function showPDF(){
       +'<span style="font-size:11px;color:#666;">'+g.length+' ítems &nbsp;·&nbsp; Total: <strong>'+fm(ct)+'</strong> &nbsp;·&nbsp; Pagado: <strong style="color:#2A5C45;">'+fm(cp)+'</strong> &nbsp;·&nbsp; Saldo: <strong style="color:#B83030;">'+fm(cs)+'</strong></span>'
       +'</div>'
       +'<table class="ptbls" style="border-radius:0 0 5px 5px;">'
-      +'<thead><tr><th style="width:80px;">Espacio</th><th>Ítem</th><th style="width:100px;">Proveedor</th><th style="width:35px;text-align:center;">Cant.</th><th style="width:85px;text-align:right;">Total</th><th style="width:85px;text-align:right;">Pagado</th><th style="width:85px;text-align:right;">Saldo</th><th style="width:85px;text-align:center;">Estado</th></tr></thead>'
+      +'<thead><tr><th style="width:80px;">Espacio</th><th>Ítem</th><th style="width:100px;">Proveedor</th><th style="width:60px;text-align:right;">Cant.</th><th style="width:110px;text-align:right;">Total ítem</th><th style="width:110px;text-align:right;color:#2A5C45;">✓ Pagado</th><th style="width:110px;text-align:right;color:#B83030;">⏳ Saldo</th><th style="width:85px;text-align:center;">Estado</th></tr></thead>'
       +'<tbody>'+rows+'</tbody>'
       +'<tfoot><tr style="background:#F1EFE9;"><td colspan="4" style="text-align:right;font-weight:600;">Subtotal '+cat+'</td><td style="text-align:right;font-family:monospace;font-weight:600;">'+fm(ct)+'</td><td style="text-align:right;font-family:monospace;font-weight:600;color:#2A5C45;">'+fm(cp)+'</td><td style="text-align:right;font-family:monospace;font-weight:600;color:#B83030;">'+fm(cs)+'</td><td style="text-align:center;font-size:10px;color:#2A5C45;">'+cpct+'%</td></tr></tfoot>'
       +'</table></div>';
@@ -2216,6 +2332,14 @@ function getProjectStats(pid){
     }
   }catch(e){}
   return {total:0,desembolsado:0,saldo:0,items:0,pagados:0,pendientes:0};
+}
+
+
+function removeItemImage(id){
+  const r=items.find(x=>x.id==id);if(!r)return;
+  r.imageUrl='';
+  _sb.from('items').update({image_url:''}).eq('id',id).eq('project_id',currentProjId);
+  sAll();rC();tst('Imagen eliminada');
 }
 
 function renderHome(){
@@ -3375,6 +3499,7 @@ function _startApp(projs) {
   if(typeof renderHome==='function'){
     if(typeof projects!=='undefined') projects=projs.length?projs:[DEF_PROJ];
     applyMode();
+    renderLogo();
     renderHome();
     if(!localStorage.getItem('ar6_mode')) openAccessModal();
   }
