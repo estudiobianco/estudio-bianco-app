@@ -695,7 +695,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
   <div class="nbot">
     <button class="pdfbtn" onclick="showPDF()">⬇ Descargar PDF</button>
     <div id="navModeB" class="mode-badge worker" onclick="openAccessModal()" style="width:100%;justify-content:center;margin-bottom:8px;" title="Cambiar modo de acceso">👷 Trabajador</div>
-    <div class="ntot"><div class="lbl">Total proyecto</div><div class="val" id="navTotal">—</div></div>
+    <div class="ntot" id="navTotDiv" style="display:none;"><div class="lbl">Total proyecto</div><div class="val" id="navTotal">—</div></div>
   </div>
 </nav>
 <main>
@@ -730,7 +730,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
   </div>
   <div id="comprasAccordion"></div>
   <div class="tc" style="margin-top:8px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:var(--s2);">
+    <div id="comprasTotalRow" style="display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:var(--s2);">
       <span style="font-size:12px;color:var(--tx2);">Total visible</span>
       <span class="mono" id="comprasTotal" style="font-weight:600;font-size:13px;"></span>
     </div>
@@ -1219,7 +1219,16 @@ const rT=r=>r.qty*r.unit;
 const es=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
 function tst(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
 function go(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');({compras:rC,pagados:rPag,pendientes:rPend,seguimiento:rSeg,cotizaciones:rCot,honorarios:rH,gestion:rGP,crm:rCRM})[id]?.();}
-function uNT(){document.getElementById('navTotal').textContent=fm(items.reduce((a,r)=>a+rT(r),0));}
+function uNT(){
+  const ntot=document.getElementById('navTotDiv');
+  if(!ntot)return;
+  if(appMode==='admin'){
+    ntot.style.display='';
+    document.getElementById('navTotal').textContent=fm(items.reduce((a,r)=>a+rT(r),0));
+  } else {
+    ntot.style.display='none';
+  }
+}
 function tp(r){return(r.p1amt||0)+(r.p2amt||0)+(r.p3amt||0)+(r.p4amt||0);}
 function tpend(r){return Math.max(0,rT(r)-tp(r));}
 
@@ -1265,6 +1274,9 @@ function rCKPI(){
   // Saldo real pendiente = presupuesto - todo lo que se ha pagado (completo + cuotas parciales)
   const saldo = Math.max(0, tot - desemb);
   const pct = tot>0 ? Math.round(desemb/tot*100) : 0;
+  const kpiEl=document.getElementById('comprasKPI');
+  if(appMode!=='admin'){kpiEl.innerHTML='';kpiEl.style.display='none';return;}
+  kpiEl.style.display='';
   document.getElementById('comprasKPI').innerHTML=`
     <div class="kc" style="border-left:3px solid var(--tx2);">
       <div class="kl">Total presupuesto</div>
@@ -1367,6 +1379,7 @@ function rC(){
   let vis=0;
   const cats=[...new Set(f.map(r=>r.cat))];
   cats.forEach(cat=>{
+    if(cat==='Honorarios'&&appMode!=='admin')return;
     const group=f.filter(r=>r.cat===cat);
     const catTotal=group.reduce((a,r)=>a+rT(r),0);
     const catPaid=group.reduce((a,r)=>a+tp(r),0);
@@ -1385,8 +1398,8 @@ function rC(){
     hdr.innerHTML=`<span class="acc-arrow">›</span>
       <div class="acc-title"><span class="badge ${cc}">${cat}</span><span style="font-size:12px;color:var(--tx2);margin-left:4px;">${group.length} ítem${group.length!==1?'s':''}</span></div>
       <div class="acc-stats">
-        ${catTotal>0?`<div class="acc-stat"><div class="asl">Total</div><div class="asv">${fm(catTotal)}</div></div>`:''}
-        ${catPaid>0?`<div class="acc-stat"><div class="asl">Pagado</div><div class="asv g">${fm(catPaid)}</div></div>`:''}
+        ${appMode==='admin'&&catTotal>0?`<div class="acc-stat"><div class="asl">Total</div><div class="asv">${fm(catTotal)}</div></div>`:''}
+        ${appMode==='admin'&&catPaid>0?`<div class="acc-stat"><div class="asl">Pagado</div><div class="asv g">${fm(catPaid)}</div></div>`:''}
         ${catPendN>0?`<div class="acc-stat"><div class="asl">Pendiente</div><div class="asv r">${catPendN} ítem${catPendN!==1?'s':''}</div></div>`:''}
       </div>`;
     acc.appendChild(hdr);
@@ -1491,6 +1504,8 @@ function rC(){
     acc.appendChild(body);
     con.appendChild(acc);
   });
+  const _tr=document.getElementById('comprasTotalRow');
+  if(_tr)_tr.style.display=appMode==='admin'?'':'none';
   document.getElementById('comprasTotal').textContent=fm(vis);
   rCKPI();
   restoreP();
@@ -1889,7 +1904,7 @@ function updateBackupInfo(){
   if(!currentProjId){const el=document.getElementById('backupInfo');if(el)el.textContent='Selecciona un proyecto para ver el estado.';return;}
   const n=items.length,t=items.reduce((a,r)=>a+rT(r),0);
   const el=document.getElementById('backupInfo');
-  if(el)el.textContent=n+' ítems · Total: '+fm(t)+' · Último backup: '+(localStorage.getItem('ar5_lastBackup')||'nunca');
+  if(el)el.textContent=n+' ítems'+(appMode==='admin'?' · Total: '+fm(t):'')+' · Último backup: '+(localStorage.getItem('ar5_lastBackup')||'nunca');
 }
 function exportData(){
   const pInfo=projects.find(x=>x.id===currentProjId)||{name:'proyecto'};
@@ -2043,7 +2058,7 @@ function renderHome(){
       <div class="pc-name">${es(p.name)}</div>
       <div class="pc-client">${es(p.client)}${p.addr?' · '+es(p.addr):''}</div>
       <div class="pc-stats">
-        <div class="pc-stat"><div class="psl">Total proyecto</div><div class="psv">${s.total>0?fm(s.total):'Sin datos'}</div></div>
+        ${appMode==='admin'?`<div class="pc-stat"><div class="psl">Total proyecto</div><div class="psv">${s.total>0?fm(s.total):'Sin datos'}</div></div>`:''}
         <div class="pc-stat"><div class="psl">Ítems</div><div class="psv g">${s.count}</div></div>
       </div>
       <div class="pc-footer">
@@ -2362,6 +2377,7 @@ function applyMode(){
   });
   // Hide honorarios from nav total calculation in worker mode
   updateNavTotal();
+  if(typeof rCKPI==='function')rCKPI();
 }
 
 // Override go() to block honorarios for workers
