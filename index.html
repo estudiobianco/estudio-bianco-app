@@ -714,7 +714,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
     <input type="date" id="lastRevGlobal" onchange="saveGlobal()">
     <span id="lastRevLabel" style="font-size:11px;color:var(--tx2);"></span>
     <button class="btn prim" onclick="manualSave()" style="height:28px;font-size:12px;padding:0 12px;margin-left:8px;">💾 Guardar</button>
-    <span id="saveStatus" style="font-size:12px;"></span>
+    <span id="saveStatus" style="font-size:12px;margin-left:6px;"></span>
   </div>
   <div class="kr" id="comprasKPI"></div>
   <div class="tb">
@@ -1213,50 +1213,23 @@ let nii=Math.max(0,...items.map(i=>i.id))+1;
 let nip=Math.max(0,...pagos.map(p=>p.id))+1;
 let nic=Math.max(0,...cots.map(c=>c.id))+1;
 function sAll(){
-  if(!currentProjId){setSaveStatus('error');return;}
-  var bundled = currentProjId==='rucachue' ? DI : (DI_MAP[currentProjId]||[]);
-  if(!items.length && bundled.length){return;}
+  if(!currentProjId)return;
+  var bundled=currentProjId==='rucachue'?DI:(DI_MAP[currentProjId]||[]);
+  if(!items.length&&bundled.length)return;
   try{
-    var key='ar6_p'+currentProjId+'_items';
-    localStorage.setItem(key, JSON.stringify(items));
-    localStorage.setItem('ar6_p'+currentProjId+'_pagos', JSON.stringify(pagos));
-    localStorage.setItem('ar6_p'+currentProjId+'_cots', JSON.stringify(cots));
-    // Verify save worked
-    var check=localStorage.getItem(key);
-    if(check && JSON.parse(check).length===items.length){
-      setSaveStatus('saved');
-    } else {
-      setSaveStatus('error');
-    }
-  }catch(e){
-    setSaveStatus('error');
-    console.error('Save error:',e);
-  }
+    localStorage.setItem('ar6_p'+currentProjId+'_items',JSON.stringify(items));
+    localStorage.setItem('ar6_p'+currentProjId+'_pagos',JSON.stringify(pagos));
+    localStorage.setItem('ar6_p'+currentProjId+'_cots',JSON.stringify(cots));
+    setSaveStatus('saved');
+  }catch(e){setSaveStatus('error');}
 }
-
 function setSaveStatus(st){
-  var el=document.getElementById('saveStatus');
-  if(!el)return;
+  var el=document.getElementById('saveStatus');if(!el)return;
   clearTimeout(window._saveT);
-  if(st==='saved'){
-    el.textContent='✓ Guardado';
-    el.style.color='var(--ac)';
-    window._saveT=setTimeout(function(){el.textContent='';},3000);
-  } else if(st==='saving'){
-    el.textContent='Guardando…';
-    el.style.color='var(--tx3)';
-  } else if(st==='error'){
-    el.textContent='⚠ Error al guardar';
-    el.style.color='var(--dn)';
-  }
+  if(st==='saved'){el.textContent='✓ Guardado';el.style.color='var(--ac)';window._saveT=setTimeout(function(){el.textContent='';},3000);}
+  else if(st==='error'){el.textContent='⚠ Error al guardar';el.style.color='var(--dn)';}
 }
-
-function manualSave(){
-  setSaveStatus('saving');
-  sAll();
-  updateBackupInfo();
-  tst('✓ Datos guardados correctamente');
-}
+function manualSave(){sAll();updateBackupInfo();tst('✓ Datos guardados');}
 function saveGlobal(){gd.lastReview=document.getElementById('lastRevGlobal').value;sv('ar5_global',gd);document.getElementById('lastRevLabel').textContent=gd.lastReview?'('+fd(gd.lastReview)+')'  :'';}
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
@@ -1312,10 +1285,7 @@ function rCKPI(){
   // Saldo real pendiente = presupuesto - todo lo que se ha pagado (completo + cuotas parciales)
   const saldo = Math.max(0, tot - desemb);
   const pct = tot>0 ? Math.round(desemb/tot*100) : 0;
-  var kpiEl=document.getElementById('comprasKPI');
-  if(!kpiEl)return;
-  if(appMode!=='admin'){kpiEl.innerHTML='';kpiEl.style.display='none';return;}
-  kpiEl.style.display='';
+  var kpiEl=document.getElementById('comprasKPI');if(!kpiEl)return;if(appMode!=='admin'){kpiEl.innerHTML='';kpiEl.style.display='none';return;}kpiEl.style.display='';
   document.getElementById('comprasKPI').innerHTML=`
     <div class="kc" style="border-left:3px solid var(--tx2);">
       <div class="kl">Total presupuesto</div>
@@ -1481,7 +1451,7 @@ function rC(){
         <td style="padding:5px 8px;"><select onchange="changeCat(${r.id},this.value)" style="font-size:11.5px;height:28px;border:1px solid var(--bd);border-radius:4px;padding:0 5px;background:var(--surface);color:var(--tx);width:100%;cursor:pointer;font-family:'DM Sans',sans-serif;">${CAT_OPTS.filter(c=>c!=='Honorarios'||appMode==='admin').map(c=>'<option value="'+c+'"'+(c===r.cat?' selected':'')+'>'+c+'</option>').join('')}</select></td>
         <td style="padding:5px 8px;"><input type="text" value="${es(r.space||'')}" oninput="uIQ(${r.id},'space',this.value)" onchange="uI(${r.id},'space',this.value)" placeholder="Espacio…" style="${IS}"></td>
         <td style="padding:5px 8px;"><input type="text" value="${es(r.item)}" onchange="uI(${r.id},'item',this.value)" style="${IS}">${urlIcon}</td>
-        <td style="padding:5px 8px;"><input type="text" value="${es(r.supplier)}" onchange="uI(${r.id},'supplier',this.value)" style="${IS}"></td>
+        <td style="padding:5px 8px;"><input type="text" value="${es(r.supplier)}" list="supplierList" onchange="uI(${r.id},'supplier',this.value);autoAddSupplier(this.value)" style="${IS}" autocomplete="off"></td>
         <td style="padding:5px 8px;"><input type="number" value="${r.qty}" min="0" onchange="uI(${r.id},'qty',+this.value)" style="${ISN}width:38px;"></td>
         <td style="padding:5px 8px;"><input type="number" value="${r.unit}" min="0" onchange="uI(${r.id},'unit',+this.value)" style="${ISN}"></td>
         <td style="padding:5px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;padding-right:10px;">${t>0?fm(t):'—'}</td>
@@ -1551,18 +1521,14 @@ function rC(){
   updateToggleAllBtn();
 }
 
-function changeCat(id, newCat){
-  const r=items.find(x=>x.id===id);
-  if(!r)return;
+function changeCat(id,newCat){
+  var r=items.find(function(x){return x.id===id;});if(!r)return;
   r.cat=newCat;
-  const nk=newCat.replace(/[^a-zA-Z0-9]/g,'_');
-  if(typeof accOpen!=='undefined'){accOpen[nk]=true;}
-  const fc=document.getElementById('fCat');
-  if(fc)fc.value='';
+  var fc=document.getElementById('fCat');if(fc)fc.value='';
   sAll();rC();
 }
 
-function uI(id,f,v){var r=items.find(function(x){return x.id===id;});if(r){r[f]=v;sAll();rC();}}
+function uI(id,f,v){const r=items.find(x=>x.id===id);if(r){r[f]=v;rC();sAll();}}
 // Quiet update: saves field without re-rendering the table (for expand panel fields)
 function uIQ(id,f,v){const r=items.find(x=>x.id===id);if(r){r[f]=v;sAll();}}
 function dI(id){if(confirm('¿Eliminar este ítem?')){items=items.filter(x=>x.id!==id);rC();sAll();}}
@@ -1767,13 +1733,7 @@ async function handleComp(file){if(!file)return;setSB('Leyendo comprobante con C
 function t64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=()=>rej(new Error('Error leyendo'));r.readAsDataURL(file);});}
 
 // ── PDF ───────────────────────────────────────────────────────────────────────
-
-function ldPhases(){
-  try{return JSON.parse(localStorage.getItem('ar6_p'+(currentProjId||'')+'_phases')||'[]');}catch(e){return[];}
-}
-function svPhases(p){
-  try{localStorage.setItem('ar6_p'+(currentProjId||'')+'_phases',JSON.stringify(p));}catch(e){}
-}
+function ldPhases(){try{return JSON.parse(localStorage.getItem("ar6_p"+(currentProjId||"")+"_phases")||"[]");}catch(e){return[];}}
 
 function showPDF(){
   if(!currentProjId){alert('Primero abre un proyecto para generar el PDF.');return;}
@@ -1946,8 +1906,7 @@ document.getElementById('pdfOv').addEventListener('click',function(e){if(e.targe
 function updateBackupInfo(){
   if(!currentProjId){const el=document.getElementById('backupInfo');if(el)el.textContent='Selecciona un proyecto para ver el estado.';return;}
   const n=items.length,t=items.reduce((a,r)=>a+rT(r),0);
-  var el=document.getElementById('backupInfo');
-  if(el)el.textContent=n+' ítems'+(appMode==='admin'?' · Total: '+fm(t):'')+' · Último backup: '+(localStorage.getItem('ar5_lastBackup')||'nunca');
+  var el=document.getElementById('backupInfo');if(el)el.textContent=n+' ítems'+(appMode==='admin'?' · Total: '+fm(t):'')+' · Último backup: '+(localStorage.getItem('ar5_lastBackup')||'nunca');
 }
 function exportData(){
   const pInfo=projects.find(x=>x.id===currentProjId)||{name:'proyecto'};
@@ -2026,18 +1985,8 @@ document.getElementById('recModal').addEventListener('click',function(e){if(e.ta
 const PROJ_COLORS=['#2A5C45','#1A4A7A','#8B6914','#B83030','#4A3A9A','#993556','#2C5A0E','#5F4B3A','#1A6B6B','#6B3A1A'];
 const DEF_PROJ={id:'rucachue',name:'Alto Rucachue',client:'Estudio Bianco Spa',addr:'Lo Barnechea, Santiago',startDate:'2025-09-01',status:'En obra',color:'#2A5C45',notes:'Remodelación integral'};
 
-function ldProjects(){
-  const ALL=[{"id":"p1777909472770","name":"San Francisco - Edgar Vogel","client":"","color":"#2A5C45","status":"Activo","addr":"","startDate":"","notes":""},{"id":"rucachue","name":"Alto Rucachue","client":"","color":"#1A4A7A","status":"Activo","addr":"","startDate":"","notes":""},{"id":"p1778165367591","name":"Tulio Pulgar - Cardiología","client":"","color":"#8B6914","status":"Activo","addr":"","startDate":"","notes":""},{"id":"p1777905676087","name":"Dormitorio - Terraza José Manuel Perez","client":"","color":"#993556","status":"Activo","addr":"","startDate":"","notes":""}];
-  try{
-    const saved=JSON.parse(localStorage.getItem('ar6_projects')||'[]');
-    ALL.forEach(function(p){if(!saved.find(function(x){return x.id===p.id;})&&p.id)saved.push(p);});
-    if(saved.length){localStorage.setItem('ar6_projects',JSON.stringify(saved));return saved;}
-  }catch(e){}
-  return ALL;
-}
-function svProjects(projs){
-  try{localStorage.setItem('ar6_projects',JSON.stringify(projs));}catch(e){}
-}
+function ldProjects(){const ALL=[{"id":"p1777909472770","name":"San Francisco - Edgar Vogel","client":"","color":"#2A5C45","status":"Activo","addr":"","startDate":"","notes":""},{"id":"rucachue","name":"Alto Rucachue","client":"","color":"#1A4A7A","status":"Activo","addr":"","startDate":"","notes":""},{"id":"p1778165367591","name":"Tulio Pulgar - Cardiología","client":"","color":"#8B6914","status":"Activo","addr":"","startDate":"","notes":""},{"id":"p1777905676087","name":"Dormitorio - Terraza José Manuel Perez","client":"","color":"#993556","status":"Activo","addr":"","startDate":"","notes":""}];try{const saved=JSON.parse(localStorage.getItem('ar6_projects')||'[]');ALL.forEach(function(p){if(!saved.find(function(x){return x.id===p.id;})&&p.id)saved.push(p);});if(saved.length){localStorage.setItem('ar6_projects',JSON.stringify(saved));return saved;}}catch(e){}return ALL;}
+function svProjects(projs){try{localStorage.setItem('ar6_projects',JSON.stringify(projs));}catch(e){}}
 
 let projects=ldProjects();
 let currentProjId=null;
@@ -2075,22 +2024,12 @@ function svP(suffix,val){
 
 function getProjectStats(pid){
   try{
-    var it = JSON.parse(localStorage.getItem('ar6_p'+pid+'_items')||'[]');
-    if(!it.length && pid==='rucachue'){
-      var old=localStorage.getItem('ar5_items');
-      if(old) it=JSON.parse(old);
-    }
-    if(!it.length){
-      var di = pid==='rucachue' ? DI : (DI_MAP[pid]||[]);
-      if(di.length) it=di;
-    }
-    if(!it.length) return {count:0,total:0,paid:0};
-    return {
-      count: it.length,
-      total: it.reduce(function(s,r){return s+(r.qty||1)*(r.unit||0);},0),
-      paid:  it.filter(function(r){return r.payStatus==='Pagado';}).length
-    };
-  }catch(e){return {count:0,total:0,paid:0};}
+    var it=JSON.parse(localStorage.getItem('ar6_p'+pid+'_items')||'[]');
+    if(!it.length&&pid==='rucachue'){var old=localStorage.getItem('ar5_items');if(old)it=JSON.parse(old);}
+    if(!it.length){var di=pid==='rucachue'?DI:(DI_MAP[pid]||[]);if(di.length)it=di;}
+    if(!it.length)return{count:0,total:0,paid:0};
+    return{count:it.length,total:it.reduce(function(s,r){return s+(r.qty||1)*(r.unit||0);},0),paid:it.filter(function(r){return r.payStatus==='Pagado';}).length};
+  }catch(e){return{count:0,total:0,paid:0};}
 }
 
 function renderHome(){
@@ -2135,11 +2074,11 @@ function openProject(pid){
   const p=projects.find(x=>x.id===pid)||DEF_PROJ;
   // Load project data
   // New projects start empty; only rucachue uses DI/DP/DL as defaults
-  var _di = pid==='rucachue' ? DI : (DI_MAP[pid]||[]);
-  items = ldP('items',_di).map(mg);
-  pagos = ldP('pagos', pid==='rucachue'?DP:[]).map(mgP);
-  cots  = ldP('cots',[]).map(mgC);
-  if(typeof logs!=='undefined') logs = ldP('logs', pid==='rucachue'?DL:[]).map(mgL);
+  var _di=pid==='rucachue'?DI:(DI_MAP[pid]||[]);
+  items=ldP('items',_di).map(mg);
+  pagos=ldP('pagos',pid==='rucachue'?DP:[]).map(mgP);
+  cots=ldP('cots',[]).map(mgC);
+  if(typeof logs!=='undefined')logs=ldP('logs',pid==='rucachue'?DL:[]).map(mgL);
   gd=ldP('global',{lastReview:''});
   nii=Math.max(0,...items.map(i=>i.id))+1;
   nip=Math.max(0,...pagos.map(x=>x.id))+1;
@@ -2370,8 +2309,10 @@ function renderCatSummary(){
 
 
 // ── ACCESS CONTROL ─────────────────────────────────────────────────────────
-const ADMIN_PIN_HASH = 'eccb04353d3c1bb303ce4da89460c73d9fc99e126cc272159f08c4fd8e73c445';
-let appMode = localStorage.getItem('ar6_mode') || 'worker'; // default: worker
+const ADMIN_PIN_HASH='eccb04353d3c1bb303ce4da89460c73d9fc99e126cc272159f08c4fd8e73c445';
+let appMode = localStorage.getItem('ar6_mode') || 'worker';
+migrateItemSuppliersToGlobal();
+updateSupplierDatalist(); // default: worker
 
 function openAccessModal(){
   document.getElementById('pinInput').value = '';
@@ -2398,13 +2339,11 @@ function selectMode(mode){
 
 async function checkPin(){
   var val=document.getElementById('pinInput').value;
-  try{
-    var enc=new TextEncoder().encode(val);
-    var buf=await crypto.subtle.digest('SHA-256',enc);
-    var hash=Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
-    if(hash===ADMIN_PIN_HASH){selectMode('admin');}
-    else{document.getElementById('pinErr').style.display='block';document.getElementById('pinInput').value='';document.getElementById('pinInput').focus();}
-  }catch(e){document.getElementById('pinErr').style.display='block';}
+  try{var enc=new TextEncoder().encode(val);var buf=await crypto.subtle.digest('SHA-256',enc);
+  var hash=Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  if(hash===ADMIN_PIN_HASH){selectMode('admin');}
+  else{document.getElementById('pinErr').style.display='block';document.getElementById('pinInput').value='';document.getElementById('pinInput').focus();}}
+  catch(e){document.getElementById('pinErr').style.display='block';}
 }
 
 function applyMode(){
@@ -2429,7 +2368,7 @@ function applyMode(){
   });
   // Hide honorarios from nav total calculation in worker mode
   updateNavTotal();
-  var kpiEl2=document.getElementById('comprasKPI');if(kpiEl2&&!kpiEl2.style.display!=='none')try{rCKPI();}catch(e){}
+  var _k=document.getElementById('comprasKPI');if(_k)try{rCKPI();}catch(e){}
 }
 
 // Override go() to block honorarios for workers
@@ -3111,8 +3050,8 @@ function quickSetRemAction(cid,action){
 // ══════════════════════════════════════════════════
 // PROVEEDORES
 // ══════════════════════════════════════════════════
-function ldSup(){return ldP('suppliers',[])||[];}
-function svSup(s){svP('suppliers',s);}
+function ldSup(){try{return JSON.parse(localStorage.getItem('ar6_global_suppliers')||'[]');}catch(e){return[];}}
+function svSup(s){try{localStorage.setItem('ar6_global_suppliers',JSON.stringify(s));}catch(e){}}
 function mgSup(s){return Object.assign({id:'s'+Date.now(),name:'',phone:'',email:'',addr:'',web:'',notes:''},s);}
 
 function rSup(){
@@ -3204,6 +3143,31 @@ function importSuppliersFromItems(){
   const all=[...existing,...newSups];
   svSup(all);rSup();
   tst(`✓ ${toAdd.length} proveedor${toAdd.length!==1?'es':''} importado${toAdd.length!==1?'s':''}`);
+}
+
+
+function updateSupplierDatalist(){
+  var sups=ldSup();var dl=document.getElementById('supplierList');if(!dl)return;
+  dl.innerHTML=sups.map(function(s){return '<option value="'+s.name+'">';}).join('');
+}
+function autoAddSupplier(name){
+  if(!name||!name.trim())return;
+  var sups=ldSup();
+  if(!sups.find(function(s){return s.name.toLowerCase()===name.toLowerCase().trim();})){
+    sups.push({id:'s'+Date.now(),name:name.trim(),phone:'',email:'',addr:'',web:'',notes:''});
+    svSup(sups);updateSupplierDatalist();
+  }
+}
+function migrateItemSuppliersToGlobal(){
+  var sups=ldSup();var names=sups.map(function(s){return s.name.toLowerCase();});var added=0;
+  var all=[].concat(DI,DI_MAP['p1777909472770']||[],DI_MAP['p1778165367591']||[],DI_MAP['p1777905676087']||[]);
+  all.forEach(function(r){
+    if(r.supplier&&r.supplier.trim()&&names.indexOf(r.supplier.toLowerCase().trim())<0){
+      sups.push({id:'s'+Date.now()+added,name:r.supplier.trim(),phone:'',email:'',addr:'',web:'',notes:''});
+      names.push(r.supplier.toLowerCase().trim());added++;
+    }
+  });
+  if(added>0){svSup(sups);}
 }
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
@@ -3404,5 +3368,6 @@ function renderGantt(){
   document.getElementById('ganttChart').innerHTML=out;
 }
 </script>
+<datalist id="supplierList"></datalist>
 </body>
 </html>
