@@ -1183,6 +1183,12 @@ const DI_MAP={'p1777909472770':DI_p1777909472770,'p1778165367591':DI_p1778165367
 // ── MIGRATION ─────────────────────────────────────────────────────────────────
 function mg(i){
   if(CAT_MAP[i.cat])i.cat=CAT_MAP[i.cat];
+  // Auto-fix payStatus based on amounts
+  var paid=(i.p1amt||0)+(i.p2amt||0)+(i.p3amt||0)+(i.p4amt||0);
+  var total=(i.qty||1)*(i.unit||0);
+  if(paid>0&&i.payStatus==='Pendiente'){
+    i.payStatus=paid>=total?'Pagado':'Pagado parcialmente';
+  }
   const pm={'Pendiente':'Pendiente','Pagado':'Pagado','En proceso':'Pendiente','Por confirmar':'Pendiente'};
   return Object.assign({payStatus:pm[i.status]||'Pendiente',deliveryStatus:'Sin iniciar',installStatus:'Pendiente',clientStatus:'',clientApprovalDate:'',productUrl:'',specs:'',space:'',lastReviewDate:'',p1pct:0,p1amt:0,p1date:'',p1method:'',p1note:'',p2pct:0,p2amt:0,p2date:'',p2method:'',p2note:'',p3pct:0,p3amt:0,p3date:'',p3method:'',p3note:'',p4pct:0,p4amt:0,p4date:'',p4method:'',p4note:'',orderDate:'',leadWeeks:'',estDelivery:'',actualDelivery:'',installDate:'',trackNote:''},i);
 }
@@ -1244,6 +1250,21 @@ function go(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove
 function uNT(){var n=document.getElementById('navTotDiv');if(!n)return;if(appMode==='admin'&&currentProjId){n.style.display='';document.getElementById('navTotal').textContent=fm(items.filter(function(r){return r.cat!=='Honorarios';}).reduce(function(a,r){return a+rT(r);},0));}else{n.style.display='none';}}
 function tp(r){return(r.p1amt||0)+(r.p2amt||0)+(r.p3amt||0)+(r.p4amt||0);}
 function tpend(r){return Math.max(0,rT(r)-tp(r));}
+function autoPayStatus(r){
+  var paid=tp(r);var total=rT(r);
+  if(paid<=0)return 'Pendiente';
+  if(paid>=total)return 'Pagado';
+  return 'Pagado parcialmente';
+}
+function recalcPayStatus(){
+  var changed=0;
+  items.forEach(function(r){
+    var auto=autoPayStatus(r);
+    if(auto!==r.payStatus){r.payStatus=auto;changed++;}
+  });
+  if(changed>0){sAll();tst(changed+' estados de pago actualizados');}
+  else tst('Todos los estados ya estan correctos');
+}
 
 // ── PANEL STATE ───────────────────────────────────────────────────────────────
 const openPanels=new Set();
@@ -1621,7 +1642,17 @@ function rPag(){
 }
 function uIPag(id,f,v){const r=items.find(x=>x.id===id);if(r){r[f]=v;sAll();tst('Guardado');}}
 // Keep rPag version for status changes from outside panels
-function uIPagR(id,f,v){const r=items.find(x=>x.id===id);if(r){r[f]=v;rPag();sAll();}}
+function uIPagR(id,f,v){
+  var r=items.find(function(x){return x.id===id;});
+  if(r){
+    r[f]=v;
+    // Auto-update payStatus based on amounts
+    if(f==='p1amt'||f==='p2amt'||f==='p3amt'||f==='p4amt'){
+      r.payStatus=autoPayStatus(r);
+    }
+    rPag();sAll();
+  }
+}
 
 // ── PAGOS PENDIENTES ──────────────────────────────────────────────────────────
 function rPend(){
