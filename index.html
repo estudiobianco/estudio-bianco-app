@@ -690,6 +690,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
     <div class="nsl">CRM</div>
     <div class="ni" onclick="go('crm')" id="nav-crm"><span class="ic">👥</span>Clientes</div>
     <div class="nsl">Proyecto</div>
+    <div class="ni" onclick="go('flujo')" id="nav-flujo"><span class="ic">🗂</span>Flujo de trabajo</div>
     <div class="ni" onclick="go('gestion')" id="nav-gestion"><span class="ic">📊</span>Gestión proyecto</div>
   </div>
   <div class="nbot">
@@ -717,6 +718,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
     <span id="saveStatus" style="font-size:12px;margin-left:6px;"></span>
   </div>
   <div class="kr" id="comprasKPI"></div>
+  <div id="wfMiniCompras" style="margin-bottom:8px;"></div>
   <div class="tb">
     <select id="fCat" onchange="rC()"><option value="">Todas las categorías</option><option>Obra</option><option>Revestimientos y acabados</option><option>Iluminación</option><option>Mobiliario</option><option>Mobiliario a medida</option><option>Decoración e instalaciones</option><option>Materiales</option><option>Equipamiento</option><option>Honorarios</option></select>
     <select id="fSpace" onchange="rC()" style="width:130px;">
@@ -875,8 +877,15 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
   </div>
 </div>
 
+<div class="page" id="page-flujo">
+  <div class="ph"><div><h1>Flujo de trabajo</h1><p>Metodología Estudio Bianco · avance global del proceso de diseño</p></div></div>
+  <div id="wfProgress" style="background:var(--surface);border:1px solid var(--bd);border-radius:var(--r);padding:16px 20px;margin-bottom:20px;"></div>
+  <div id="wfContent"></div>
+</div>
+
 <div class="page" id="page-gestion">
   <div class="ph"><div><h1>Gestión de Proyecto</h1><p>Bitácora de obra y reuniones · Carta Gantt con atrasos y avances</p></div></div>
+  <div id="wfMiniGestion" style="margin-bottom:4px;"></div>
   <div class="kr" id="gpKPI"></div>
   <div class="gp-tabs">
     <div class="gp-tab active" id="gptab-bitacora" onclick="gpTab('bitacora')">📓 Bitácora</div>
@@ -1231,7 +1240,7 @@ const fd=d=>{if(!d)return'—';const[y,m,dd]=d.split('-');return dd+'/'+m+'/'+y;
 const rT=r=>r.qty*r.unit;
 const es=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
 function tst(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
-function go(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');({compras:rC,pagados:function(){rPag();setTimeout(rPend2,50);},pendientes:rPend,seguimiento:rSeg,cotizaciones:rCot,honorarios:rH,gestion:rGP,crm:rCRM})[id]?.();}
+function go(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');({compras:rC,pagados:function(){rPag();setTimeout(rPend2,50);},pendientes:rPend,seguimiento:rSeg,cotizaciones:rCot,honorarios:rH,gestion:rGP,crm:rCRM,flujo:renderWorkflow})[id]?.();}
 function uNT(){var n=document.getElementById('navTotDiv');if(!n)return;if(appMode==='admin'&&currentProjId){n.style.display='';document.getElementById('navTotal').textContent=fm(items.filter(function(r){return r.cat!=='Honorarios';}).reduce(function(a,r){return a+rT(r);},0));}else{n.style.display='none';}}
 function tp(r){return(r.p1amt||0)+(r.p2amt||0)+(r.p3amt||0)+(r.p4amt||0);}
 function tpend(r){return Math.max(0,rT(r)-tp(r));}
@@ -2127,6 +2136,7 @@ function renderHome(){
         ${appMode==='admin'?'<div class="pc-stat"><div class="psl">Total proyecto</div><div class="psv">'+(s.total>0?fm(s.total):'Sin datos')+'</div></div>':''}
         <div class="pc-stat"><div class="psl">Ítems</div><div class="psv g">${s.count}</div></div>
       </div>
+      <div style="margin-top:8px;">${(function(){var st=getWFCurrentStage(p.id);var pr=getWFProgress(p.id);return '<div style=\"display:flex;align-items:center;gap:6px;font-size:11px;\"><span style=\"width:8px;height:8px;border-radius:50%;background:'+st.phaseColor+';flex-shrink:0;\"></span><span style=\"color:var(--tx2);\">'+st.phase+'</span><span style=\"margin-left:auto;font-weight:600;color:var(--ac);\">'+pr.pct+'%</span></div><div style=\"height:3px;background:var(--bd2);border-radius:99px;overflow:hidden;margin-top:4px;\"><div style=\"width:'+pr.pct+'%;height:100%;background:'+st.phaseColor+';border-radius:99px;\"></div></div>';})()}</div>
       <div class="pc-footer">
         <span class="badge" style="background:${p.color||'#2A5C45'}22;color:${p.color||'#2A5C45'};font-size:10.5px;">${p.status||'En desarrollo'}</span>
         <div class="pc-actions">
@@ -3255,6 +3265,220 @@ function rPend2(){
   }catch(e){console.error('rPend2:',e);}
 }
 
+
+// ── FLUJO DE TRABAJO ──────────────────────────────────────────────────────────
+var WF_PHASES = [
+  {name:'Comercial',color:'#8B6914',steps:[
+    {id:1,title:'Cliente agenda reunion inicial',desc:'El cliente solicita y paga la reunion de primera consulta.'},
+    {id:2,title:'Reunion de analisis',desc:'Conversamos con el cliente, analizamos su proyecto y evaluamos si podemos ayudarlo.'},
+    {id:3,title:'Cotizacion enviada',desc:'Preparamos y enviamos la cotizacion de honorarios al cliente.'},
+    {id:4,title:'Aprobacion de cotizacion',desc:'Recibimos respuesta del cliente. Si aprueba, avanzamos.'}
+  ]},
+  {name:'Levantamiento',color:'#1A4A7A',steps:[
+    {id:5,title:'Reunion de ideas y referencias',desc:'Nueva reunion para revisar ideas, referentes visuales y entender el estilo del cliente.'},
+    {id:6,title:'Recopilacion de planos y requerimientos',desc:'Solicitamos planos existentes, especificaciones tecnicas y requerimientos del proyecto.'},
+    {id:7,title:'Visita y medicion del espacio',desc:'Visitamos el espacio, tomamos medidas y registramos condiciones reales.'}
+  ]},
+  {name:'Diseno',color:'#4A3A9A',steps:[
+    {id:8,title:'Planos en limpio + elevacion 3D',desc:'Pasamos los planos a formato digital y generamos la elevacion 3D base.'},
+    {id:9,title:'Revision de referencias de muebles',desc:'Investigamos y seleccionamos referencias generales de mobiliario.'},
+    {id:10,title:'Modelo de distribucion en blanco',desc:'Creamos propuesta de distribucion: ubicacion de muebles, cuadros, accesorios.'},
+    {id:11,title:'Reunion revision del modelo',desc:'Presentamos el modelo al cliente y recopilamos sus comentarios.'},
+    {id:12,title:'Diseno con colores, texturas y especificaciones',desc:'Avanzamos al diseno final con colores, texturas y especificaciones detalladas.'}
+  ]},
+  {name:'Presentacion',color:'#993556',steps:[
+    {id:13,title:'Preparacion de presentacion final',desc:'Preparamos la presentacion completa con renders, paleta y ficha de cada producto.'},
+    {id:14,title:'Reunion de presentacion con cliente',desc:'Presentamos el diseno completo y recibimos retroalimentacion detallada.'},
+    {id:15,title:'Ajustes y cotizaciones reales',desc:'Realizamos cambios solicitados y bajamos el diseno a la realidad con cotizaciones.'}
+  ]},
+  {name:'Cierre y Entrega',color:'#2A5C45',steps:[
+    {id:16,title:'Reunion final de cierre',desc:'Ultima reunion para presentar cotizaciones, precios reales y cambios incorporados.'},
+    {id:17,title:'Entrega del proyecto final',desc:'El cliente recibe: Planos, Renders, Lista de compras, Cotizaciones y Proveedores.'}
+  ]}
+];
+var WF_TOTAL = 17;
+
+function ldWF(){try{var k='ar6_p'+(currentProjId||'global')+'_workflow';return JSON.parse(localStorage.getItem(k)||'{}');}catch(e){return {};}}
+function svWF(d){try{var k='ar6_p'+(currentProjId||'global')+'_workflow';localStorage.setItem(k,JSON.stringify(d));}catch(e){}}
+
+function wfSetStatus(id,status){
+  if(appMode!=='admin')return;
+  var d=ldWF();
+  if(!d[id])d[id]={};
+  d[id].status=status;
+  if(status==='done'&&!d[id].date)d[id].date=new Date().toISOString().split('T')[0];
+  if(status==='pending')d[id].date='';
+  svWF(d);
+  renderWorkflow();
+  tst(status==='done'?'Etapa completada':status==='active'?'Etapa en curso':'Etapa restablecida');
+}
+
+function wfSaveNote(id,val){
+  if(appMode!=='admin')return;
+  var d=ldWF();if(!d[id])d[id]={};
+  d[id].note=val;svWF(d);
+}
+
+function renderWorkflow(){
+  var prog=document.getElementById('wfProgress');
+  var con=document.getElementById('wfContent');
+  if(!prog||!con)return;
+  try{
+    var d=ldWF();
+    var done=Object.values(d).filter(function(x){return x.status==='done';}).length;
+    var pct=Math.round(done/WF_TOTAL*100);
+    var activeId=null;
+    for(var pi=0;pi<WF_PHASES.length;pi++){
+      for(var si=0;si<WF_PHASES[pi].steps.length;si++){
+        var st=(d[WF_PHASES[pi].steps[si].id]||{}).status||'pending';
+        if(st!=='done'){activeId=WF_PHASES[pi].steps[si].id;break;}
+      }
+      if(activeId)break;
+    }
+    // Progress bar
+    prog.innerHTML='';
+    var progInfo=document.createElement('div');
+    progInfo.style.cssText='display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;';
+    var progLabel=document.createElement('div');
+    progLabel.innerHTML='<div style="font-size:13px;font-weight:600;">Avance del proyecto</div><div style="font-size:11px;color:var(--tx2);">'+done+' de '+WF_TOTAL+' etapas completadas</div>';
+    var progPct=document.createElement('div');
+    progPct.style.cssText='font-size:22px;font-weight:700;color:var(--ac);';
+    progPct.textContent=pct+'%';
+    progInfo.appendChild(progLabel);progInfo.appendChild(progPct);
+    prog.appendChild(progInfo);
+    var bar=document.createElement('div');
+    bar.style.cssText='height:10px;background:var(--bd2);border-radius:99px;overflow:hidden;';
+    var fill=document.createElement('div');
+    fill.style.cssText='height:100%;background:var(--ac);border-radius:99px;transition:width .5s;width:'+pct+'%;';
+    bar.appendChild(fill);prog.appendChild(bar);
+    // Phases
+    con.innerHTML='';
+    WF_PHASES.forEach(function(phase){
+      var phaseDone=phase.steps.filter(function(s){return(d[s.id]||{}).status==='done';}).length;
+      var phaseDiv=document.createElement('div');
+      phaseDiv.style.cssText='margin-bottom:24px;';
+      var phaseHdr=document.createElement('div');
+      phaseHdr.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid var(--bd);';
+      var dot=document.createElement('div');
+      dot.style.cssText='width:12px;height:12px;border-radius:50%;background:'+phase.color+';flex-shrink:0;';
+      var pname=document.createElement('div');
+      pname.style.cssText='font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--tx2);';
+      pname.textContent=phase.name;
+      var pcnt=document.createElement('div');
+      pcnt.style.cssText='font-size:11px;color:var(--tx3);margin-left:auto;';
+      pcnt.textContent=phaseDone+'/'+phase.steps.length+' completadas';
+      phaseHdr.appendChild(dot);phaseHdr.appendChild(pname);phaseHdr.appendChild(pcnt);
+      phaseDiv.appendChild(phaseHdr);
+      var stepsDiv=document.createElement('div');
+      stepsDiv.style.cssText='display:flex;flex-direction:column;gap:6px;';
+      phase.steps.forEach(function(step){
+        var sd=d[step.id]||{};
+        var status=sd.status||'pending';
+        var isActive=step.id===activeId&&status!=='done';
+        var stepDiv=document.createElement('div');
+        stepDiv.style.cssText='display:flex;align-items:flex-start;gap:12px;padding:10px 14px;border-radius:var(--r);border:1px solid var(--bd);background:var(--surface);';
+        if(status==='done')stepDiv.style.cssText+='background:#F0F7F3;border-color:#B8D9C8;';
+        if(isActive)stepDiv.style.cssText+='background:#EDF3FB;border-color:#9BBCD9;';
+        var iconDiv=document.createElement('div');
+        iconDiv.style.cssText='width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;margin-top:1px;';
+        if(status==='done')iconDiv.style.cssText+='background:#2A5C45;color:#fff;';
+        else if(isActive)iconDiv.style.cssText+='background:#1A4A7A;color:#fff;';
+        else iconDiv.style.cssText+='background:var(--bd2);color:var(--tx3);';
+        iconDiv.textContent=status==='done'?'v':(isActive?'>':(step.id+''));
+        var bodyDiv=document.createElement('div');bodyDiv.style.flex='1';
+        var titleDiv=document.createElement('div');
+        titleDiv.style.cssText='font-size:13px;font-weight:600;margin-bottom:2px;';
+        titleDiv.textContent=step.title;
+        var descDiv=document.createElement('div');
+        descDiv.style.cssText='font-size:12px;color:var(--tx2);line-height:1.5;';
+        descDiv.textContent=step.desc;
+        bodyDiv.appendChild(titleDiv);bodyDiv.appendChild(descDiv);
+        if(sd.date){
+          var dateDiv=document.createElement('div');
+          dateDiv.style.cssText='font-size:11px;color:var(--tx3);margin-top:3px;';
+          dateDiv.textContent='Completada el '+fd(sd.date);
+          bodyDiv.appendChild(dateDiv);
+        } else if(isActive){
+          var activeDiv=document.createElement('div');
+          activeDiv.style.cssText='font-size:11px;color:#1A4A7A;margin-top:3px;font-weight:500;';
+          activeDiv.textContent='Etapa actual';
+          bodyDiv.appendChild(activeDiv);
+        }
+        if(appMode==='admin'){
+          var note=document.createElement('textarea');
+          note.placeholder='Nota o comentario...';
+          note.style.cssText='width:100%;margin-top:6px;font-size:12px;padding:4px 8px;border:1px solid var(--bd2);border-radius:var(--rs);font-family:inherit;resize:none;background:var(--surface);color:var(--tx);';
+          note.rows=1;
+          note.value=sd.note||'';
+          note.addEventListener('change',(function(id){return function(){wfSaveNote(id,this.value);};})(step.id));
+          bodyDiv.appendChild(note);
+          var actionsDiv=document.createElement('div');
+          actionsDiv.style.cssText='display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;';
+          if(status==='done'){
+            var undoBtn=document.createElement('button');
+            undoBtn.style.cssText='height:26px;padding:0 10px;border-radius:99px;font-size:11.5px;cursor:pointer;border:1px solid var(--bd2);background:var(--surface);font-family:inherit;color:var(--tx3);';
+            undoBtn.textContent='Desmarcar';
+            undoBtn.addEventListener('click',(function(id){return function(){wfSetStatus(id,'pending');};})(step.id));
+            actionsDiv.appendChild(undoBtn);
+          } else {
+            var doneBtn=document.createElement('button');
+            doneBtn.style.cssText='height:26px;padding:0 10px;border-radius:99px;font-size:11.5px;cursor:pointer;border:none;background:#2A5C45;color:#fff;font-family:inherit;font-weight:500;';
+            doneBtn.textContent='Completada';
+            doneBtn.addEventListener('click',(function(id){return function(){wfSetStatus(id,'done');};})(step.id));
+            actionsDiv.appendChild(doneBtn);
+            var activeBtn=document.createElement('button');
+            activeBtn.style.cssText='height:26px;padding:0 10px;border-radius:99px;font-size:11.5px;cursor:pointer;border:none;background:#1A4A7A;color:#fff;font-family:inherit;font-weight:500;';
+            activeBtn.textContent=status==='active'?'Volver a pendiente':'En curso';
+            activeBtn.addEventListener('click',(function(id,st){return function(){wfSetStatus(id,st==='active'?'pending':'active');};})(step.id,status));
+            actionsDiv.appendChild(activeBtn);
+          }
+          bodyDiv.appendChild(actionsDiv);
+        }
+        stepDiv.appendChild(iconDiv);stepDiv.appendChild(bodyDiv);
+        stepsDiv.appendChild(stepDiv);
+      });
+      phaseDiv.appendChild(stepsDiv);con.appendChild(phaseDiv);
+    });
+  }catch(e){console.error('renderWorkflow:',e);}
+}
+
+
+function ldWFForProj(pid){try{return JSON.parse(localStorage.getItem('ar6_p'+pid+'_workflow')||'{}');}catch(e){return {};}}
+
+function getWFCurrentStage(pid){
+  var d=ldWFForProj(pid);
+  for(var pi=0;pi<WF_PHASES.length;pi++){
+    for(var si=0;si<WF_PHASES[pi].steps.length;si++){
+      var step=WF_PHASES[pi].steps[si];
+      var st=(d[step.id]||{}).status||'pending';
+      if(st!=='done')return {phase:WF_PHASES[pi].name,step:step.title,phaseColor:WF_PHASES[pi].color,stepId:step.id};
+    }
+  }
+  return {phase:'Completado',step:'Todas las etapas completadas',phaseColor:'#2A5C45',stepId:0};
+}
+
+function getWFProgress(pid){
+  var d=ldWFForProj(pid);
+  var done=0;
+  WF_PHASES.forEach(function(p){p.steps.forEach(function(s){if((d[s.id]||{}).status==='done')done++;});});
+  return {done:done,total:WF_TOTAL,pct:Math.round(done/WF_TOTAL*100)};
+}
+
+function renderWFMini(pid){
+  var prog=getWFProgress(pid);
+  var stage=getWFCurrentStage(pid);
+  return '<div style="padding:10px 14px;background:var(--s2);border-radius:var(--r);border:1px solid var(--bd);margin-bottom:12px;">'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">'
+    +'<span style="font-size:11.5px;font-weight:600;color:'+stage.phaseColor+';">'+stage.phase+'</span>'
+    +'<span style="font-size:11.5px;font-weight:700;color:var(--ac);">'+prog.pct+'%</span>'
+    +'</div>'
+    +'<div style="font-size:11px;color:var(--tx2);margin-bottom:6px;">'+stage.step+'</div>'
+    +'<div style="height:5px;background:var(--bd2);border-radius:99px;overflow:hidden;">'
+    +'<div style="width:'+prog.pct+'%;height:100%;background:'+stage.phaseColor+';border-radius:99px;transition:width .4s;"></div>'
+    +'</div>'
+    +'</div>';
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 // Show access modal on startup
 appMode = localStorage.getItem('ar6_mode') || 'worker';
@@ -3294,6 +3518,7 @@ function gpTab(tab){
 }
 function toggleLogForm(){const b=document.getElementById('logFormBody');b.style.display=b.style.display==='none'?'block':'none';}
 function rGP(){
+  var wfG=document.getElementById('wfMiniGestion');if(wfG&&currentProjId)wfG.innerHTML=renderWFMini(currentProjId);
   const pending=logs.filter(l=>l.status==='Pendiente'||l.status==='En curso').length;
   const overdue=logs.filter(l=>{if(!l.dueDate)return false;if(l.status==='Completado')return false;return new Date(l.dueDate)<new Date();}).length;
   const meetings=logs.filter(l=>l.type==='Reunión cliente').length;
