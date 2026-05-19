@@ -680,8 +680,8 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
   <div class="nm">
     <div class="nsl">Compras</div>
     <div class="ni active" onclick="go('compras')" id="nav-compras"><span class="ic">📋</span>Listado general</div>
-    <div class="ni" onclick="go('pagados')" id="nav-pagados"><span class="ic">✅</span>Pagos realizados</div>
-    <div class="ni" onclick="go('pendientes')" id="nav-pendientes"><span class="ic">⏳</span>Pagos pendientes</div>
+    <div class="ni" onclick="go('pagados')" id="nav-pagados"><span class="ic">💳</span>Estado de pagos</div>
+    <div class="ni" onclick="go('pendientes')" id="nav-pendientes" style="display:none;"><span class="ic">⏳</span>Pagos pendientes</div>
     <div class="ni" onclick="go('seguimiento')" id="nav-seguimiento"><span class="ic">📦</span>Seguimiento</div>
     <div class="ni" onclick="go('cotizaciones')" id="nav-cotizaciones"><span class="ic">📄</span>Cotizaciones</div>
     <div class="ni" onclick="go('proveedores')" id="nav-proveedores"><span class="ic">🏪</span>Proveedores</div>
@@ -740,7 +740,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
 </div>
 
 <div class="page" id="page-pagados">
-  <div class="ph"><div><h1>Pagos realizados</h1><p>Ítems con pago registrado · haz clic en › para editar cuotas y detalles</p></div></div>
+  <div class="ph"><div><h1>Estado de pagos</h1><p>Ítems con pago registrado · haz clic en › para editar cuotas y detalles</p></div></div>
   <div class="kr" id="pagadosKPI"></div>
   <div class="tb">
     <select id="fPagCat" onchange="rPag()"><option value="">Todas las categorías</option><option>Obra</option><option>Revestimientos y acabados</option><option>Iluminación</option><option>Mobiliario</option><option>Mobiliario a medida</option><option>Decoración e instalaciones</option><option>Materiales</option><option>Equipamiento</option><option>Honorarios</option></select>
@@ -1233,7 +1233,7 @@ const fd=d=>{if(!d)return'—';const[y,m,dd]=d.split('-');return dd+'/'+m+'/'+y;
 const rT=r=>r.qty*r.unit;
 const es=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
 function tst(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
-function go(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');({compras:rC,pagados:rPag,pendientes:rPend,seguimiento:rSeg,cotizaciones:rCot,honorarios:rH,gestion:rGP,crm:rCRM,proveedores:rSup})[id]?.();}
+function go(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');({compras:rC,pagados:function(){rPag();setTimeout(rPend2,50);},pendientes:rPend,seguimiento:rSeg,cotizaciones:rCot,honorarios:rH,gestion:rGP,crm:rCRM,proveedores:rSup})[id]?.();}
 function uNT(){var n=document.getElementById('navTotDiv');if(!n)return;if(appMode==='admin'&&currentProjId){n.style.display='';document.getElementById('navTotal').textContent=fm(items.filter(function(r){return r.cat!=='Honorarios';}).reduce(function(a,r){return a+rT(r);},0));}else{n.style.display='none';}}
 function tp(r){return(r.p1amt||0)+(r.p2amt||0)+(r.p3amt||0)+(r.p4amt||0);}
 function tpend(r){return Math.max(0,rT(r)-tp(r));}
@@ -3200,6 +3200,58 @@ function importSuppliersFromItems(){
 function updateSupplierDatalist(){var sups=ldSup();var dl=document.getElementById('supplierList');if(!dl)return;dl.innerHTML=sups.map(function(s){return '<option value="'+s.name+'">';}).join('');}
 function autoAddSupplier(name){if(!name||!name.trim())return;var sups=ldSup();if(!sups.find(function(s){return s.name.toLowerCase()===name.toLowerCase().trim();})){sups.push({id:'s'+Date.now(),name:name.trim(),phone:'',email:'',addr:'',web:'',notes:''});svSup(sups);updateSupplierDatalist();}}
 function migrateItemSuppliersToGlobal(){try{var sups=ldSup();var names=sups.map(function(s){return s.name.toLowerCase();});var all=DI.slice();Object.keys(DI_MAP).forEach(function(k){all=all.concat(DI_MAP[k]);});all.forEach(function(r){if(r.supplier&&r.supplier.trim()&&names.indexOf(r.supplier.toLowerCase().trim())<0){sups.push({id:'s'+Date.now()+Math.floor(Math.random()*9999),name:r.supplier.trim(),phone:'',email:'',addr:'',web:'',notes:''});names.push(r.supplier.toLowerCase().trim());}});svSup(sups);}catch(e){}}
+
+
+function rPend2(){
+  var kpi2=document.getElementById('pendientesKPI2');
+  var grp2=document.getElementById('pendientesGroups2');
+  var tot2=document.getElementById('pendientesTotal2');
+  if(!kpi2||!grp2||!tot2)return;
+  try{
+    const pd=workerFilter(items).filter(function(r){return r.payStatus==='Pendiente'||(r.payStatus==='Pagado parcialmente'&&tpend(r)>0);});
+    const totP=pd.reduce(function(a,r){return a+(r.payStatus==='Pagado parcialmente'?tpend(r):rT(r));},0);
+    kpi2.innerHTML='<div class="kc"><div class="kl">Sin pago</div><div class="kv r">'+pd.filter(function(r){return r.payStatus==='Pendiente';}).length+'</div></div>'+
+      '<div class="kc"><div class="kl">Pago parcial</div><div class="kv w">'+pd.filter(function(r){return r.payStatus==='Pagado parcialmente';}).length+'</div></div>'+
+      '<div class="kc"><div class="kl">Total por pagar</div><div class="kv r">'+fm(totP)+'</div></div>';
+    tot2.textContent=fm(totP);
+    grp2.innerHTML='';
+    if(!pd.length){grp2.innerHTML='<div style="text-align:center;padding:24px;color:var(--tx3);font-style:italic;">Sin pagos pendientes.</div>';return;}
+    var supMap={};
+    pd.forEach(function(r){var k=r.supplier||'Sin proveedor';if(!supMap[k])supMap[k]=[];supMap[k].push(r);});
+    Object.keys(supMap).sort().forEach(function(sup){
+      var rows=supMap[sup];
+      var tot=rows.reduce(function(a,r){return a+(r.payStatus==='Pagado parcialmente'?tpend(r):rT(r));},0);
+      var div=document.createElement('div');
+      div.style.cssText='margin-bottom:14px;border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;';
+      div.innerHTML='<div style="padding:8px 14px;background:var(--s2);display:flex;justify-content:space-between;align-items:center;">'+
+        '<span style="font-weight:600;font-size:13px;">'+es(sup)+'</span>'+
+        '<span class="mono" style="color:var(--dn);font-weight:600;">'+fm(tot)+'</span></div>';
+      var tbl=document.createElement('table');
+      tbl.style.cssText='width:100%;border-collapse:collapse;font-size:12.5px;';
+      tbl.innerHTML='<thead><tr style="background:var(--s2);"><th style="padding:6px 12px;text-align:left;">Item</th>'+
+        '<th style="padding:6px 12px;text-align:left;">Espacio</th>'+
+        '<th style="padding:6px 12px;text-align:right;">Total</th>'+
+        '<th style="padding:6px 12px;text-align:right;">Pagado</th>'+
+        '<th style="padding:6px 12px;text-align:right;">Pendiente</th>'+
+        '<th style="padding:6px 12px;">Estado</th></tr></thead>';
+      var tb=document.createElement('tbody');
+      rows.forEach(function(r){
+        var tr=document.createElement('tr');
+        tr.style.borderTop='1px solid var(--bd)';
+        var pend=r.payStatus==='Pagado parcialmente'?tpend(r):rT(r);
+        var paid=tp(r);
+        tr.innerHTML='<td style="padding:7px 12px;">'+es(r.item)+'</td>'+
+          '<td style="padding:7px 12px;color:var(--tx2);">'+es(r.space||'—')+'</td>'+
+          '<td style="padding:7px 12px;text-align:right;" class="mono">'+fm(rT(r))+'</td>'+
+          '<td style="padding:7px 12px;text-align:right;" class="mono">'+(paid>0?fm(paid):'—')+'</td>'+
+          '<td style="padding:7px 12px;text-align:right;color:var(--dn);" class="mono">'+fm(pend)+'</td>'+
+          '<td style="padding:7px 12px;"><span class="badge '+payCls(r.payStatus)+'">'+r.payStatus+'</span></td>';
+        tb.appendChild(tr);
+      });
+      tbl.appendChild(tb);div.appendChild(tbl);grp2.appendChild(div);
+    });
+  }catch(e){console.error('rPend2:',e);}
+}
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 // Show access modal on startup
