@@ -713,7 +713,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
     <label>Última revisión del proyecto:</label>
     <input type="date" id="lastRevGlobal" onchange="saveGlobal()">
     <span id="lastRevLabel" style="font-size:11px;color:var(--tx2);"></span>
-    <button class="btn prim" onclick="manualSave()" style="height:28px;font-size:12px;padding:0 12px;margin-left:8px;">💾 Guardar</button>
+    <button class="btn prim" onclick="manualSave()" style="height:28px;font-size:12px;padding:0 12px;margin-left:8px;">Guardar cambios</button>
     <span id="saveStatus" style="font-size:12px;margin-left:6px;"></span>
   </div>
   <div class="kr" id="comprasKPI"></div>
@@ -1214,22 +1214,17 @@ let nip=Math.max(0,...pagos.map(p=>p.id))+1;
 let nic=Math.max(0,...cots.map(c=>c.id))+1;
 function sAll(){
   if(!currentProjId)return;
-  var bundled=currentProjId==='rucachue'?DI:(DI_MAP[currentProjId]||[]);
-  if(!items.length&&bundled.length)return;
+  var b=currentProjId==='rucachue'?DI:(DI_MAP[currentProjId]||[]);
+  if(!items.length&&b.length)return;
   try{
     localStorage.setItem('ar6_p'+currentProjId+'_items',JSON.stringify(items));
     localStorage.setItem('ar6_p'+currentProjId+'_pagos',JSON.stringify(pagos));
     localStorage.setItem('ar6_p'+currentProjId+'_cots',JSON.stringify(cots));
-    setSaveStatus('saved');
-  }catch(e){setSaveStatus('error');}
+    var el=document.getElementById('saveStatus');
+    if(el){el.textContent='Guardado';el.style.color='var(--ac)';clearTimeout(window._st);window._st=setTimeout(function(){el.textContent='';},3000);}
+  }catch(e){var el=document.getElementById('saveStatus');if(el){el.textContent='Error al guardar';el.style.color='var(--dn)';}}
 }
-function setSaveStatus(st){
-  var el=document.getElementById('saveStatus');if(!el)return;
-  clearTimeout(window._saveT);
-  if(st==='saved'){el.textContent='✓ Guardado';el.style.color='var(--ac)';window._saveT=setTimeout(function(){el.textContent='';},3000);}
-  else if(st==='error'){el.textContent='⚠ Error al guardar';el.style.color='var(--dn)';}
-}
-function manualSave(){sAll();updateBackupInfo();tst('✓ Datos guardados');}
+function manualSave(){sAll();updateBackupInfo();tst('Datos guardados');}
 function saveGlobal(){gd.lastReview=document.getElementById('lastRevGlobal').value;sv('ar5_global',gd);document.getElementById('lastRevLabel').textContent=gd.lastReview?'('+fd(gd.lastReview)+')'  :'';}
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
@@ -1238,7 +1233,7 @@ const fd=d=>{if(!d)return'—';const[y,m,dd]=d.split('-');return dd+'/'+m+'/'+y;
 const rT=r=>r.qty*r.unit;
 const es=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
 function tst(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
-function go(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');({compras:rC,pagados:rPag,pendientes:rPend,seguimiento:rSeg,cotizaciones:rCot,honorarios:rH,gestion:rGP,crm:rCRM})[id]?.();}
+function go(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');({compras:rC,pagados:rPag,pendientes:rPend,seguimiento:rSeg,cotizaciones:rCot,honorarios:rH,gestion:rGP,crm:rCRM,proveedores:rSup})[id]?.();}
 function uNT(){var n=document.getElementById('navTotDiv');if(!n)return;if(appMode==='admin'&&currentProjId){n.style.display='';document.getElementById('navTotal').textContent=fm(items.filter(function(r){return r.cat!=='Honorarios';}).reduce(function(a,r){return a+rT(r);},0));}else{n.style.display='none';}}
 function tp(r){return(r.p1amt||0)+(r.p2amt||0)+(r.p3amt||0)+(r.p4amt||0);}
 function tpend(r){return Math.max(0,rT(r)-tp(r));}
@@ -1906,7 +1901,7 @@ document.getElementById('pdfOv').addEventListener('click',function(e){if(e.targe
 function updateBackupInfo(){
   if(!currentProjId){const el=document.getElementById('backupInfo');if(el)el.textContent='Selecciona un proyecto para ver el estado.';return;}
   const n=items.length,t=items.reduce((a,r)=>a+rT(r),0);
-  var el=document.getElementById('backupInfo');if(el)el.textContent=n+' ítems'+(appMode==='admin'?' · Total: '+fm(t):'')+' · Último backup: '+(localStorage.getItem('ar5_lastBackup')||'nunca');
+  var el2=document.getElementById('backupInfo');if(el2)el2.textContent=n+' ítems'+(appMode==='admin'?' · Total: '+fm(t):'')+' · Último backup: '+(localStorage.getItem('ar5_lastBackup')||'nunca');
 }
 function exportData(){
   const pInfo=projects.find(x=>x.id===currentProjId)||{name:'proyecto'};
@@ -1985,8 +1980,8 @@ document.getElementById('recModal').addEventListener('click',function(e){if(e.ta
 const PROJ_COLORS=['#2A5C45','#1A4A7A','#8B6914','#B83030','#4A3A9A','#993556','#2C5A0E','#5F4B3A','#1A6B6B','#6B3A1A'];
 const DEF_PROJ={id:'rucachue',name:'Alto Rucachue',client:'Estudio Bianco Spa',addr:'Lo Barnechea, Santiago',startDate:'2025-09-01',status:'En obra',color:'#2A5C45',notes:'Remodelación integral'};
 
-function ldProjects(){const ALL=[{"id":"p1777909472770","name":"San Francisco - Edgar Vogel","client":"","color":"#2A5C45","status":"Activo","addr":"","startDate":"","notes":""},{"id":"rucachue","name":"Alto Rucachue","client":"","color":"#1A4A7A","status":"Activo","addr":"","startDate":"","notes":""},{"id":"p1778165367591","name":"Tulio Pulgar - Cardiología","client":"","color":"#8B6914","status":"Activo","addr":"","startDate":"","notes":""},{"id":"p1777905676087","name":"Dormitorio - Terraza José Manuel Perez","client":"","color":"#993556","status":"Activo","addr":"","startDate":"","notes":""}];try{const saved=JSON.parse(localStorage.getItem('ar6_projects')||'[]');ALL.forEach(function(p){if(!saved.find(function(x){return x.id===p.id;})&&p.id)saved.push(p);});if(saved.length){localStorage.setItem('ar6_projects',JSON.stringify(saved));return saved;}}catch(e){}return ALL;}
-function svProjects(projs){try{localStorage.setItem('ar6_projects',JSON.stringify(projs));}catch(e){}}
+function ldProjects(){const A=[{"id":"p1777909472770","name":"San Francisco - Edgar Vogel","client":"","color":"#2A5C45","status":"Activo","addr":"","startDate":"","notes":""},{"id":"rucachue","name":"Alto Rucachue","client":"","color":"#1A4A7A","status":"Activo","addr":"","startDate":"","notes":""},{"id":"p1778165367591","name":"Tulio Pulgar - Cardiología","client":"","color":"#8B6914","status":"Activo","addr":"","startDate":"","notes":""},{"id":"p1777905676087","name":"Dormitorio - Terraza José Manuel Perez","client":"","color":"#993556","status":"Activo","addr":"","startDate":"","notes":""}];try{const s=JSON.parse(localStorage.getItem('ar6_projects')||'[]');A.forEach(function(p){if(!s.find(function(x){return x.id===p.id;})&&p.id)s.push(p);});if(s.length){localStorage.setItem('ar6_projects',JSON.stringify(s));return s;}}catch(e){}return A;}
+function svProjects(p){try{localStorage.setItem('ar6_projects',JSON.stringify(p));}catch(e){}}
 
 let projects=ldProjects();
 let currentProjId=null;
@@ -2025,7 +2020,7 @@ function svP(suffix,val){
 function getProjectStats(pid){
   try{
     var it=JSON.parse(localStorage.getItem('ar6_p'+pid+'_items')||'[]');
-    if(!it.length&&pid==='rucachue'){var old=localStorage.getItem('ar5_items');if(old)it=JSON.parse(old);}
+    if(!it.length&&pid==='rucachue'){var o=localStorage.getItem('ar5_items');if(o)it=JSON.parse(o);}
     if(!it.length){var di=pid==='rucachue'?DI:(DI_MAP[pid]||[]);if(di.length)it=di;}
     if(!it.length)return{count:0,total:0,paid:0};
     return{count:it.length,total:it.reduce(function(s,r){return s+(r.qty||1)*(r.unit||0);},0),paid:it.filter(function(r){return r.payStatus==='Pagado';}).length};
@@ -2103,6 +2098,7 @@ function openProject(pid){
   // Reset to compras tab
   go('compras');
   updateBackupInfo();
+  try{updateSupplierDatalist();}catch(e){}
 }
 
 function goHome(){
@@ -2311,8 +2307,7 @@ function renderCatSummary(){
 // ── ACCESS CONTROL ─────────────────────────────────────────────────────────
 const ADMIN_PIN_HASH='eccb04353d3c1bb303ce4da89460c73d9fc99e126cc272159f08c4fd8e73c445';
 let appMode = localStorage.getItem('ar6_mode') || 'worker';
-migrateItemSuppliersToGlobal();
-updateSupplierDatalist(); // default: worker
+try{migrateItemSuppliersToGlobal();updateSupplierDatalist();}catch(e){} // default: worker
 
 function openAccessModal(){
   document.getElementById('pinInput').value = '';
@@ -2337,14 +2332,7 @@ function selectMode(mode){
   tst(mode === 'admin' ? '✓ Acceso administrador activado' : '✓ Acceso trabajador activado');
 }
 
-async function checkPin(){
-  var val=document.getElementById('pinInput').value;
-  try{var enc=new TextEncoder().encode(val);var buf=await crypto.subtle.digest('SHA-256',enc);
-  var hash=Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
-  if(hash===ADMIN_PIN_HASH){selectMode('admin');}
-  else{document.getElementById('pinErr').style.display='block';document.getElementById('pinInput').value='';document.getElementById('pinInput').focus();}}
-  catch(e){document.getElementById('pinErr').style.display='block';}
-}
+async function checkPin(){var val=document.getElementById('pinInput').value;try{var enc=new TextEncoder().encode(val);var buf=await crypto.subtle.digest('SHA-256',enc);var hash=Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');if(hash===ADMIN_PIN_HASH){selectMode('admin');}else{document.getElementById('pinErr').style.display='block';document.getElementById('pinInput').value='';document.getElementById('pinInput').focus();}}catch(e){document.getElementById('pinErr').style.display='block';}}
 
 function applyMode(){
   const isAdmin = appMode === 'admin';
@@ -3055,62 +3043,126 @@ function svSup(s){try{localStorage.setItem('ar6_global_suppliers',JSON.stringify
 function mgSup(s){return Object.assign({id:'s'+Date.now(),name:'',phone:'',email:'',addr:'',web:'',notes:''},s);}
 
 function rSup(){
-  let sups=ldSup();
-  const q=(document.getElementById('fSupQ')||{}).value?.toLowerCase()||'';
-  if(q)sups=sups.filter(s=>s.name.toLowerCase().includes(q)||s.email.toLowerCase().includes(q));
-  // KPI
-  const allSups=ldSup();
-  const withEmail=allSups.filter(s=>s.email).length;
-  const withPhone=allSups.filter(s=>s.phone).length;
-  document.getElementById('supKPI').innerHTML=`
-    <div class="kc"><div class="kl">Proveedores</div><div class="kv">${allSups.length}</div></div>
-    <div class="kc"><div class="kl">Con email</div><div class="kv g">${withEmail}</div></div>
-    <div class="kc"><div class="kl">Con teléfono</div><div class="kv b">${withPhone}</div></div>
-    <div class="kc"><div class="kl">En el listado activo</div><div class="kv">${[...new Set(items.map(r=>r.supplier).filter(Boolean))].length}</div></div>`;
-  const con=document.getElementById('supList');
-  if(!sups.length){con.innerHTML=`<div style="text-align:center;padding:32px;color:var(--tx3);">
-    <div style="font-size:28px;margin-bottom:10px;">🏪</div>
-    <div style="font-size:14px;font-weight:500;margin-bottom:6px;">Sin proveedores aún</div>
-    <div style="font-size:13px;margin-bottom:14px;">Agrega proveedores manualmente o importa desde el listado de productos</div>
-    <button class="btn prim" onclick="importSuppliersFromItems()" style="height:34px;">↻ Importar desde listado</button>
-  </div>`;return;}
-  con.innerHTML='';
-  sups.forEach(s=>{
-    // Items linked to this supplier
-    const linked=items.filter(r=>r.supplier&&r.supplier.toUpperCase()===s.name.toUpperCase());
-    const avatar=s.name.trim()[0]?.toUpperCase()||'?';
-    const card=document.createElement('div');card.className='sup-card';
-    card.innerHTML=`
-      <div class="sup-avatar">${avatar}</div>
-      <div class="sup-body">
-        <div class="sup-name">${es(s.name)}</div>
-        <div class="sup-meta">
-          ${s.phone?`<span>📞 ${es(s.phone)}</span>`:''}
-          ${s.email?`<a href="mailto:${es(s.email)}">✉ ${es(s.email)}</a>`:''}
-          ${s.addr?`<span>📍 ${es(s.addr)}</span>`:''}
-          ${s.web?`<a href="${es(s.web)}" target="_blank">🌐 ${es(s.web.replace(/https?:\/\//,''))}</a>`:''}
-          ${!s.phone&&!s.email&&!s.addr&&!s.web?'<span style="color:var(--tx3);font-style:italic;">Sin datos de contacto</span>':''}
-        </div>
-        ${linked.length?`<div class="sup-items">${linked.map(r=>`<span class="badge b-hon" style="font-size:10.5px;">${es(r.item.substring(0,35))}${r.item.length>35?'…':''}</span>`).join('')}</div>`:''}
-        <div style="margin-top:8px;display:flex;gap:6px;">
-          <button class="btn" onclick="toggleSupEdit('sedit-${s.id}')" style="height:28px;font-size:12px;">✏ Editar</button>
-          <button class="db" onclick="deleteSupplier('${s.id}')" style="height:28px;padding:0 10px;border:1px solid var(--bd2);border-radius:4px;">🗑</button>
-        </div>
-        <div class="sup-edit" id="sedit-${s.id}">
-          <div class="sup-edit-grid">
-            <div class="fg sup-full"><label>Nombre</label><input type="text" value="${es(s.name)}" onchange="uSup('${s.id}','name',this.value)"></div>
-            <div class="fg"><label>Teléfono</label><input type="tel" value="${es(s.phone||'')}" onchange="uSup('${s.id}','phone',this.value)" placeholder="+56 9..."></div>
-            <div class="fg"><label>Email</label><input type="email" value="${es(s.email||'')}" onchange="uSup('${s.id}','email',this.value)" placeholder="contacto@proveedor.cl"></div>
-            <div class="fg sup-full"><label>Dirección</label><input type="text" value="${es(s.addr||'')}" onchange="uSup('${s.id}','addr',this.value)" placeholder="Calle, ciudad"></div>
-            <div class="fg sup-full"><label>Sitio web</label><input type="text" value="${es(s.web||'')}" onchange="uSup('${s.id}','web',this.value)" placeholder="https://..."></div>
-            <div class="fg sup-full"><label>Notas</label><input type="text" value="${es(s.notes||'')}" onchange="uSup('${s.id}','notes',this.value)" placeholder="Condiciones, contacto, observaciones..."></div>
-          </div>
-          <button class="btn" onclick="toggleSupEdit('sedit-${s.id}')" style="height:28px;font-size:12px;">✓ Cerrar</button>
-        </div>
-      </div>`;
-    con.appendChild(card);
-  });
+  try{
+    var allSups=ldSup();
+    var q=((document.getElementById('fSupQ')||{}).value||'').toLowerCase();
+    var usedNames=[];
+    items.forEach(function(r){
+      if(r.supplier&&r.supplier.trim()&&usedNames.indexOf(r.supplier.trim())<0)
+        usedNames.push(r.supplier.trim());
+    });
+    var sups=usedNames.map(function(name){
+      for(var i=0;i<allSups.length;i++){
+        if(allSups[i].name.toLowerCase()===name.toLowerCase())return allSups[i];
+      }
+      return{id:'tmp_'+name,name:name,phone:'',email:'',addr:'',web:'',notes:'',_new:true};
+    });
+    if(q)sups=sups.filter(function(s){
+      return s.name.toLowerCase().indexOf(q)>-1||(s.email||'').toLowerCase().indexOf(q)>-1;
+    });
+    document.getElementById('supKPI').innerHTML=
+      '<div class="kc"><div class="kl">En este proyecto</div><div class="kv">'+sups.length+'</div></div>'+
+      '<div class="kc"><div class="kl">Base global</div><div class="kv b">'+allSups.length+'</div></div>'+
+      '<div class="kc"><div class="kl">Con email</div><div class="kv g">'+sups.filter(function(s){return s.email;}).length+'</div></div>'+
+      '<div class="kc"><div class="kl">Con tel.</div><div class="kv">'+sups.filter(function(s){return s.phone;}).length+'</div></div>';
+    var con=document.getElementById('supList');
+    if(!sups.length){
+      con.innerHTML='<div style="text-align:center;padding:32px;color:var(--tx3);">'+
+        '<div style="font-size:14px;font-weight:500;margin-bottom:6px;">Sin proveedores en este proyecto</div>'+
+        '<div style="font-size:12px;">Aparecen al escribirlos en el listado de compras.</div></div>';
+      return;
+    }
+    con.innerHTML='';
+    sups.forEach(function(s){
+      var linked=items.filter(function(r){return(r.supplier||'').toLowerCase()===s.name.toLowerCase();});
+      var card=document.createElement('div');card.className='sup-card';
+      var av=(s.name.charAt(0)||'?').toUpperCase();
+      var meta='';
+      if(s.phone)meta+='<span>Tel: '+es(s.phone)+'</span> ';
+      if(s.email)meta+='<a href="mailto:'+es(s.email)+'">'+es(s.email)+'</a> ';
+      if(s.addr)meta+='<span>'+es(s.addr)+'</span>';
+      if(!meta)meta='<span style="color:var(--tx3);font-style:italic;">Sin contacto</span>';
+      var li='';
+      if(linked.length){
+        li='<div class="sup-items">';
+        linked.slice(0,4).forEach(function(r){li+='<span class="badge b-hon" style="font-size:10.5px;">'+es(r.item.substring(0,28))+'</span>';});
+        if(linked.length>4)li+='<span style="font-size:11px;color:var(--tx3);"> +'+(linked.length-4)+' mas</span>';
+        li+='</div>';
+      }
+      var eid='sup_'+s.id.replace(/[^a-z0-9]/gi,'_');
+      card.innerHTML=
+        '<div class="sup-avatar">'+av+'</div>'+
+        '<div class="sup-body">'+
+          '<div class="sup-name">'+es(s.name)+
+            (!s.phone&&!s.email?'<span style="font-size:10px;background:var(--wn);color:#fff;border-radius:99px;padding:1px 7px;margin-left:6px;">sin contacto</span>':'')+
+          '</div>'+
+          '<div class="sup-meta">'+meta+'</div>'+li+
+          '<div style="margin-top:8px;display:flex;gap:6px;" id="btns_'+eid+'"></div>'+
+          '<div class="sup-edit" id="'+eid+'">'+
+            '<div class="sup-edit-grid">'+
+              '<div class="fg sup-full"><label>Nombre</label><input type="text" id="sn_'+eid+'" value="'+es(s.name)+'"></div>'+
+              '<div class="fg"><label>Telefono</label><input type="tel" id="sp_'+eid+'" value="'+es(s.phone||'')+'" placeholder="+56 9..."></div>'+
+              '<div class="fg"><label>Email</label><input type="email" id="se_'+eid+'" value="'+es(s.email||'')+'" placeholder="@..."></div>'+
+              '<div class="fg sup-full"><label>Direccion</label><input type="text" id="sa_'+eid+'" value="'+es(s.addr||'')+'" placeholder="Calle, ciudad"></div>'+
+              '<div class="fg sup-full"><label>Web</label><input type="text" id="sw_'+eid+'" value="'+es(s.web||'')+'" placeholder="https://..."></div>'+
+              '<div class="fg sup-full"><label>Notas</label><input type="text" id="sno_'+eid+'" value="'+es(s.notes||'')+'" placeholder="Condiciones..."></div>'+
+            '</div>'+
+            '<div style="margin-top:8px;display:flex;gap:6px;">'+
+              '<button class="btn prim" id="savebtn_'+eid+'" style="height:28px;font-size:12px;">Guardar</button>'+
+              '<button class="btn" id="cancelbtn_'+eid+'" style="height:28px;font-size:12px;">Cancelar</button>'+
+            '</div>'+
+          '</div>'+
+        '</div>';
+      con.appendChild(card);
+      // Attach events via JS (no inline onclick = no quote issues)
+      var editBtn=document.createElement('button');
+      editBtn.className='btn';editBtn.style.cssText='height:26px;font-size:12px;';
+      editBtn.textContent='Editar';
+      editBtn.addEventListener('click',function(){toggleSupEdit(eid);});
+      document.getElementById('btns_'+eid).appendChild(editBtn);
+      var delBtn=document.createElement('button');
+      delBtn.className='db';delBtn.style.cssText='height:26px;padding:0 10px;border:1px solid var(--bd2);border-radius:4px;';
+      delBtn.textContent='Eliminar';
+      delBtn.addEventListener('click',(function(id){return function(){deleteSupplier(id);};})(s.id));
+      document.getElementById('btns_'+eid).appendChild(delBtn);
+      document.getElementById('savebtn_'+eid).addEventListener('click',function(){saveSupEdit(eid,s.id);});
+      document.getElementById('cancelbtn_'+eid).addEventListener('click',function(){toggleSupEdit(eid);});
+    });
+  }catch(e){console.error('rSup error:',e);}
 }
+
+function globalSaveSup(name){
+  try{
+    var sups=ldSup();
+    if(!sups.find(function(s){return s.name.toLowerCase()===name.toLowerCase();})){
+      sups.push({id:'s'+Date.now(),name:name,phone:'',email:'',addr:'',web:'',notes:''});
+      svSup(sups);updateSupplierDatalist();
+    }
+    tst('Guardado en base global');rSup();
+  }catch(e){tst('Error: '+e.message);}
+}
+
+function saveSupEdit(eid,id){
+  try{
+    var name=(document.getElementById('sn_'+eid)||{}).value||'';
+    if(!name.trim()){tst('El nombre no puede estar vacio');return;}
+    var sups=ldSup();
+    var ex=sups.find(function(s){return s.id===id;});
+    var obj={
+      id:ex?ex.id:'s'+Date.now(),
+      name:name.trim(),
+      phone:(document.getElementById('sp_'+eid)||{}).value||'',
+      email:(document.getElementById('se_'+eid)||{}).value||'',
+      addr:(document.getElementById('sa_'+eid)||{}).value||'',
+      web:(document.getElementById('sw_'+eid)||{}).value||'',
+      notes:(document.getElementById('sno_'+eid)||{}).value||''
+    };
+    if(ex){Object.assign(ex,obj);}else{sups.push(obj);}
+    svSup(sups);updateSupplierDatalist();
+    tst('Proveedor guardado');rSup();
+  }catch(e){tst('Error: '+e.message);}
+}
+
 
 function toggleSupEdit(id){
   const el=document.getElementById(id);
@@ -3145,30 +3197,9 @@ function importSuppliersFromItems(){
   tst(`✓ ${toAdd.length} proveedor${toAdd.length!==1?'es':''} importado${toAdd.length!==1?'s':''}`);
 }
 
-
-function updateSupplierDatalist(){
-  var sups=ldSup();var dl=document.getElementById('supplierList');if(!dl)return;
-  dl.innerHTML=sups.map(function(s){return '<option value="'+s.name+'">';}).join('');
-}
-function autoAddSupplier(name){
-  if(!name||!name.trim())return;
-  var sups=ldSup();
-  if(!sups.find(function(s){return s.name.toLowerCase()===name.toLowerCase().trim();})){
-    sups.push({id:'s'+Date.now(),name:name.trim(),phone:'',email:'',addr:'',web:'',notes:''});
-    svSup(sups);updateSupplierDatalist();
-  }
-}
-function migrateItemSuppliersToGlobal(){
-  var sups=ldSup();var names=sups.map(function(s){return s.name.toLowerCase();});var added=0;
-  var all=[].concat(DI,DI_MAP['p1777909472770']||[],DI_MAP['p1778165367591']||[],DI_MAP['p1777905676087']||[]);
-  all.forEach(function(r){
-    if(r.supplier&&r.supplier.trim()&&names.indexOf(r.supplier.toLowerCase().trim())<0){
-      sups.push({id:'s'+Date.now()+added,name:r.supplier.trim(),phone:'',email:'',addr:'',web:'',notes:''});
-      names.push(r.supplier.toLowerCase().trim());added++;
-    }
-  });
-  if(added>0){svSup(sups);}
-}
+function updateSupplierDatalist(){var sups=ldSup();var dl=document.getElementById('supplierList');if(!dl)return;dl.innerHTML=sups.map(function(s){return '<option value="'+s.name+'">';}).join('');}
+function autoAddSupplier(name){if(!name||!name.trim())return;var sups=ldSup();if(!sups.find(function(s){return s.name.toLowerCase()===name.toLowerCase().trim();})){sups.push({id:'s'+Date.now(),name:name.trim(),phone:'',email:'',addr:'',web:'',notes:''});svSup(sups);updateSupplierDatalist();}}
+function migrateItemSuppliersToGlobal(){try{var sups=ldSup();var names=sups.map(function(s){return s.name.toLowerCase();});var all=DI.slice();Object.keys(DI_MAP).forEach(function(k){all=all.concat(DI_MAP[k]);});all.forEach(function(r){if(r.supplier&&r.supplier.trim()&&names.indexOf(r.supplier.toLowerCase().trim())<0){sups.push({id:'s'+Date.now()+Math.floor(Math.random()*9999),name:r.supplier.trim(),phone:'',email:'',addr:'',web:'',notes:''});names.push(r.supplier.toLowerCase().trim());}});svSup(sups);}catch(e){}}
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 // Show access modal on startup
