@@ -2290,7 +2290,7 @@ function renderCatSummary(){
 
 
 // ── ACCESS CONTROL ─────────────────────────────────────────────────────────
-const ADMIN_PIN = 'Fel17190.'; // ← CAMBIA ESTE PIN
+const ADMIN_PIN_HASH = 'eccb04353d3c1bb303ce4da89460c73d9fc99e126cc272159f08c4fd8e73c445'; // ← CAMBIA ESTE PIN
 let appMode = localStorage.getItem('ar6_mode') || 'worker'; // default: worker
 
 function openAccessModal(){
@@ -2316,14 +2316,21 @@ function selectMode(mode){
   tst(mode === 'admin' ? '✓ Acceso administrador activado' : '✓ Acceso trabajador activado');
 }
 
-function checkPin(){
+async function checkPin(){
   const val = document.getElementById('pinInput').value;
-  if(val === ADMIN_PIN){
-    selectMode('admin');
-  } else {
+  try{
+    const enc = new TextEncoder().encode(val);
+    const buf = await crypto.subtle.digest('SHA-256', enc);
+    const hash = Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+    if(hash === ADMIN_PIN_HASH){
+      selectMode('admin');
+    } else {
+      document.getElementById('pinErr').style.display = 'block';
+      document.getElementById('pinInput').value = '';
+      document.getElementById('pinInput').focus();
+    }
+  }catch(e){
     document.getElementById('pinErr').style.display = 'block';
-    document.getElementById('pinInput').value = '';
-    document.getElementById('pinInput').focus();
   }
 }
 
