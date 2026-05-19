@@ -748,6 +748,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
     <span id="lastRevLabel" style="font-size:11px;color:var(--tx2);"></span>
     <button class="btn prim" onclick="manualSave()" style="height:28px;font-size:12px;padding:0 12px;margin-left:8px;">Guardar cambios</button>
     <span id="saveStatus" style="font-size:12px;margin-left:6px;"></span>
+    <span id="syncStatus" style="font-size:11px;color:var(--tx3);margin-left:8px;"></span>
   </div>
   <div class="kr" id="comprasKPI"></div>
   <div id="wfMiniCompras" style="margin-bottom:8px;"></div>
@@ -1267,9 +1268,13 @@ function sAll(){
     localStorage.setItem('ar6_p'+currentProjId+'_items',JSON.stringify(items));
     localStorage.setItem('ar6_p'+currentProjId+'_pagos',JSON.stringify(pagos));
     localStorage.setItem('ar6_p'+currentProjId+'_cots',JSON.stringify(cots));
+    var el=document.getElementById('saveStatus');
+    if(el){el.textContent='Guardado';el.style.color='var(--ac)';clearTimeout(window._st);window._st=setTimeout(function(){el.textContent='';},3000);}
   }catch(e){}
+  // Sync to Supabase (cloud)
+  try{sbSaveItems(currentProjId,items);}catch(e){}
 }
-function manualSave(){sAll();updateBackupInfo();tst('Datos guardados');}
+function manualSave(){sAll();updateBackupInfo();tst('Datos guardados y sincronizados');}
 function saveGlobal(){gd.lastReview=document.getElementById('lastRevGlobal').value;sv('ar5_global',gd);document.getElementById('lastRevLabel').textContent=gd.lastReview?'('+fd(gd.lastReview)+')'  :'';}
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
@@ -2327,6 +2332,14 @@ function openProject(pid){
   pagos=ldP('pagos',pid==='rucachue'?DP:[]).map(mgP);
   cots=ldP('cots',[]).map(mgC);
   if(typeof logs!=='undefined')logs=ldP('logs',pid==='rucachue'?DL:[]).map(mgL);
+  // Load from Supabase and refresh if newer data found
+  sbLoadItems(pid).then(function(sbItems){
+    if(sbItems&&sbItems.length){
+      items=sbItems.map(mg);
+      localStorage.setItem('ar6_p'+pid+'_items',JSON.stringify(items));
+      rC();updateBackupInfo();uNT();
+    }
+  }).catch(function(){});
   gd=ldP('global',{lastReview:''});
   nii=Math.max(0,...items.map(i=>i.id))+1;
   nip=Math.max(0,...pagos.map(x=>x.id))+1;
@@ -2558,7 +2571,8 @@ function renderCatSummary(){
 
 // ── ACCESS CONTROL ─────────────────────────────────────────────────────────
 const ADMIN_PIN_HASH='eccb04353d3c1bb303ce4da89460c73d9fc99e126cc272159f08c4fd8e73c445';
-let appMode = localStorage.getItem('ar6_mode') || 'worker'; // default: worker
+let appMode = localStorage.getItem('ar6_mode') || 'worker';
+try{initSupabaseSync();}catch(e){} // default: worker
 
 function openAccessModal(){
   document.getElementById('pinInput').value = '';
@@ -3642,9 +3656,166 @@ function renderWFMini(pid){
     +'</div>';
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SUPABASE SYNC — datos en la nube, visibles para todo el equipo
+// ══════════════════════════════════════════════════════════════════════════════
+const SB_URL = 'https://iucjhzsnlotojvpyjcfo.supabase.co/rest/v1';
+const SB_KEY = 'sb_publishable_ISx7dyiYpe-uQOcIoI1E1A_Tv0jDW5d';
+const SB_H = {
+  'apikey': SB_KEY,
+  'Authorization': 'Bearer ' + SB_KEY,
+  'Content-Type': 'application/json',
+  'Prefer': 'resolution=merge-duplicates,return=minimal'
+};
+const SB_RH = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY };
+
+function setSyncStatus(st){
+  var el=document.getElementById('syncStatus');
+  if(!el)return;
+  if(st==='saving'){el.textContent='Guardando...';el.style.color='var(--tx3)';}
+  else if(st==='saved'){el.textContent='Sincronizado';el.style.color='var(--ac)';setTimeout(function(){el.textContent='';} ,3000);}
+  else if(st==='error'){el.textContent='Sin conexion';el.style.color='var(--wn)';}
+  else if(st==='loading'){el.textContent='Cargando...';el.style.color='var(--tx3)';}
+}
+
+// Convert item object to Supabase row
+function itemToRow(r, pid){
+  return {
+    id: String(r.id),
+    project_id: pid,
+    cat: r.cat||'',
+    item: r.item||'',
+    supplier: r.supplier||'',
+    qty: r.qty||1,
+    unit: r.unit||0,
+    space: r.space||'',
+    notes: r.notes||'',
+    specs: r.specs||'',
+    product_url: r.productUrl||'',
+    pay_status: r.payStatus||'Pendiente',
+    delivery_status: r.deliveryStatus||'Sin iniciar',
+    install_status: r.installStatus||'Pendiente',
+    client_status: r.clientStatus||'',
+    client_approval_date: r.clientApprovalDate||'',
+    p1pct: r.p1pct||0, p1amt: r.p1amt||0, p1date: r.p1date||'', p1method: r.p1method||'', p1note: r.p1note||'',
+    p2pct: r.p2pct||0, p2amt: r.p2amt||0, p2date: r.p2date||'', p2method: r.p2method||'', p2note: r.p2note||'',
+    p3pct: r.p3pct||0, p3amt: r.p3amt||0, p3date: r.p3date||'', p3method: r.p3method||'', p3note: r.p3note||'',
+    p4pct: r.p4pct||0, p4amt: r.p4amt||0, p4date: r.p4date||'', p4method: r.p4method||'', p4note: r.p4note||'',
+    order_date: r.orderDate||'',
+    lead_weeks: r.leadWeeks||'',
+    est_delivery: r.estDelivery||'',
+    actual_delivery: r.actualDelivery||'',
+    install_date: r.installDate||'',
+    track_note: r.trackNote||'',
+    last_review_date: r.lastReviewDate||''
+  };
+}
+
+// Convert Supabase row to item object
+function rowToItem(row){
+  return {
+    id: Number(row.id)||row.id,
+    cat: row.cat||'',
+    item: row.item||'',
+    supplier: row.supplier||'',
+    qty: row.qty||1,
+    unit: row.unit||0,
+    space: row.space||'',
+    notes: row.notes||'',
+    specs: row.specs||'',
+    productUrl: row.product_url||'',
+    payStatus: row.pay_status||'Pendiente',
+    deliveryStatus: row.delivery_status||'Sin iniciar',
+    installStatus: row.install_status||'Pendiente',
+    clientStatus: row.client_status||'',
+    clientApprovalDate: row.client_approval_date||'',
+    p1pct: row.p1pct||0, p1amt: row.p1amt||0, p1date: row.p1date||'', p1method: row.p1method||'', p1note: row.p1note||'',
+    p2pct: row.p2pct||0, p2amt: row.p2amt||0, p2date: row.p2date||'', p2method: row.p2method||'', p2note: row.p2note||'',
+    p3pct: row.p3pct||0, p3amt: row.p3amt||0, p3date: row.p3date||'', p3method: row.p3method||'', p3note: row.p3note||'',
+    p4pct: row.p4pct||0, p4amt: row.p4amt||0, p4date: row.p4date||'', p4method: row.p4method||'', p4note: row.p4note||'',
+    orderDate: row.order_date||'',
+    leadWeeks: row.lead_weeks||'',
+    estDelivery: row.est_delivery||'',
+    actualDelivery: row.actual_delivery||'',
+    installDate: row.install_date||'',
+    trackNote: row.track_note||'',
+    lastReviewDate: row.last_review_date||''
+  };
+}
+
+// Save items to Supabase (fire and forget)
+var _sbSaveTimer=null;
+function sbSaveItems(pid, its){
+  clearTimeout(_sbSaveTimer);
+  _sbSaveTimer=setTimeout(function(){
+    setSyncStatus('saving');
+    var rows=its.map(function(r){return itemToRow(r,pid);});
+    fetch(SB_URL+'/items',{method:'POST',headers:SB_H,body:JSON.stringify(rows)})
+      .then(function(r){setSyncStatus(r.ok?'saved':'error');})
+      .catch(function(){setSyncStatus('error');});
+  },1500);
+}
+
+// Load items from Supabase
+async function sbLoadItems(pid){
+  try{
+    setSyncStatus('loading');
+    var r=await fetch(SB_URL+'/items?project_id=eq.'+encodeURIComponent(pid)+'&order=id',{headers:SB_RH});
+    if(!r.ok)return null;
+    var rows=await r.json();
+    setSyncStatus('saved');
+    return rows.length>0?rows.map(rowToItem):null;
+  }catch(e){setSyncStatus('error');return null;}
+}
+
+// Save projects list to Supabase
+function sbSaveProjects(projs){
+  projs.forEach(function(p){
+    fetch(SB_URL+'/projects',{
+      method:'POST',headers:SB_H,
+      body:JSON.stringify({id:p.id,name:p.name,client:p.client||'',color:p.color||'',status:p.status||'Activo',addr:p.addr||'',notes:p.notes||''})
+    }).catch(function(){});
+  });
+}
+
+// Load projects from Supabase  
+async function sbLoadProjects(){
+  try{
+    var r=await fetch(SB_URL+'/projects?order=id',{headers:SB_RH});
+    if(!r.ok)return null;
+    var rows=await r.json();
+    return rows.length>0?rows:null;
+  }catch(e){return null;}
+}
+
+
+// On startup: push bundled data to Supabase if needed
+async function initSupabaseSync(){
+  try{
+    // Check if Supabase has data for rucachue
+    var r=await fetch(SB_URL+'/items?project_id=eq.rucachue&limit=1',{headers:SB_RH});
+    if(r.ok){
+      var existing=await r.json();
+      if(!existing.length){
+        // Push all bundled data
+        tst('Sincronizando datos iniciales con la nube...');
+        var allPids=['rucachue','p1777909472770','p1778165367591','p1777905676087'];
+        allPids.forEach(function(pid){
+          var di=pid==='rucachue'?DI:(DI_MAP[pid]||[]);
+          if(di.length){
+            fetch(SB_URL+'/items',{method:'POST',headers:SB_H,body:JSON.stringify(di.map(function(r){return itemToRow(r,pid);}))}).catch(function(){});
+          }
+        });
+      }
+    }
+  }catch(e){}
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 // Show access modal on startup
 appMode = localStorage.getItem('ar6_mode') || 'worker';
+try{initSupabaseSync();}catch(e){}
 applyMode();
 renderHome();
 // Show access modal only if no mode was previously saved
