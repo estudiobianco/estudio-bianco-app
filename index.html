@@ -1392,8 +1392,8 @@ function rC(){
     hdr.innerHTML=`<span class="acc-arrow">›</span>
       <div class="acc-title"><span class="badge ${cc}">${cat}</span><span style="font-size:12px;color:var(--tx2);margin-left:4px;">${group.length} ítem${group.length!==1?'s':''}</span></div>
       <div class="acc-stats">
-        ${catTotal>0?`<div class="acc-stat"><div class="asl">Total</div><div class="asv">${fm(catTotal)}</div></div>`:''}
-        ${catPaid>0?`<div class="acc-stat"><div class="asl">Pagado</div><div class="asv g">${fm(catPaid)}</div></div>`:''}
+        ${appMode==='admin'&&catTotal>0?`<div class="acc-stat"><div class="asl">Total</div><div class="asv">${fm(catTotal)}</div></div>`:''}
+        ${appMode==='admin'&&catPaid>0?`<div class="acc-stat"><div class="asl">Pagado</div><div class="asv g">${fm(catPaid)}</div></div>`:''}
         ${catPendN>0?`<div class="acc-stat"><div class="asl">Pendiente</div><div class="asv r">${catPendN} ítem${catPendN!==1?'s':''}</div></div>`:''}
       </div>`;
     acc.appendChild(hdr);
@@ -2018,7 +2018,19 @@ function sAll(){
   svP('items',items);svP('pagos',pagos);svP('cots',cots);
 }
 
-function getProjectStats(pid){try{const it=JSON.parse(localStorage.getItem('ar6_p'+pid+'_items')||'[]');if(!it.length){if(pid==='rucachue'){const old=localStorage.getItem('ar5_items');if(old){const a=JSON.parse(old);return{count:a.length,total:a.reduce((s,r)=>s+(r.qty||1)*(r.unit||0),0),paid:0};}}const di=window['DI_'+pid];if(di&&di.length)return{count:di.length,total:di.reduce((s,r)=>s+(r.qty||1)*(r.unit||0),0),paid:0};return{count:0,total:0,paid:0};}return{count:it.length,total:it.reduce((s,r)=>s+(r.qty||1)*(r.unit||0),0),paid:it.filter(r=>r.payStatus==='Pagado').length};}catch(e){return{count:0,total:0,paid:0};}}
+function getProjectStats(pid){try{
+  var it=JSON.parse(localStorage.getItem('ar6_p'+pid+'_items')||'[]');
+  if(!it.length){
+    // Try old rucachue keys
+    if(pid==='rucachue'){var old=localStorage.getItem('ar5_items');if(old){var a=JSON.parse(old);it=a;}}
+    // Use DI_MAP bundled data
+    if(!it.length){var di=pid==='rucachue'?DI:(DI_MAP[pid]||[]);if(di&&di.length)it=di;}
+  }
+  if(!it.length)return{count:0,total:0,paid:0};
+  var tot=it.reduce(function(s,r){return s+(r.qty||1)*(r.unit||0);},0);
+  var paid=it.filter(function(r){return r.payStatus==='Pagado';}).length;
+  return{count:it.length,total:tot,paid:paid};
+}catch(e){return{count:0,total:0,paid:0};}}
 
 function renderHome(){
   document.getElementById('homeDate').textContent=new Date().toLocaleDateString('es-CL',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
