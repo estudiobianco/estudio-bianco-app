@@ -1151,7 +1151,7 @@ const CS_OPTS=['','Aprobado','Por revisar','Solicita cambios'];
 const COT_STATUSES=['Pendiente','Aprobada','Rechazada','En espera'];
 const PM=['Transferencia bancaria','Tarjeta crédito','Tarjeta débito','Efectivo','Cheque','Otro'];
 // HT is computed dynamically in rH() from Honorarios items
-const CAT_MAP={'Equipamiento':'Decoración e instalaciones','Revestimientos':'Revestimientos y acabados','Construcción':'Obra','Muebles a medida':'Mobiliario a medida'};
+const CAT_MAP={'Revestimientos':'Revestimientos y acabados','Construcción':'Obra','Muebles a medida':'Mobiliario a medida'};
 
 function catCls(c){return {'Obra':'b-obra','Revestimientos y acabados':'b-rev','Iluminación':'b-ilu','Mobiliario':'b-mob','Mobiliario a medida':'b-mea','Decoración e instalaciones':'b-dec','Honorarios':'b-hon','Materiales':'b-mat','Equipamiento':'b-equ'}[c]||'b-hon';}
 function payCls(s){return {'Pendiente':'ps-Pendiente','Pagado':'ps-Pagado','Pagado parcialmente':'ps-Parcial','Devuelto':'ps-Devuelto'}[s]||'ps-Pendiente';}
