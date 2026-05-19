@@ -660,7 +660,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
         <div class="aot">🔑 Acceso administrador</div>
         <div class="aos">Acceso completo — requiere PIN</div>
         <div class="am-pin-wrap" id="pinWrap">
-          <input type="password" id="pinInput" maxlength="6" placeholder="• • • • • •" oninput="this.value=this.value.replace(/[^0-9]/g,'')" onkeydown="if(event.key==='Enter')checkPin()">
+          <input type="password" id="pinInput" maxlength="20" placeholder="Contraseña" onkeydown="if(event.key==='Enter')checkPin()">
           <div class="am-pin-err" id="pinErr">PIN incorrecto. Intenta de nuevo.</div>
           <button class="btn prim" onclick="checkPin()" style="width:100%;height:36px;">Entrar como administrador</button>
         </div>
@@ -1219,16 +1219,7 @@ const rT=r=>r.qty*r.unit;
 const es=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
 function tst(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
 function go(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');({compras:rC,pagados:rPag,pendientes:rPend,seguimiento:rSeg,cotizaciones:rCot,honorarios:rH,gestion:rGP,crm:rCRM})[id]?.();}
-function uNT(){
-  const ntot=document.getElementById('navTotDiv');
-  if(!ntot)return;
-  if(appMode==='admin'){
-    ntot.style.display='';
-    document.getElementById('navTotal').textContent=fm(items.reduce((a,r)=>a+rT(r),0));
-  } else {
-    ntot.style.display='none';
-  }
-}
+function uNT(){const n=document.getElementById('navTotDiv');if(!n)return;if(appMode==='admin'&&currentProjId){n.style.display='';document.getElementById('navTotal').textContent=fm(items.filter(r=>r.cat!=='Honorarios').reduce((a,r)=>a+rT(r),0));}else{n.style.display='none';}}
 function tp(r){return(r.p1amt||0)+(r.p2amt||0)+(r.p3amt||0)+(r.p4amt||0);}
 function tpend(r){return Math.max(0,rT(r)-tp(r));}
 
@@ -1275,6 +1266,7 @@ function rCKPI(){
   const saldo = Math.max(0, tot - desemb);
   const pct = tot>0 ? Math.round(desemb/tot*100) : 0;
   const kpiEl=document.getElementById('comprasKPI');
+  if(!kpiEl)return;
   if(appMode!=='admin'){kpiEl.innerHTML='';kpiEl.style.display='none';return;}
   kpiEl.style.display='';
   document.getElementById('comprasKPI').innerHTML=`
@@ -1398,8 +1390,8 @@ function rC(){
     hdr.innerHTML=`<span class="acc-arrow">›</span>
       <div class="acc-title"><span class="badge ${cc}">${cat}</span><span style="font-size:12px;color:var(--tx2);margin-left:4px;">${group.length} ítem${group.length!==1?'s':''}</span></div>
       <div class="acc-stats">
-        ${appMode==='admin'&&catTotal>0?`<div class="acc-stat"><div class="asl">Total</div><div class="asv">${fm(catTotal)}</div></div>`:''}
-        ${appMode==='admin'&&catPaid>0?`<div class="acc-stat"><div class="asl">Pagado</div><div class="asv g">${fm(catPaid)}</div></div>`:''}
+        ${catTotal>0?`<div class="acc-stat"><div class="asl">Total</div><div class="asv">${fm(catTotal)}</div></div>`:''}
+        ${catPaid>0?`<div class="acc-stat"><div class="asl">Pagado</div><div class="asv g">${fm(catPaid)}</div></div>`:''}
         ${catPendN>0?`<div class="acc-stat"><div class="asl">Pendiente</div><div class="asv r">${catPendN} ítem${catPendN!==1?'s':''}</div></div>`:''}
       </div>`;
     acc.appendChild(hdr);
@@ -1504,8 +1496,7 @@ function rC(){
     acc.appendChild(body);
     con.appendChild(acc);
   });
-  const _tr=document.getElementById('comprasTotalRow');
-  if(_tr)_tr.style.display=appMode==='admin'?'':'none';
+  const _tr=document.getElementById('comprasTotalRow');if(_tr)_tr.style.display=appMode==='admin'?'':'none';
   document.getElementById('comprasTotal').textContent=fm(vis);
   rCKPI();
   restoreP();
@@ -1983,14 +1974,7 @@ document.getElementById('recModal').addEventListener('click',function(e){if(e.ta
 const PROJ_COLORS=['#2A5C45','#1A4A7A','#8B6914','#B83030','#4A3A9A','#993556','#2C5A0E','#5F4B3A','#1A6B6B','#6B3A1A'];
 const DEF_PROJ={id:'rucachue',name:'Alto Rucachue',client:'Estudio Bianco Spa',addr:'Lo Barnechea, Santiago',startDate:'2025-09-01',status:'En obra',color:'#2A5C45',notes:'Remodelación integral'};
 
-function ldProjects(){
-  const ALL=[{"id":"p1777909472770","name":"San Francisco - Edgar Vogel","client":"","color":"#2A5C45","status":"Activo","addr":"","startDate":"","notes":""},{"id":"rucachue","name":"Alto Rucachue","client":"","color":"#1A4A7A","status":"Activo","addr":"","startDate":"","notes":""},{"id":"p1778165367591","name":"Tulio Pulgar - Cardiología","client":"","color":"#8B6914","status":"Activo","addr":"","startDate":"","notes":""},{"id":"p1777905676087","name":"Dormitorio - Terraza José Manuel Perez","client":"","color":"#993556","status":"Activo","addr":"","startDate":"","notes":""}];
-  try{const v=localStorage.getItem('ar6_projects');const s=v?JSON.parse(v):[];
-    ALL.forEach(function(p){if(!s.find(function(x){return x.id===p.id;})&&p.id)s.push(p);});
-    if(s.length){localStorage.setItem('ar6_projects',JSON.stringify(s));return s;}
-  }catch(e){}
-  return ALL;
-}
+function ldProjects(){const ALL=[{"id":"p1777909472770","name":"San Francisco - Edgar Vogel","client":"","color":"#2A5C45","status":"Activo","addr":"","startDate":"","notes":""},{"id":"rucachue","name":"Alto Rucachue","client":"","color":"#1A4A7A","status":"Activo","addr":"","startDate":"","notes":""},{"id":"p1778165367591","name":"Tulio Pulgar - Cardiología","client":"","color":"#8B6914","status":"Activo","addr":"","startDate":"","notes":""},{"id":"p1777905676087","name":"Dormitorio - Terraza José Manuel Perez","client":"","color":"#993556","status":"Activo","addr":"","startDate":"","notes":""}];try{const v=localStorage.getItem('ar6_projects');const s=v?JSON.parse(v):[];ALL.forEach(function(p){if(!s.find(function(x){return x.id===p.id;})&&p.id)s.push(p);});if(s.length){localStorage.setItem('ar6_projects',JSON.stringify(s));return s;}}catch(e){}return ALL;}
 function svProjects(projs){try{localStorage.setItem('ar6_projects',JSON.stringify(projs));}catch(e){}}
 
 let projects=ldProjects();
@@ -2027,19 +2011,7 @@ function svP(suffix,val){
 // Override sAll to use project keys
 
 
-function getProjectStats(pid){
-  try{
-    const it=JSON.parse(localStorage.getItem('ar6_p'+pid+'_items')||'[]');
-    if(!it.length){
-      if(pid==='rucachue'){const old=localStorage.getItem('ar5_items')||localStorage.getItem('ar4_items');if(old){const a=JSON.parse(old);return{count:a.length,total:a.reduce((s,r)=>s+(r.qty||1)*(r.unit||0),0),paid:0};}}
-      // Use bundled data
-      const di=window['DI_'+pid];
-      if(di&&di.length)return{count:di.length,total:di.reduce((s,r)=>s+(r.qty||1)*(r.unit||0),0),paid:0};
-      return{count:0,total:0,paid:0};
-    }
-    return{count:it.length,total:it.reduce((s,r)=>s+(r.qty||1)*(r.unit||0),0),paid:it.filter(r=>r.payStatus==='Pagado').length};
-  }catch(e){return{count:0,total:0,paid:0};}
-}
+function getProjectStats(pid){try{const it=JSON.parse(localStorage.getItem('ar6_p'+pid+'_items')||'[]');if(!it.length){if(pid==='rucachue'){const old=localStorage.getItem('ar5_items');if(old){const a=JSON.parse(old);return{count:a.length,total:a.reduce((s,r)=>s+(r.qty||1)*(r.unit||0),0),paid:0};}}const di=window['DI_'+pid];if(di&&di.length)return{count:di.length,total:di.reduce((s,r)=>s+(r.qty||1)*(r.unit||0),0),paid:0};return{count:0,total:0,paid:0};}return{count:it.length,total:it.reduce((s,r)=>s+(r.qty||1)*(r.unit||0),0),paid:it.filter(r=>r.payStatus==='Pagado').length};}catch(e){return{count:0,total:0,paid:0};}}
 
 function renderHome(){
   document.getElementById('homeDate').textContent=new Date().toLocaleDateString('es-CL',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
@@ -2058,7 +2030,7 @@ function renderHome(){
       <div class="pc-name">${es(p.name)}</div>
       <div class="pc-client">${es(p.client)}${p.addr?' · '+es(p.addr):''}</div>
       <div class="pc-stats">
-        ${appMode==='admin'?`<div class="pc-stat"><div class="psl">Total proyecto</div><div class="psv">${s.total>0?fm(s.total):'Sin datos'}</div></div>`:''}
+        ${appMode==='admin'?'<div class="pc-stat"><div class="psl">Total proyecto</div><div class="psv">'+(s.total>0?fm(s.total):'Sin datos')+'</div></div>':''}
         <div class="pc-stat"><div class="psl">Ítems</div><div class="psv g">${s.count}</div></div>
       </div>
       <div class="pc-footer">
@@ -2318,7 +2290,7 @@ function renderCatSummary(){
 
 
 // ── ACCESS CONTROL ─────────────────────────────────────────────────────────
-const ADMIN_PIN = '1234'; // ← CAMBIA ESTE PIN
+const ADMIN_PIN = 'Fel17190.'; // ← CAMBIA ESTE PIN
 let appMode = localStorage.getItem('ar6_mode') || 'worker'; // default: worker
 
 function openAccessModal(){
@@ -2377,7 +2349,6 @@ function applyMode(){
   });
   // Hide honorarios from nav total calculation in worker mode
   updateNavTotal();
-  if(typeof rCKPI==='function')rCKPI();
 }
 
 // Override go() to block honorarios for workers
