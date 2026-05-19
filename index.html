@@ -542,6 +542,38 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
 .sup-edit-grid .fg input:focus{outline:none;border-color:var(--ac);}
 .sup-full{grid-column:1/-1;}
 
+
+
+
+
+/* PDF PAGE BREAKS */
+.psec{page-break-after:always;}
+.psec:last-child{page-break-after:avoid;}
+.ptbl-full{width:100%;border-collapse:collapse;font-size:11.5px;}
+.ptbl-full th{padding:7px 10px;background:#1A1916;color:#fff;text-align:left;border:1px solid #333;}
+.ptbl-full td{padding:6px 10px;border:1px solid #ddd;vertical-align:top;}
+.ptbl-full tr:nth-child(even) td{background:#fafaf8;}
+/* PORTADA blanca */
+.pcover{background:#fff;padding:60px 52px;min-height:500px;display:flex;flex-direction:column;border:none;page-break-after:always;}
+.pcover-logo{font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#888;margin-bottom:40px;}
+.pcover-tag{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#aaa;margin-bottom:14px;}
+.pcover-title{font-size:36px;font-weight:700;line-height:1.2;color:#1A1916;margin-bottom:10px;}
+.pcover-client{font-size:16px;color:#555;margin-bottom:4px;}
+.pcover-addr{font-size:13px;color:#999;margin-bottom:20px;}
+.pcover-date{font-size:12px;color:#aaa;margin-bottom:32px;}
+.pcover-bar{height:4px;background:linear-gradient(90deg,#2A5C45,#1A4A7A);border-radius:99px;width:80px;margin-bottom:36px;}
+.pcover-index{border-top:1px solid #eee;padding-top:24px;margin-top:auto;}
+.pcover-idx-item{font-size:13px;color:#444;padding:7px 0;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;gap:12px;}
+.pcover-idx-num{width:22px;height:22px;border-radius:50%;background:#1A1916;color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;}
+/* FLUJO GRAFICO */
+.wf-phase-pdf{margin-bottom:18px;}
+.wf-phase-title-pdf{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:4px 10px;color:#fff;border-radius:3px;display:inline-block;margin-bottom:8px;}
+.wf-steps-pdf{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;}
+.wf-step-pdf{padding:8px 10px;border-radius:5px;border:1px solid #ddd;font-size:11px;display:flex;align-items:flex-start;gap:7px;}
+.wf-step-pdf.done{background:#F0F7F3;border-color:#B8D9C8;}
+.wf-step-pdf.active{background:#EDF3FB;border-color:#9BBCD9;}
+.wf-step-num{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0;}
+
 </style>
 </head>
 <body>
@@ -1967,25 +1999,127 @@ function showPDF(){
     supHTML='<p style="color:#999;font-style:italic;font-size:12px;">Sin proveedores registrados. Usa la pestaña Proveedores para agregar datos de contacto.</p>';
   }
 
+
+
+  // ── COTIZACIONES LINKS ────────────────────────────────────────────────────
+  var cotLinks2=cots.filter(function(c){return c.url&&c.url.trim();});
+  var cotLinksHTML='';
+  if(cotLinks2.length){
+    var cRows='';
+    cotLinks2.forEach(function(c){
+      cRows+='<tr><td style="font-weight:600;">'+es(c.name||'')+'</td>'
+        +'<td>'+es(c.supplier||'')+'</td>'
+        +'<td class="pmono">'+fm(c.amount||0)+'</td>'
+        +'<td>'+es(c.status||'')+'</td>'
+        +'<td><a href="'+es(c.url)+'" style="color:#1A4A7A;">Ver documento</a></td></tr>';
+    });
+    cotLinksHTML='<table class="ptbl-full"><thead><tr><th>Nombre</th><th>Proveedor</th><th>Monto</th><th>Estado</th><th>Link</th></tr></thead><tbody>'+cRows+'</tbody></table>';
+  } else {
+    cotLinksHTML='<p style="color:#999;font-style:italic;font-size:12px;">Sin cotizaciones con links adjuntos.</p>';
+  }
+
+  // ── FLUJO GRAFICO ─────────────────────────────────────────────────────────
+  var wfD=ldWFForProj(currentProjId);
+  var wfP=getWFProgress(currentProjId);
+  var wfS=getWFCurrentStage(currentProjId);
+  var flujoHTML='';
+  // Progress bar
+  flujoHTML+='<div style="margin-bottom:20px;padding:14px 18px;background:#f8f7f5;border-radius:8px;border:1px solid #eee;">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">'
+    +'<div><div style="font-size:13px;font-weight:600;">Avance del proceso</div>'
+    +'<div style="font-size:11px;color:#888;margin-top:2px;">Etapa actual: <strong style="color:'+wfS.phaseColor+';">'+wfS.step+'</strong></div></div>'
+    +'<div style="font-size:28px;font-weight:700;color:#2A5C45;">'+wfP.pct+'%</div></div>'
+    +'<div style="height:10px;background:#e0e0e0;border-radius:99px;overflow:hidden;">'
+    +'<div style="width:'+wfP.pct+'%;height:100%;background:linear-gradient(90deg,#2A5C45,#1A4A7A);border-radius:99px;"></div></div>'
+    +'<div style="display:flex;justify-content:space-between;font-size:10px;color:#aaa;margin-top:4px;">'
+    +'<span>'+wfP.done+' de '+wfP.total+' etapas completadas</span>'
+    +'<span>'+(wfP.total-wfP.done)+' pendientes</span></div></div>';
+  // Phases grid
+  if(typeof WF_PHASES!=='undefined'){
+    WF_PHASES.forEach(function(ph){
+      flujoHTML+='<div class="wf-phase-pdf">'
+        +'<div class="wf-phase-title-pdf" style="background:'+ph.color+'">'+ph.name+'</div>'
+        +'<div class="wf-steps-pdf">';
+      ph.steps.forEach(function(step){
+        var sd=wfD[step.id]||{};
+        var st=sd.status||'pending';
+        var cls='wf-step-pdf'+(st==='done'?' done':st==='active'?' active':'');
+        var numBg=st==='done'?'#2A5C45':st==='active'?'#1A4A7A':'#ccc';
+        var icon=st==='done'?'v':st==='active'?'>':String(step.id);
+        flujoHTML+='<div class="'+cls+'">'
+          +'<div class="wf-step-num" style="background:'+numBg+'">'+icon+'</div>'
+          +'<div style="line-height:1.4;">'
+          +(st==='done'?'<span style="color:#2A5C45;font-weight:600;">':st==='active'?'<span style="color:#1A4A7A;font-weight:600;">':'<span style="color:#999;">')
+          +step.title+'</span>'
+          +(sd.date?'<div style="font-size:9px;color:#aaa;margin-top:2px;">'+fd(sd.date)+'</div>':'')
+          +'</div></div>';
+      });
+      flujoHTML+='</div></div>';
+    });
+  }
+
+  // ── LISTADO MEJORADO CON TABLA ─────────────────────────────────────────────
+  var catHTMLtbl='';
+  var cats2=[...new Set(items.map(function(r){return r.cat;}))];
+  cats2.forEach(function(cat){
+    var group=items.filter(function(r){return r.cat===cat;});
+    var catTot=group.reduce(function(a,r){return a+rT(r);},0);
+    var catPaid=group.reduce(function(a,r){return a+tp(r);},0);
+    catHTMLtbl+='<div style="margin-bottom:16px;">'
+      +'<div style="padding:6px 10px;background:#1A1916;color:#fff;font-size:12px;font-weight:600;display:flex;justify-content:space-between;">'
+      +'<span>'+cat+'</span>'
+      +'<span class="pmono">'+fm(catTot)+'</span></div>'
+      +'<table class="ptbl-full"><thead><tr>'
+      +'<th style="width:35%">Producto / Descripcion</th>'
+      +'<th>Proveedor</th>'
+      +'<th>Espacio</th>'
+      +'<th style="text-align:right">Total</th>'
+      +'<th style="text-align:right">Pagado</th>'
+      +'<th>Estado</th>'
+      +'</tr></thead><tbody>';
+    group.forEach(function(r){
+      var paid2=tp(r);
+      catHTMLtbl+='<tr>'
+        +'<td style="font-weight:500;">'+es(r.item)+'</td>'
+        +'<td style="color:#555;">'+es(r.supplier||'')+'</td>'
+        +'<td style="color:#777;font-size:10.5px;">'+es(r.space||'')+'</td>'
+        +'<td class="pmono" style="text-align:right;">'+fm(rT(r))+'</td>'
+        +'<td class="pmono" style="text-align:right;color:'+(paid2>0?'#2A5C45':'#aaa')+';">'+(paid2>0?fm(paid2):'-')+'</td>'
+        +'<td style="font-size:10.5px;"><span style="padding:2px 6px;border-radius:99px;background:'+(r.payStatus==='Pagado'?'#E8F5EE':r.payStatus==='Pagado parcialmente'?'#FFF3E0':'#FFF0F0')+';color:'+(r.payStatus==='Pagado'?'#2A5C45':r.payStatus==='Pagado parcialmente'?'#8B5500':'#B83030')+';font-size:9.5px;">'+r.payStatus+'</span></td>'
+        +'</tr>';
+    });
+    catHTMLtbl+='</tbody></table></div>';
+  });
+
   // ── BUILD PDF ─────────────────────────────────────────────────────────────
   document.getElementById('pdfDoc').innerHTML=
-    '<div class="phdr">'
-      +'<div class="pproj">Estudio Bianco Spa</div>'
-      +'<h1>'+es(pInfo.name)+'</h1>'
-      +'<div class="psub">'+(pInfo.client?es(pInfo.client)+' · ':'')+'Lista de compras y estado de pagos</div>'
-      +'<div class="pdate">Generado el '+today+(gd.lastReview?' · Última revisión: '+fd(gd.lastReview):'')+'</div>'
+    // 1. PORTADA
+    '<div class="pcover">'
+      +'<div class="pcover-logo">Estudio Bianco Spa</div>'
+      +'<div class="pcover-tag">Informe de proyecto</div>'
+      +'<div class="pcover-title">'+es(pInfo.name)+'</div>'
+      +(pInfo.client?'<div class="pcover-client">'+es(pInfo.client)+'</div>':'')
+      +'<div class="pcover-date">'+today+(gd.lastReview?' · Ultima revision: '+fd(gd.lastReview):'')+'</div>'
+      +'<div class="pcover-bar"></div>'
+      +'<div class="pcover-index">'
+        +'<div class="pcover-idx-item"><div class="pcover-idx-num">1</div>Flujo del proceso de diseno</div>'
+        +'<div class="pcover-idx-item"><div class="pcover-idx-num">2</div>Resumen financiero</div>'
+        +'<div class="pcover-idx-item"><div class="pcover-idx-num">3</div>Listado de compras por categoria</div>'
+        +'<div class="pcover-idx-item"><div class="pcover-idx-num">4</div>Cotizaciones y documentos</div>'
+        +'<div class="pcover-idx-item"><div class="pcover-idx-num">5</div>Directorio de proveedores</div>'
+        +'<div class="pcover-idx-item"><div class="pcover-idx-num">6</div>Cronograma del proyecto</div>'
+      +'</div>'
     +'</div>'
 
-    +'<div class="psec"><h2>Resumen financiero</h2>'
+    // 1. FLUJO DEL PROCESO
+    +'<div class="psec"><h2>1. Flujo del proceso de diseno</h2>'+flujoHTML+'</div>'
+
+    // 2. RESUMEN FINANCIERO
+    +'<div class="psec"><h2>2. Resumen financiero</h2>'
       +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;">'
-        +'<div class="pkc" style="border-left:3px solid #555;"><div class="pkl">Total presupuesto</div><div class="pkv" style="font-size:20px;">'+fm(tot)+'</div><div style="font-size:10px;color:#999;">'+items.length+' ítems</div></div>'
+        +'<div class="pkc" style="border-left:3px solid #555;"><div class="pkl">Total presupuesto</div><div class="pkv" style="font-size:20px;">'+fm(tot)+'</div><div style="font-size:10px;color:#999;">'+items.length+' items</div></div>'
         +'<div class="pkc" style="border-left:3px solid #2A5C45;"><div class="pkl">Total desembolsado</div><div class="pkv g" style="font-size:20px;">'+fm(desemb)+'</div><div style="font-size:10px;color:#999;">'+pct+'% del presupuesto</div></div>'
         +'<div class="pkc" style="border-left:3px solid #B83030;"><div class="pkl">Saldo por pagar</div><div class="pkv r" style="font-size:20px;">'+fm(saldo)+'</div><div style="font-size:10px;color:#999;">'+(100-pct)+'% pendiente</div></div>'
-      +'</div>'
-      +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;">'
-        +'<div class="pkc"><div class="pkl">Pagados completo</div><div class="pkv b">'+fm(tPag)+'</div><div style="font-size:10px;color:#999;">'+nPag+' ítem'+(nPag!==1?'s':'')+'</div></div>'
-        +'<div class="pkc"><div class="pkl">Pagos parciales</div><div class="pkv w">'+fm(tPar)+'</div><div style="font-size:10px;color:#999;">'+nPar+' ítem'+(nPar!==1?'s':'')+'</div></div>'
-        +'<div class="pkc"><div class="pkl">Sin pago registrado</div><div class="pkv r">'+nPend+' ítem'+(nPend!==1?'s':'')+'</div></div>'
       +'</div>'
       +'<div style="padding:10px 14px;background:#F1EFE9;border-radius:6px;">'
         +'<div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:6px;"><span><strong style="color:#2A5C45;">'+fm(desemb)+'</strong> de <strong>'+fm(tot)+'</strong></span><strong>'+pct+'%</strong></div>'
@@ -1993,23 +2127,21 @@ function showPDF(){
       +'</div>'
     +'</div>'
 
-    +'<div class="psec"><h2>Listado completo por categoría</h2>'
-      +catHTML
-      +'<div style="padding:10px 14px;background:#1A1916;border-radius:6px;display:flex;justify-content:space-between;align-items:center;margin-top:4px;">'
-        +'<strong style="color:#fff;">TOTAL GENERAL</strong>'
-        +'<div style="display:flex;gap:24px;text-align:right;">'
-          +'<div><div style="font-size:9px;color:#aaa;">PRESUPUESTO</div><div style="font-family:monospace;font-size:14px;font-weight:700;color:#fff;">'+fm(tot)+'</div></div>'
-          +'<div><div style="font-size:9px;color:#aaa;">DESEMBOLSADO</div><div style="font-family:monospace;font-size:14px;font-weight:700;color:#88cc99;">'+fm(desemb)+'</div></div>'
-          +'<div><div style="font-size:9px;color:#aaa;">SALDO</div><div style="font-family:monospace;font-size:14px;font-weight:700;color:#ff9999;">'+fm(saldo)+'</div></div>'
-        +'</div>'
-      +'</div>'
-    +'</div>'
+    // 3. LISTADO DE COMPRAS
+    +'<div class="psec"><h2>3. Listado de compras por categoria</h2>'+catHTMLtbl+'</div>'
 
-    +'<div class="psec"><h2>Cronograma del proyecto</h2>'+phHTML+logHTML+'</div>'
+    // 4. COTIZACIONES
+    +'<div class="psec"><h2>4. Cotizaciones y documentos</h2>'+cotLinksHTML+'</div>'
 
-    +'<div class="psec"><h2>Directorio de proveedores</h2>'+supHTML+'</div>'
+    // 5. PROVEEDORES
+    +'<div class="psec"><h2>5. Directorio de proveedores</h2>'+supHTML+'</div>'
 
+    // 6. CRONOGRAMA
+    +'<div class="psec"><h2>6. Cronograma del proyecto</h2>'+phHTML+logHTML+'</div>'
+
+    // FOOTER
     +'<div class="pftr"><span>'+es(pInfo.name)+' · Estudio Bianco Spa</span><span>Generado el '+today+'</span></div>';
+
 
   document.getElementById('pdfOv').classList.add('show');
   document.body.style.overflow='hidden';
