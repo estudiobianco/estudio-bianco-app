@@ -693,7 +693,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
     <div class="ni" onclick="go('gestion')" id="nav-gestion"><span class="ic">📊</span>Gestión proyecto</div>
   </div>
   <div class="nbot">
-    <button class="pdfbtn" onclick="showPDF()">⬇ Descargar PDF</button>
+    <button class="pdfbtn" id="pdfBtn" onclick="showPDF()">⬇ Descargar PDF</button>
     <div id="navModeB" class="mode-badge worker" onclick="openAccessModal()" style="width:100%;justify-content:center;margin-bottom:8px;" title="Cambiar modo de acceso">👷 Trabajador</div>
     <div class="ntot" id="navTotDiv" style="display:none;"><div class="lbl">Total proyecto</div><div class="val" id="navTotal">—</div></div>
   </div>
@@ -1636,24 +1636,108 @@ function rPend(){
 // ── SEGUIMIENTO ───────────────────────────────────────────────────────────────
 function bStp(r){const idx=getStage(r);const dts=['','',r.p1date||'',r.orderDate||'',r.estDelivery||'',r.actualDelivery||'',r.installDate||''];return STAGES.map((s,i)=>{const done=i<idx,curr=i===idx&&idx>0;const cl=done?'step done':curr?'step curr':'step';const dt=dts[i]?`<div class="sdt">${fd(dts[i])}</div>`:'';return`<div class="${cl}"><div class="sdot">${done?'✓':i===0?'–':i}</div><div class="slbl">${SS[i]}</div>${dt}</div>`;}).join('');}
 function rSeg(){
-  const _si=workerFilter(items);
-  const sin=_si.filter(r=>getStage(r)===0).length,enP=_si.filter(r=>getStage(r)>=2&&getStage(r)<=4).length,ent=_si.filter(r=>getStage(r)===5).length,ins=_si.filter(r=>getStage(r)===6).length;
-  document.getElementById('segKPI').innerHTML=`<div class="kc"><div class="kl">Sin iniciar</div><div class="kv">${sin}</div></div><div class="kc"><div class="kl">En proceso</div><div class="kv w">${enP}</div></div><div class="kc"><div class="kl">Entregados</div><div class="kv b">${ent}</div></div><div class="kc"><div class="kl">Instalados</div><div class="kv g">${ins}</div></div><div class="kc"><div class="kl">Total</div><div class="kv">${items.length}</div></div>`;
-  const cat=document.getElementById('fSegCat').value,stage=document.getElementById('fSegStage').value,q=document.getElementById('fSegQ').value.toLowerCase();
-  const f=workerFilter(items).filter(r=>{if(cat&&r.cat!==cat)return false;if(stage&&getStageName(r)!==stage)return false;if(q&&!r.item.toLowerCase().includes(q)&&!r.supplier.toLowerCase().includes(q))return false;return true;});
-  const b=document.getElementById('segBody');b.innerHTML='';
-  f.forEach(r=>{
-    const cc=catCls(r.cat);
-    const pid='seg-'+r.id,bid='segb-'+r.id;
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td><button class="xb" id="${bid}" onclick="tE('${pid}','${bid}')">›</button></td><td><span class="badge ${cc}">${r.cat}</span></td><td style="font-weight:500;">${es(r.item)}</td><td style="color:var(--tx2);font-size:11.5px;">${es(r.supplier)}</td><td><div class="stepper">${bStp(r)}</div></td><td><span class="badge ${payCls(r.payStatus)}" style="display:block;margin-bottom:2px;">${r.payStatus}</span><span class="badge ${delCls(r.deliveryStatus)}" style="display:block;margin-bottom:2px;">${r.deliveryStatus}</span><span class="badge ${insCls(r.installStatus)}">${r.installStatus}</span></td>`;
-    b.appendChild(tr);
-    const ep=document.createElement('tr');ep.id=pid;ep.className='xp';
-    ep.innerHTML=`<td colspan="6"><div class="xi"><div class="xtit">Fechas de seguimiento — ${es(r.item)}</div><div class="xg"><div class="fg"><label>Fecha de pedido</label><input type="date" value="${r.orderDate||''}" oninput="uSeg(${r.id},'orderDate',this.value)"></div><div class="fg"><label>Lead time (sem.)</label><input type="number" value="${r.leadWeeks||''}" min="0" placeholder="ej. 6" oninput="uSeg(${r.id},'leadWeeks',+this.value)"></div><div class="fg"><label>Entrega estimada</label><input type="date" value="${r.estDelivery||''}" oninput="uSeg(${r.id},'estDelivery',this.value)"></div><div class="fg"><label>Entrega real</label><input type="date" value="${r.actualDelivery||''}" oninput="uSeg(${r.id},'actualDelivery',this.value)"></div><div class="fg"><label>Fecha instalación</label><input type="date" value="${r.installDate||''}" oninput="uSeg(${r.id},'installDate',this.value)"></div><div class="fg"><label>Última revisión</label><input type="date" value="${r.lastReviewDate||''}" oninput="uSeg(${r.id},'lastReviewDate',this.value)"></div><div class="fg xg4"><label>Notas de seguimiento</label><textarea oninput="uSeg(${r.id},'trackNote',this.value)" placeholder="Observaciones, contacto proveedor, pendientes…">${es(r.trackNote||'')}</textarea></div></div></div></td>`;
-    b.appendChild(ep);
-  });
-  restoreP();
+  try{
+    var catFil=document.getElementById('fSegCat').value;
+    var stageFil=document.getElementById('fSegStage').value;
+    var qFil=document.getElementById('fSegQ').value.toLowerCase();
+    var f=workerFilter(items).filter(function(r){
+      if(catFil&&r.cat!==catFil)return false;
+      if(stageFil&&getStageName(r)!==stageFil)return false;
+      if(qFil&&!r.item.toLowerCase().includes(qFil)&&!(r.supplier||'').toLowerCase().includes(qFil))return false;
+      return true;
+    });
+    var _si=workerFilter(items);
+    var total=_si.length,ent=0,ins=0,enP=0,sin=0;
+    _si.forEach(function(r){var st=getStage(r);if(st===6)ins++;else if(st===5)ent++;else if(st>=1)enP++;else sin++;});
+    var pct=total>0?Math.round((ent+ins)/total*100):0;
+    document.getElementById('segKPI').innerHTML=
+      '<div class="kc"><div class="kl">Sin iniciar</div><div class="kv">'+sin+'</div></div>'+
+      '<div class="kc"><div class="kl">En proceso</div><div class="kv w">'+enP+'</div></div>'+
+      '<div class="kc"><div class="kl">Entregados</div><div class="kv b">'+ent+'</div></div>'+
+      '<div class="kc"><div class="kl">Instalados</div><div class="kv g">'+ins+'</div></div>'+
+      '<div class="kc" style="grid-column:1/-1;padding:10px 16px;background:var(--s2);">'+
+        '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;">'+
+          '<span><strong>'+(ent+ins)+'</strong> de <strong>'+total+'</strong> items entregados o instalados</span>'+
+          '<strong style="color:var(--ac);">'+pct+'% avance</strong>'+
+        '</div>'+
+        '<div style="height:10px;background:var(--bd2);border-radius:99px;overflow:hidden;">'+
+          '<div style="width:'+pct+'%;height:100%;background:var(--ac);border-radius:99px;transition:width .5s;"></div>'+
+        '</div>'+
+      '</div>';
+    var b=document.getElementById('segBody');b.innerHTML='';
+    if(!f.length){
+      b.innerHTML='<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--tx3);font-style:italic;">No hay items.</td></tr>';
+      restoreP();return;
+    }
+    var catsSeen={},catsArr=[];
+    f.forEach(function(r){if(!catsSeen[r.cat]){catsSeen[r.cat]=true;catsArr.push(r.cat);}});
+    catsArr.forEach(function(catName){
+      var group=f.filter(function(r){return r.cat===catName;});
+      var cc=catCls(catName);
+      var catE=group.filter(function(r){return getStage(r)===5;}).length;
+      var catI=group.filter(function(r){return getStage(r)===6;}).length;
+      var catPct=group.length>0?Math.round((catE+catI)/group.length*100):0;
+      var catKey='seg_'+catName.replace(/[^a-zA-Z0-9]/g,'_');
+      var hdr=document.createElement('tr');
+      hdr.style.cssText='cursor:pointer;background:var(--s2);';
+      hdr.innerHTML='<td colspan="6" style="padding:8px 14px;">'+
+        '<div style="display:flex;align-items:center;gap:10px;">'+
+          '<span class="badge '+cc+'">'+catName+'</span>'+
+          '<span style="font-size:12px;color:var(--tx2);">'+group.length+' items</span>'+
+          '<div style="flex:1;height:6px;background:var(--bd2);border-radius:99px;overflow:hidden;margin-left:8px;">'+
+            '<div style="width:'+catPct+'%;height:100%;background:var(--ac);border-radius:99px;"></div>'+
+          '</div>'+
+          '<span style="font-size:12px;font-weight:600;color:var(--ac);">'+catPct+'%</span>'+
+        '</div></td>';
+      var isCollapsed=false;
+      hdr.addEventListener('click',(function(key){return function(){
+        isCollapsed=!isCollapsed;
+        document.querySelectorAll('.segrow_'+key).forEach(function(r){r.style.display=isCollapsed?'none':'';});
+      };})(catKey));
+      b.appendChild(hdr);
+      group.forEach(function(r){
+        var pid='seg-'+r.id,bid='segb-'+r.id;
+        var tr=document.createElement('tr');tr.className='segrow_'+catKey;
+        var xbtn=document.createElement('button');xbtn.className='xb';xbtn.id=bid;xbtn.textContent='>';
+        xbtn.addEventListener('click',(function(p,bx){return function(){tE(p,bx);};})(pid,bid));
+        var td0=document.createElement('td');td0.appendChild(xbtn);
+        var td1=document.createElement('td');td1.innerHTML='<span class="badge '+cc+'" style="font-size:10px;">'+catName+'</span>';
+        var td2=document.createElement('td');td2.style.fontWeight='500';td2.textContent=r.item;
+        var td3=document.createElement('td');td3.style.cssText='color:var(--tx2);font-size:11.5px;';td3.textContent=r.supplier||'';
+        var td4=document.createElement('td');td4.innerHTML='<div class="stepper">'+bStp(r)+'</div>';
+        var td5=document.createElement('td');td5.innerHTML='<span class="badge '+payCls(r.payStatus)+'" style="display:block;margin-bottom:2px;">'+r.payStatus+'</span><span class="badge '+delCls(r.deliveryStatus)+'" style="display:block;margin-bottom:2px;">'+r.deliveryStatus+'</span><span class="badge '+insCls(r.installStatus)+'">'+r.installStatus+'</span>';
+        tr.appendChild(td0);tr.appendChild(td1);tr.appendChild(td2);tr.appendChild(td3);tr.appendChild(td4);tr.appendChild(td5);
+        b.appendChild(tr);
+        var ep=document.createElement('tr');ep.id=pid;ep.className='xp segrow_'+catKey;
+        var epTd=document.createElement('td');epTd.colSpan=6;
+        var xi=document.createElement('div');xi.className='xi';
+        xi.innerHTML='<div class="xtit">Fechas — '+es(r.item)+'</div><div class="xg">'+
+          '<div class="fg"><label>Fecha de pedido</label><input type="date" id="ord_'+r.id+'" value="'+(r.orderDate||'')+'"></div>'+
+          '<div class="fg"><label>Lead time (sem.)</label><input type="number" id="lw_'+r.id+'" value="'+(r.leadWeeks||'')+'" min="0" placeholder="ej. 6"></div>'+
+          '<div class="fg"><label>Entrega estimada</label><input type="date" id="est_'+r.id+'" value="'+(r.estDelivery||'')+'"></div>'+
+          '<div class="fg"><label>Entrega real</label><input type="date" id="act_'+r.id+'" value="'+(r.actualDelivery||'')+'"></div>'+
+          '<div class="fg"><label>Instalación</label><input type="date" id="ins2_'+r.id+'" value="'+(r.installDate||'')+'"></div>'+
+          '<div class="fg"><label>Última revisión</label><input type="date" id="rev_'+r.id+'" value="'+(r.lastReviewDate||'')+'"></div>'+
+          '<div class="fg xg4"><label>Notas</label><textarea id="trk_'+r.id+'" placeholder="Observaciones...">'+es(r.trackNote||'')+'</textarea></div>'+
+        '</div>';
+        epTd.appendChild(xi);ep.appendChild(epTd);b.appendChild(ep);
+        (function(rid){
+          setTimeout(function(){
+            var d={'ord_':['orderDate',false],'lw_':['leadWeeks',true],'est_':['estDelivery',false],'act_':['actualDelivery',false],'ins2_':['installDate',false],'rev_':['lastReviewDate',false]};
+            Object.keys(d).forEach(function(pfx){
+              var el=document.getElementById(pfx+rid);
+              if(el)el.addEventListener('change',(function(field,isNum){return function(){uSeg(rid,field,isNum?+this.value:this.value);};})(d[pfx][0],d[pfx][1]));
+            });
+            var trk=document.getElementById('trk_'+rid);
+            if(trk)trk.addEventListener('input',function(){uSeg(rid,'trackNote',this.value);});
+          },100);
+        })(r.id);
+      });
+    });
+    restoreP();
+  }catch(e){console.error('rSeg:',e);}
 }
+
 function uSeg(id,f,v){const r=items.find(x=>x.id===id);if(r){r[f]=v;sAll();}}
 function uSegR(id,f,v){const r=items.find(x=>x.id===id);if(r){r[f]=v;rSeg();sAll();}}
 
@@ -2351,6 +2435,7 @@ function applyMode(){
   // Hide honorarios from nav total calculation in worker mode
   updateNavTotal();
   var _k=document.getElementById('comprasKPI');if(_k)try{rCKPI();}catch(e){}
+  var _pb=document.getElementById('pdfBtn');if(_pb)_pb.style.display=appMode==='admin'?'':'none';
 }
 
 // Override go() to block honorarios for workers
