@@ -715,7 +715,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
     <input type="date" id="lastRevGlobal" onchange="saveGlobal()">
     <span id="lastRevLabel" style="font-size:11px;color:var(--tx2);"></span>
     <button class="btn prim" onclick="manualSave()" style="height:28px;font-size:12px;padding:0 12px;margin-left:8px;">Guardar cambios</button>
-    <span id="saveStatus" style="font-size:12px;margin-left:6px;"></span><span id="syncStatus" style="font-size:11px;margin-left:6px;color:var(--tx3);"></span><span id="syncStatus" style="font-size:11px;margin-left:6px;color:var(--tx3);"></span>
+    <span id="saveStatus" style="font-size:12px;margin-left:6px;"></span><span id="syncStatus" style="font-size:11px;margin-left:6px;color:var(--tx3);"></span><button class="btn" onclick="syncFromCloud()" style="height:26px;font-size:11px;padding:0 8px;margin-left:4px;" title="Cargar datos de la nube">&#9729; Sincronizar</button><span id="syncStatus" style="font-size:11px;margin-left:6px;color:var(--tx3);"></span>
   </div>
   <div class="kr" id="comprasKPI"></div>
   <div class="tb">
@@ -1993,7 +1993,7 @@ function openProject(pid){
   // Reset to compras tab
   go('compras');
   updateBackupInfo();
-  if(typeof window.sbLoad==='function'){window.sbLoad(pid,function(d){if(d&&d.length){items=d.map(mg);localStorage.setItem('ar6_p'+pid+'_items',JSON.stringify(items));rC();updateBackupInfo();}});}
+
   if(typeof window.sbLoad==='function'){window.sbLoad(pid,function(d){if(d&&d.length){items=d.map(mg);localStorage.setItem('ar6_p'+pid+'_items',JSON.stringify(items));rC();updateBackupInfo();}});}
   if(typeof window.sbLoad==='function'){window.sbLoad(pid,function(d){if(d&&d.length){items=d.map(mg);localStorage.setItem('ar6_p'+pid+'_items',JSON.stringify(items));rC();updateBackupInfo();}});}
 }
@@ -3062,6 +3062,25 @@ function rPend2(){
 
 
 
+
+function syncFromCloud(){
+  if(typeof window.sbLoad!=='function'){tst('Sin conexion a la nube');return;}
+  if(!currentProjId){tst('Abre un proyecto primero');return;}
+  var btn=document.getElementById('sbSyncBtn');
+  if(btn)btn.textContent='Sincronizando...';
+  window.sbLoad(currentProjId,function(d){
+    if(btn)btn.textContent='\u21bb Sincronizar';
+    if(d&&d.length){
+      items=d;
+      localStorage.setItem('ar6_p'+currentProjId+'_items',JSON.stringify(items));
+      rC();updateBackupInfo();
+      tst('\u2713 Datos sincronizados desde la nube ('+d.length+' items)');
+    } else {
+      tst('Sin datos en la nube para este proyecto');
+    }
+  });
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 // Show access modal on startup
 appMode = localStorage.getItem('ar6_mode') || 'worker';
@@ -3330,7 +3349,27 @@ function renderGantt(){
         }).catch(function(){});
     }, 3000);
   }
-  setTimeout(init, 500);
-  setTimeout(init, 2500);
+  window.syncFromCloud = function() {
+    if (typeof window.sbLoad !== 'function') { 
+      if(typeof tst==='function') tst('Sin conexion a la nube');
+      return; 
+    }
+    var pid = window.currentProjId;
+    if (!pid) { if(typeof tst==='function') tst('Abre un proyecto primero'); return; }
+    window.sbLoad(pid, function(d) {
+      if (d && d.length) {
+        if(typeof mg==='function') window.items = d.map(mg);
+        localStorage.setItem('ar6_p'+pid+'_items', JSON.stringify(window.items));
+        if(typeof rC==='function') rC();
+        if(typeof updateBackupInfo==='function') updateBackupInfo();
+        if(typeof tst==='function') tst('Datos sincronizados desde la nube');
+      } else {
+        if(typeof tst==='function') tst('Sin datos en la nube para este proyecto');
+      }
+    });
+  };
+  function tryShowBtn(){ var b=document.getElementById('sbSyncBtn');if(b)b.style.display=''; }
+  setTimeout(function(){ init(); setTimeout(tryShowBtn,200); }, 500);
+  setTimeout(function(){ init(); setTimeout(tryShowBtn,200); }, 2500);
 })();
 </script>
