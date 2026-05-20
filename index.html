@@ -1425,8 +1425,8 @@ function rC(){
       <th style="width:105px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">ESPACIO</th>
       <th style="min-width:185px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">ÍTEM</th>
       <th style="width:120px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">PROVEEDOR</th>
-      <th style="width:40px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">CANT.</th>
-      <th style="width:88px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">PRECIO</th>
+      <th style="width:150px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:center;">CANT.</th>
+      <th style="width:200px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:center;">PRECIO</th>
       <th style="width:88px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">TOTAL</th>
       <th style="width:118px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">EST. CLIENTE</th>
       <th style="width:115px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">EST. PAGO</th>
@@ -1442,7 +1442,7 @@ function rC(){
       const urlIcon=r.productUrl?`<a href="${es(r.productUrl)}" target="_blank" style="font-size:10px;color:var(--in);text-decoration:none;margin-left:3px;">🔗</a>`:'';
       const IS='font-size:12px;height:27px;border:1px solid transparent;border-radius:4px;background:transparent;color:var(--tx);width:100%;padding:2px 6px;font-family:"DM Sans",sans-serif;';
       const ISN=IS+'text-align:right;font-family:"DM Mono",monospace;';
-      const ISS='font-size:10.5px;border-radius:99px;padding:2px 5px;border:1px solid transparent;background:transparent;width:100%;cursor:pointer;font-family:"DM Sans",sans-serif;';
+      const ISS='font-size:8.5px;border-radius:99px;padding:1px 3px;border:1px solid transparent;background:transparent;width:100%;cursor:pointer;font-family:"DM Sans",sans-serif;height:20px;';
       const tr=document.createElement('tr');
       tr.style.borderBottom='1px solid var(--bd)';
       tr.innerHTML=`
@@ -1451,8 +1451,8 @@ function rC(){
         <td style="padding:5px 8px;"><input type="text" value="${es(r.space||'')}" oninput="uIQ(${r.id},'space',this.value)" onchange="uI(${r.id},'space',this.value)" placeholder="Espacio…" style="${IS}"></td>
         <td style="padding:5px 8px;"><input type="text" value="${es(r.item)}" onchange="uI(${r.id},'item',this.value)" style="${IS}">${urlIcon}</td>
         <td style="padding:5px 8px;"><input type="text" value="${es(r.supplier)}" onchange="uI(${r.id},'supplier',this.value)" style="${IS}"></td>
-        <td style="padding:5px 8px;"><input type="number" value="${r.qty}" min="0" onchange="uI(${r.id},'qty',+this.value)" style="${ISN}width:38px;"></td>
-        <td style="padding:5px 8px;"><input type="number" value="${r.unit}" min="0" onchange="uI(${r.id},'unit',+this.value)" style="${ISN}"></td>
+        <td style="padding:5px 8px;"><input type="number" value="${r.qty}" min="0" onchange="uI(${r.id},'qty',+this.value)" style="${ISN}width:135px;font-size:11px;text-align:center;"></td>
+        <td style="padding:5px 8px;"><div style="display:flex;align-items:center;gap:2px;"><span style="font-size:11px;color:var(--tx2);font-family:'DM Mono',monospace;">$</span><input type="text" id="uprice-${r.id}" value="${r.unit>0?r.unit.toLocaleString('es-CL'):''}" placeholder="0" onfocus="this.value=parseFloat(this.value.replace(/[^0-9]/g,''))||''" onblur="var v=+this.value.replace(/[^0-9]/g,'');uI(${r.id},'unit',v);this.value=v>0?v.toLocaleString('es-CL'):''" style="${ISN}width:175px;font-size:11px;"></div></td>
         <td style="padding:5px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;padding-right:10px;">${t>0?fm(t):'—'}</td>
         <td style="padding:5px 8px;"><select onchange="uI(${r.id},'clientStatus',this.value)" class="${csc}" style="${ISS}">${CS_OPTS.map(s=>`<option value="${s}"${s===r.clientStatus?' selected':''}>${s||'Sin estado'}</option>`).join('')}</select></td>
         <td style="padding:5px 8px;"><select onchange="uI(${r.id},'payStatus',this.value)" class="${pc}" style="${ISS}">${PAY_OPTS.map(s=>`<option${s===r.payStatus?' selected':''}>${s}</option>`).join('')}</select></td>
