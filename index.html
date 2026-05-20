@@ -543,7 +543,6 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
 .sup-full{grid-column:1/-1;}
 
 </style>
-<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" onerror="window._sbOff=true;"></script>
 </head>
 <body>
 
@@ -715,7 +714,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
     <input type="date" id="lastRevGlobal" onchange="saveGlobal()">
     <span id="lastRevLabel" style="font-size:11px;color:var(--tx2);"></span>
     <button class="btn prim" onclick="manualSave()" style="height:28px;font-size:12px;padding:0 12px;margin-left:8px;">Guardar cambios</button>
-    <span id="saveStatus" style="font-size:12px;margin-left:6px;"></span><span id="syncStatus" style="font-size:11px;margin-left:6px;color:var(--tx3);"></span><button class="btn" onclick="syncFromCloud()" style="height:26px;font-size:11px;padding:0 8px;margin-left:4px;" title="Cargar datos de la nube">&#9729; Sincronizar</button><span id="syncStatus" style="font-size:11px;margin-left:6px;color:var(--tx3);"></span>
+    <span id="saveStatus" style="font-size:12px;margin-left:6px;"></span>
   </div>
   <div class="kr" id="comprasKPI"></div>
   <div class="tb">
@@ -1178,9 +1177,6 @@ function mg(i){
   var _paid=(i.p1amt||0)+(i.p2amt||0)+(i.p3amt||0)+(i.p4amt||0);
   var _tot=(i.qty||1)*(i.unit||0);
   if(_paid>0&&i.payStatus==='Pendiente'){i.payStatus=_paid>=_tot?'Pagado':'Pagado parcialmente';}
-  var _paid=(i.p1amt||0)+(i.p2amt||0)+(i.p3amt||0)+(i.p4amt||0);
-  var _tot=(i.qty||1)*(i.unit||0);
-  if(_paid>0&&i.payStatus==='Pendiente'){i.payStatus=_paid>=_tot?'Pagado':'Pagado parcialmente';}
   const pm={'Pendiente':'Pendiente','Pagado':'Pagado','En proceso':'Pendiente','Por confirmar':'Pendiente'};
   return Object.assign({payStatus:pm[i.status]||'Pendiente',deliveryStatus:'Sin iniciar',installStatus:'Pendiente',clientStatus:'',clientApprovalDate:'',productUrl:'',specs:'',space:'',lastReviewDate:'',p1pct:0,p1amt:0,p1date:'',p1method:'',p1note:'',p2pct:0,p2amt:0,p2date:'',p2method:'',p2note:'',p3pct:0,p3amt:0,p3date:'',p3method:'',p3note:'',p4pct:0,p4amt:0,p4date:'',p4method:'',p4note:'',orderDate:'',leadWeeks:'',estDelivery:'',actualDelivery:'',installDate:'',trackNote:''},i);
 }
@@ -1229,7 +1225,6 @@ function sAll(){
     localStorage.setItem('ar6_p'+currentProjId+'_cots',JSON.stringify(cots));
     var el=document.getElementById('saveStatus');if(el){el.textContent='Guardado';el.style.color='var(--ac)';clearTimeout(window._st);window._st=setTimeout(function(){el.textContent='';},3000);}
   }catch(e){}
-  if(typeof window.sbSave==='function')try{window.sbSave(currentProjId,items);}catch(e){}
 }
 function manualSave(){sAll();updateBackupInfo();tst('Datos guardados');}
 function saveGlobal(){gd.lastReview=document.getElementById('lastRevGlobal').value;sv('ar5_global',gd);document.getElementById('lastRevLabel').textContent=gd.lastReview?'('+fd(gd.lastReview)+')'  :'';}
@@ -1247,6 +1242,16 @@ function tpend(r){return Math.max(0,rT(r)-tp(r));}
 function autoPayStatus(r){var paid=tp(r);var total=rT(r);if(paid<=0)return 'Pendiente';if(paid>=total)return 'Pagado';return 'Pagado parcialmente';}
 function recalcPayStatus(){var changed=0;items.forEach(function(r){var auto=autoPayStatus(r);if(auto!==r.payStatus){r.payStatus=auto;changed++;}});if(changed>0){sAll();tst(changed+' estados actualizados');}else tst('Estados correctos');}
 
+// ── PANEL STATE ───────────────────────────────────────────────────────────────
+const openPanels=new Set();
+function tE(pid,bid){const p=document.getElementById(pid),b=document.getElementById(bid);if(!p)return;const o=p.classList.toggle('open');b.style.transform=o?'rotate(90deg)':'';if(o)openPanels.add(pid);else openPanels.delete(pid);}
+// Temp store for quick-fill inputs that don't map to item fields
+const tempStore={};
+function saveTempFields(){
+  document.querySelectorAll('[id^="qname-"],[id^="qprice-"],[id^="qsupp-"]').forEach(el=>{
+    if(el.value) tempStore[el.id]=el.value;
+  });
+}
 function restoreTempFields(){
   Object.entries(tempStore).forEach(([k,v])=>{const el=document.getElementById(k);if(el&&!el.value)el.value=v;});
 }
@@ -1279,7 +1284,6 @@ function rCKPI(){
   // Saldo real pendiente = presupuesto - todo lo que se ha pagado (completo + cuotas parciales)
   const saldo = Math.max(0, tot - desemb);
   const pct = tot>0 ? Math.round(desemb/tot*100) : 0;
-  var kpiEl=document.getElementById('comprasKPI');if(!kpiEl)return;if(appMode!=='admin'){kpiEl.innerHTML='';kpiEl.style.display='none';return;}kpiEl.style.display='';
   var kpiEl=document.getElementById('comprasKPI');if(!kpiEl)return;if(appMode!=='admin'){kpiEl.innerHTML='';kpiEl.style.display='none';return;}kpiEl.style.display='';
   document.getElementById('comprasKPI').innerHTML=`
     <div class="kc" style="border-left:3px solid var(--tx2);">
@@ -1383,7 +1387,6 @@ function rC(){
   let vis=0;
   const cats=[...new Set(f.map(r=>r.cat))];
   cats.forEach(cat=>{
-    if(cat==='Honorarios'&&appMode!=='admin')return;
     if(cat==='Honorarios'&&appMode!=='admin')return;
     const group=f.filter(r=>r.cat===cat);
     const catTotal=group.reduce((a,r)=>a+rT(r),0);
@@ -1509,7 +1512,6 @@ function rC(){
     acc.appendChild(body);
     con.appendChild(acc);
   });
-  var _tr=document.getElementById('comprasTotalRow');if(_tr)_tr.style.display=appMode==='admin'?'':'none';
   var _tr=document.getElementById('comprasTotalRow');if(_tr)_tr.style.display=appMode==='admin'?'':'none';
   document.getElementById('comprasTotal').textContent=fm(vis);
   rCKPI();
@@ -1788,7 +1790,169 @@ function t64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onl
 
 // ── PDF ───────────────────────────────────────────────────────────────────────
 function ldPhases(){try{return JSON.parse(localStorage.getItem("ar6_p"+(currentProjId||"")+"_phases")||"[]");}catch(e){return[];}}
+function showPDF(){
+  if(!currentProjId){alert('Primero abre un proyecto para generar el PDF.');return;}
+  const pInfo=projects.find(x=>x.id===currentProjId)||{name:'Proyecto',client:'Estudio Bianco Spa'};
+  const today=new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'});
 
+  // ── TOTALES ───────────────────────────────────────────────────────────────
+  const tot    = items.reduce((a,r)=>a+rT(r),0);
+  const desemb = items.reduce((a,r)=>a+tp(r),0);
+  const saldo  = Math.max(0,tot-desemb);
+  const pct    = tot>0?Math.round(desemb/tot*100):0;
+  const nPag   = items.filter(r=>r.payStatus==='Pagado').length;
+  const nPar   = items.filter(r=>r.payStatus==='Pagado parcialmente').length;
+  const nPend  = items.filter(r=>r.payStatus==='Pendiente').length;
+  const tPag   = items.filter(r=>r.payStatus==='Pagado').reduce((a,r)=>a+rT(r),0);
+  const tPar   = items.filter(r=>r.payStatus==='Pagado parcialmente').reduce((a,r)=>a+tp(r),0);
+
+  // ── LISTADO POR CATEGORÍA ────────────────────────────────────────────────
+  const cats = [...new Set(items.map(r=>r.cat))];
+  const sc={'Pendiente':'background:#FCEAEA;color:#B83030','Pagado':'background:#EAF3EE;color:#2A5C45','Pagado parcialmente':'background:#FBF5E6;color:#8B6914','Devuelto':'background:#F1EFE9;color:#666'};
+  let catHTML='';
+  cats.forEach(cat=>{
+    const g=items.filter(r=>r.cat===cat);
+    const ct=g.reduce((a,r)=>a+rT(r),0);
+    const cp=g.reduce((a,r)=>a+tp(r),0);
+    const cs=Math.max(0,ct-cp);
+    const cpct=ct>0?Math.round(cp/ct*100):0;
+    let rows='';
+    g.forEach(r=>{
+      rows+='<tr>'
+        +'<td style="color:#777;font-size:11px;">'+es(r.space||'—')+'</td>'
+        +'<td>'+es(r.item)+'</td>'
+        +'<td style="color:#777;">'+es(r.supplier)+'</td>'
+        +'<td style="text-align:center;">'+r.qty+'</td>'
+        +'<td style="text-align:right;font-family:monospace;">'+(rT(r)>0?fm(rT(r)):'—')+'</td>'
+        +'<td style="text-align:right;font-family:monospace;color:#2A5C45;">'+(tp(r)>0?fm(tp(r)):'—')+'</td>'
+        +'<td style="text-align:right;font-family:monospace;color:#B83030;">'+(tpend(r)>0?fm(tpend(r)):'—')+'</td>'
+        +'<td><span style="font-size:9px;padding:1px 6px;border-radius:99px;'+(sc[r.payStatus]||'')+'">'+r.payStatus+'</span></td>'
+        +'</tr>';
+    });
+    catHTML+='<div style="margin-bottom:18px;break-inside:avoid;">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#F1EFE9;border-radius:5px 5px 0 0;border:1px solid #ddd;border-bottom:none;">'
+      +'<strong style="font-size:12px;">'+cat+'</strong>'
+      +'<span style="font-size:11px;color:#666;">'+g.length+' ítems &nbsp;·&nbsp; Total: <strong>'+fm(ct)+'</strong> &nbsp;·&nbsp; Pagado: <strong style="color:#2A5C45;">'+fm(cp)+'</strong> &nbsp;·&nbsp; Saldo: <strong style="color:#B83030;">'+fm(cs)+'</strong></span>'
+      +'</div>'
+      +'<table class="ptbls" style="border-radius:0 0 5px 5px;">'
+      +'<thead><tr><th style="width:80px;">Espacio</th><th>Ítem</th><th style="width:100px;">Proveedor</th><th style="width:35px;text-align:center;">Cant.</th><th style="width:85px;text-align:right;">Total</th><th style="width:85px;text-align:right;">Pagado</th><th style="width:85px;text-align:right;">Saldo</th><th style="width:85px;text-align:center;">Estado</th></tr></thead>'
+      +'<tbody>'+rows+'</tbody>'
+      +'<tfoot><tr style="background:#F1EFE9;"><td colspan="4" style="text-align:right;font-weight:600;">Subtotal '+cat+'</td><td style="text-align:right;font-family:monospace;font-weight:600;">'+fm(ct)+'</td><td style="text-align:right;font-family:monospace;font-weight:600;color:#2A5C45;">'+fm(cp)+'</td><td style="text-align:right;font-family:monospace;font-weight:600;color:#B83030;">'+fm(cs)+'</td><td style="text-align:center;font-size:10px;color:#2A5C45;">'+cpct+'%</td></tr></tfoot>'
+      +'</table></div>';
+  });
+
+  // ── CRONOGRAMA ────────────────────────────────────────────────────────────
+  const phases=ldPhases();
+  let phHTML='';
+  if(phases.length){
+    const stLbl={'pending':'Pendiente','active':'En curso','done':'Completado','delayed':'Atrasado'};
+    const stCol={'pending':'#999','active':'#1A4A7A','done':'#2A5C45','delayed':'#B83030'};
+    let phRows='';
+    phases.forEach(p=>{
+      const st=stLbl[p.status]||p.status;
+      const col=stCol[p.status]||'#999';
+      phRows+='<tr>'
+        +'<td style="font-weight:500;">'+es(p.name)+'</td>'
+        +'<td style="text-align:center;">'+(p.startDate?fd(p.startDate):'—')+'</td>'
+        +'<td style="text-align:center;">'+(p.endDate?fd(p.endDate):'—')+'</td>'
+        +'<td style="text-align:center;"><span style="font-size:9.5px;padding:2px 8px;border-radius:99px;background:'+col+'22;color:'+col+';font-weight:600;">'+st+'</span></td>'
+        +'<td style="text-align:center;">'+(p.pct||0)+'%</td>'
+        +'<td style="color:#777;font-size:11px;">'+es(p.notes||'—')+'</td>'
+        +'</tr>';
+    });
+    phHTML='<table class="ptbls" style="margin-bottom:14px;"><thead><tr><th>Fase</th><th style="width:90px;text-align:center;">Inicio</th><th style="width:90px;text-align:center;">Fin</th><th style="width:90px;text-align:center;">Estado</th><th style="width:45px;text-align:center;">%</th><th>Notas</th></tr></thead><tbody>'+phRows+'</tbody></table>';
+  } else {
+    phHTML='<p style="color:#999;font-style:italic;font-size:12px;">Sin fases definidas. Agrégalas en la pestaña Gestión de Proyecto.</p>';
+  }
+  // Last 5 log entries
+  const recentLogs=(typeof logs!=='undefined'?[...logs]:[]).sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
+  let logHTML='';
+  if(recentLogs.length){
+    let logRows='';
+    recentLogs.forEach(l=>{
+      const stBg=l.status==='Completado'?'#EAF3EE':l.status==='Atrasado'?'#FDF0EE':'#F1EFE9';
+      const stCol2=l.status==='Completado'?'#2A5C45':l.status==='Atrasado'?'#B83030':'#666';
+      logRows+='<tr>'
+        +'<td style="text-align:center;font-family:monospace;font-size:11px;color:#555;">'+fd(l.date)+'</td>'
+        +'<td style="font-size:10.5px;color:#777;">'+es(l.type)+'</td>'
+        +'<td style="font-weight:500;">'+es(l.title)+'</td>'
+        +'<td style="font-size:11px;color:#777;">'+es((l.commits||l.desc||'—').substring(0,80))+'</td>'
+        +'<td><span style="font-size:9px;padding:1px 6px;border-radius:99px;background:'+stBg+';color:'+stCol2+';">'+l.status+'</span></td>'
+        +'</tr>';
+    });
+    logHTML='<div style="margin-top:10px;"><div style="font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Últimas entradas de bitácora</div>'
+      +'<table class="ptbls"><thead><tr><th style="width:75px;">Fecha</th><th style="width:100px;">Tipo</th><th>Título</th><th>Compromisos / descripción</th><th style="width:80px;">Estado</th></tr></thead>'
+      +'<tbody>'+logRows+'</tbody></table></div>';
+  }
+
+  // ── PROVEEDORES ───────────────────────────────────────────────────────────
+  const sups=ldSup();
+  let supHTML='';
+  if(sups.length){
+    let supRows='';
+    sups.forEach(s=>{
+      const linked=items.filter(r=>r.supplier&&r.supplier.toUpperCase()===s.name.toUpperCase());
+      supRows+='<tr>'
+        +'<td style="font-weight:600;">'+es(s.name)+'</td>'
+        +'<td>'+(s.phone||'—')+'</td>'
+        +'<td style="color:#1A4A7A;">'+(s.email||'—')+'</td>'
+        +'<td style="font-size:11px;color:#555;">'+(s.addr||'—')+'</td>'
+        +'<td style="font-size:11px;color:#1A4A7A;">'+(s.web?s.web.replace(/https?:\/\//,''):'—')+'</td>'
+        +'<td style="font-size:10.5px;color:#777;">'+linked.slice(0,3).map(r=>r.item.substring(0,20)).join(', ')+(linked.length>3?' +más':'')+'</td>'
+        +'</tr>';
+    });
+    supHTML='<table class="ptbls"><thead><tr><th>Proveedor</th><th style="width:100px;">Teléfono</th><th style="width:150px;">Email</th><th style="width:110px;">Dirección</th><th style="width:110px;">Web</th><th>Ítems asociados</th></tr></thead><tbody>'+supRows+'</tbody></table>';
+  } else {
+    supHTML='<p style="color:#999;font-style:italic;font-size:12px;">Sin proveedores registrados. Usa la pestaña Proveedores para agregar datos de contacto.</p>';
+  }
+
+  // ── BUILD PDF ─────────────────────────────────────────────────────────────
+  document.getElementById('pdfDoc').innerHTML=
+    '<div class="phdr">'
+      +'<div class="pproj">Estudio Bianco Spa</div>'
+      +'<h1>'+es(pInfo.name)+'</h1>'
+      +'<div class="psub">'+(pInfo.client?es(pInfo.client)+' · ':'')+'Lista de compras y estado de pagos</div>'
+      +'<div class="pdate">Generado el '+today+(gd.lastReview?' · Última revisión: '+fd(gd.lastReview):'')+'</div>'
+    +'</div>'
+
+    +'<div class="psec"><h2>Resumen financiero</h2>'
+      +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;">'
+        +'<div class="pkc" style="border-left:3px solid #555;"><div class="pkl">Total presupuesto</div><div class="pkv" style="font-size:20px;">'+fm(tot)+'</div><div style="font-size:10px;color:#999;">'+items.length+' ítems</div></div>'
+        +'<div class="pkc" style="border-left:3px solid #2A5C45;"><div class="pkl">Total desembolsado</div><div class="pkv g" style="font-size:20px;">'+fm(desemb)+'</div><div style="font-size:10px;color:#999;">'+pct+'% del presupuesto</div></div>'
+        +'<div class="pkc" style="border-left:3px solid #B83030;"><div class="pkl">Saldo por pagar</div><div class="pkv r" style="font-size:20px;">'+fm(saldo)+'</div><div style="font-size:10px;color:#999;">'+(100-pct)+'% pendiente</div></div>'
+      +'</div>'
+      +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;">'
+        +'<div class="pkc"><div class="pkl">Pagados completo</div><div class="pkv b">'+fm(tPag)+'</div><div style="font-size:10px;color:#999;">'+nPag+' ítem'+(nPag!==1?'s':'')+'</div></div>'
+        +'<div class="pkc"><div class="pkl">Pagos parciales</div><div class="pkv w">'+fm(tPar)+'</div><div style="font-size:10px;color:#999;">'+nPar+' ítem'+(nPar!==1?'s':'')+'</div></div>'
+        +'<div class="pkc"><div class="pkl">Sin pago registrado</div><div class="pkv r">'+nPend+' ítem'+(nPend!==1?'s':'')+'</div></div>'
+      +'</div>'
+      +'<div style="padding:10px 14px;background:#F1EFE9;border-radius:6px;">'
+        +'<div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:6px;"><span><strong style="color:#2A5C45;">'+fm(desemb)+'</strong> de <strong>'+fm(tot)+'</strong></span><strong>'+pct+'%</strong></div>'
+        +'<div style="height:8px;background:#ddd;border-radius:99px;overflow:hidden;"><div style="width:'+pct+'%;height:100%;background:#2A5C45;border-radius:99px;"></div></div>'
+      +'</div>'
+    +'</div>'
+
+    +'<div class="psec"><h2>Listado completo por categoría</h2>'
+      +catHTML
+      +'<div style="padding:10px 14px;background:#1A1916;border-radius:6px;display:flex;justify-content:space-between;align-items:center;margin-top:4px;">'
+        +'<strong style="color:#fff;">TOTAL GENERAL</strong>'
+        +'<div style="display:flex;gap:24px;text-align:right;">'
+          +'<div><div style="font-size:9px;color:#aaa;">PRESUPUESTO</div><div style="font-family:monospace;font-size:14px;font-weight:700;color:#fff;">'+fm(tot)+'</div></div>'
+          +'<div><div style="font-size:9px;color:#aaa;">DESEMBOLSADO</div><div style="font-family:monospace;font-size:14px;font-weight:700;color:#88cc99;">'+fm(desemb)+'</div></div>'
+          +'<div><div style="font-size:9px;color:#aaa;">SALDO</div><div style="font-family:monospace;font-size:14px;font-weight:700;color:#ff9999;">'+fm(saldo)+'</div></div>'
+        +'</div>'
+      +'</div>'
+    +'</div>'
+
+    +'<div class="psec"><h2>Cronograma del proyecto</h2>'+phHTML+logHTML+'</div>'
+
+    +'<div class="psec"><h2>Directorio de proveedores</h2>'+supHTML+'</div>'
+
+    +'<div class="pftr"><span>'+es(pInfo.name)+' · Estudio Bianco Spa</span><span>Generado el '+today+'</span></div>';
+
+  document.getElementById('pdfOv').classList.add('show');
+  document.body.style.overflow='hidden';
+}
 function hidePDF(){document.getElementById('pdfOv').classList.remove('show');document.body.style.overflow='';}
 document.getElementById('pdfOv').addEventListener('click',function(e){if(e.target===this)hidePDF();});
 
@@ -1993,9 +2157,6 @@ function openProject(pid){
   // Reset to compras tab
   go('compras');
   updateBackupInfo();
-
-  if(typeof window.sbLoad==='function'){window.sbLoad(pid,function(d){if(d&&d.length){items=d.map(mg);localStorage.setItem('ar6_p'+pid+'_items',JSON.stringify(items));rC();updateBackupInfo();}});}
-  if(typeof window.sbLoad==='function'){window.sbLoad(pid,function(d){if(d&&d.length){items=d.map(mg);localStorage.setItem('ar6_p'+pid+'_items',JSON.stringify(items));rC();updateBackupInfo();}});}
 }
 
 function goHome(){
@@ -3059,28 +3220,6 @@ function rPend2(){
   }catch(e){console.error('rPend2:',e);}
 }
 
-
-
-
-
-function syncFromCloud(){
-  if(typeof window.sbLoad!=='function'){tst('Sin conexion a la nube');return;}
-  if(!currentProjId){tst('Abre un proyecto primero');return;}
-  var btn=document.getElementById('sbSyncBtn');
-  if(btn)btn.textContent='Sincronizando...';
-  window.sbLoad(currentProjId,function(d){
-    if(btn)btn.textContent='\u21bb Sincronizar';
-    if(d&&d.length){
-      items=d;
-      localStorage.setItem('ar6_p'+currentProjId+'_items',JSON.stringify(items));
-      rC();updateBackupInfo();
-      tst('\u2713 Datos sincronizados desde la nube ('+d.length+' items)');
-    } else {
-      tst('Sin datos en la nube para este proyecto');
-    }
-  });
-}
-
 // ── INIT ──────────────────────────────────────────────────────────────────────
 // Show access modal on startup
 appMode = localStorage.getItem('ar6_mode') || 'worker';
@@ -3278,98 +3417,6 @@ function renderGantt(){
   out+='</div>';
   document.getElementById('ganttChart').innerHTML=out;
 }
-
-
 </script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" onerror="window._sbOff=true;"></script>
-<script>
-(function() {
-  function init() {
-    if (window._sbOff || typeof window.supabase === 'undefined') return;
-    var C = window.supabase.createClient('https://iucjhzsnlotojvpyjcfo.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1Y2poenNubG90b2p2cHlqY2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMTIzMTYsImV4cCI6MjA5NDY4ODMxNn0.PKLG4LS1EjgfHE0GXAnyxWuEUhlZy5s7TWxe8luvuik');
-    function toRow(r, pid) {
-      return { id:String(r.id), project_id:pid, cat:r.cat||'', item:r.item||'', supplier:r.supplier||'',
-        qty:r.qty||1, unit:r.unit||0, space:r.space||'', notes:r.notes||'', specs:r.specs||'',
-        product_url:r.productUrl||'', pay_status:r.payStatus||'Pendiente',
-        delivery_status:r.deliveryStatus||'Sin iniciar', install_status:r.installStatus||'Pendiente',
-        client_status:r.clientStatus||'',
-        p1pct:r.p1pct||0,p1amt:r.p1amt||0,p1date:r.p1date||'',p1method:r.p1method||'',p1note:r.p1note||'',
-        p2pct:r.p2pct||0,p2amt:r.p2amt||0,p2date:r.p2date||'',p2method:r.p2method||'',p2note:r.p2note||'',
-        p3pct:r.p3pct||0,p3amt:r.p3amt||0,p3date:r.p3date||'',p3method:r.p3method||'',p3note:r.p3note||'',
-        p4pct:r.p4pct||0,p4amt:r.p4amt||0,p4date:r.p4date||'',p4method:r.p4method||'',p4note:r.p4note||'',
-        order_date:r.orderDate||'', lead_weeks:r.leadWeeks||'', est_delivery:r.estDelivery||'',
-        actual_delivery:r.actualDelivery||'', install_date:r.installDate||'',
-        track_note:r.trackNote||'', last_review_date:r.lastReviewDate||'' };
-    }
-    function fromRow(row) {
-      return { id:Number(row.id)||row.id, cat:row.cat||'', item:row.item||'', supplier:row.supplier||'',
-        qty:row.qty||1, unit:row.unit||0, space:row.space||'', notes:row.notes||'', specs:row.specs||'',
-        productUrl:row.product_url||'', payStatus:row.pay_status||'Pendiente',
-        deliveryStatus:row.delivery_status||'Sin iniciar', installStatus:row.install_status||'Pendiente',
-        clientStatus:row.client_status||'',
-        p1pct:row.p1pct||0,p1amt:row.p1amt||0,p1date:row.p1date||'',p1method:row.p1method||'',p1note:row.p1note||'',
-        p2pct:row.p2pct||0,p2amt:row.p2amt||0,p2date:row.p2date||'',p2method:row.p2method||'',p2note:row.p2note||'',
-        p3pct:row.p3pct||0,p3amt:row.p3amt||0,p3date:row.p3date||'',p3method:row.p3method||'',p3note:row.p3note||'',
-        p4pct:row.p4pct||0,p4amt:row.p4amt||0,p4date:row.p4date||'',p4method:row.p4method||'',p4note:row.p4note||'',
-        orderDate:row.order_date||'', leadWeeks:row.lead_weeks||'', estDelivery:row.est_delivery||'',
-        actualDelivery:row.actual_delivery||'', installDate:row.install_date||'',
-        trackNote:row.track_note||'', lastReviewDate:row.last_review_date||'' };
-    }
-    function setStatus(s) {
-      var el = document.getElementById('syncStatus');
-      if (!el) return;
-      clearTimeout(window._sst);
-      if (s==='ok') { el.textContent='Sincronizado'; el.style.color='var(--ac)'; window._sst=setTimeout(function(){el.textContent='';},3000); }
-      else if (s==='saving') { el.textContent='Guardando...'; el.style.color='var(--tx3)'; }
-      else { el.textContent='Sin conexion'; el.style.color='var(--wn)'; }
-    }
-    var _t = null;
-    window.sbSave = function(pid, its) {
-      clearTimeout(_t);
-      _t = setTimeout(function() {
-        setStatus('saving');
-        C.from('items').upsert(its.map(function(r){ return toRow(r, pid); }), {onConflict:'id'})
-          .then(function(r){ setStatus(r.error ? 'err' : 'ok'); })
-          .catch(function(){ setStatus('err'); });
-      }, 1500);
-    };
-    window.sbLoad = function(pid, cb) {
-      C.from('items').select('*').eq('project_id', pid).order('id')
-        .then(function(r){ cb(!r.error && r.data && r.data.length ? r.data.map(fromRow) : null); })
-        .catch(function(){ cb(null); });
-    };
-    setTimeout(function() {
-      C.from('items').select('id').eq('project_id','rucachue').limit(1)
-        .then(function(r) {
-          if (r.error || !r.data || r.data.length) return;
-          ['rucachue','p1777909472770','p1778165367591','p1777905676087'].forEach(function(pid) {
-            var di = pid==='rucachue' ? window.DI : (window.DI_MAP && window.DI_MAP[pid] || []);
-            if (di && di.length) C.from('items').upsert(di.map(function(r){ return toRow(r,pid); }), {onConflict:'id'}).catch(function(){});
-          });
-        }).catch(function(){});
-    }, 3000);
-  }
-  window.syncFromCloud = function() {
-    if (typeof window.sbLoad !== 'function') { 
-      if(typeof tst==='function') tst('Sin conexion a la nube');
-      return; 
-    }
-    var pid = window.currentProjId;
-    if (!pid) { if(typeof tst==='function') tst('Abre un proyecto primero'); return; }
-    window.sbLoad(pid, function(d) {
-      if (d && d.length) {
-        if(typeof mg==='function') window.items = d.map(mg);
-        localStorage.setItem('ar6_p'+pid+'_items', JSON.stringify(window.items));
-        if(typeof rC==='function') rC();
-        if(typeof updateBackupInfo==='function') updateBackupInfo();
-        if(typeof tst==='function') tst('Datos sincronizados desde la nube');
-      } else {
-        if(typeof tst==='function') tst('Sin datos en la nube para este proyecto');
-      }
-    });
-  };
-  function tryShowBtn(){ var b=document.getElementById('sbSyncBtn');if(b)b.style.display=''; }
-  setTimeout(function(){ init(); setTimeout(tryShowBtn,200); }, 500);
-  setTimeout(function(){ init(); setTimeout(tryShowBtn,200); }, 2500);
-})();
-</script>
+</body>
+</html>
