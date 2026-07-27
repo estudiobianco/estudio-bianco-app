@@ -2032,39 +2032,20 @@ function showPDF(){
     +'</div>'
     +'</div>'
 
-    +'<div class="psec"><h2>Resumen financiero</h2>'
-      +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;">'
-        +'<div class="pkc" style="border-left:3px solid #555;"><div class="pkl">Total presupuesto</div><div class="pkv" style="font-size:20px;">'+fm(tot)+'</div><div style="font-size:10px;color:#999;">'+items.length+' ítems</div></div>'
-        +'<div class="pkc" style="border-left:3px solid #2A5C45;"><div class="pkl">Total desembolsado</div><div class="pkv g" style="font-size:20px;">'+fm(desemb)+'</div><div style="font-size:10px;color:#999;">'+pct+'% del presupuesto</div></div>'
-        +'<div class="pkc" style="border-left:3px solid #B83030;"><div class="pkl">Saldo por pagar</div><div class="pkv r" style="font-size:20px;">'+fm(saldo)+'</div><div style="font-size:10px;color:#999;">'+(100-pct)+'% pendiente</div></div>'
-      +'</div>'
-      +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;">'
-        +'<div class="pkc"><div class="pkl">Pagados completo</div><div class="pkv b">'+fm(tPag)+'</div><div style="font-size:10px;color:#999;">'+nPag+' ítem'+(nPag!==1?'s':'')+'</div></div>'
-        +'<div class="pkc"><div class="pkl">Pagos parciales</div><div class="pkv w">'+fm(tPar)+'</div><div style="font-size:10px;color:#999;">'+nPar+' ítem'+(nPar!==1?'s':'')+'</div></div>'
-        +'<div class="pkc"><div class="pkl">Sin pago registrado</div><div class="pkv r">'+nPend+' ítem'+(nPend!==1?'s':'')+'</div></div>'
-      +'</div>'
-      +'<div style="padding:10px 14px;background:#F1EFE9;border-radius:6px;">'
-        +'<div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:6px;"><span><strong style="color:#2A5C45;">'+fm(desemb)+'</strong> de <strong>'+fm(tot)+'</strong></span><strong>'+pct+'%</strong></div>'
-        +'<div style="height:8px;background:#ddd;border-radius:99px;overflow:hidden;"><div style="width:'+pct+'%;height:100%;background:#2A5C45;border-radius:99px;"></div></div>'
-      +'</div>'
-    +'</div>'
+    // 1. FLUJO DEL PROCESO
+    +(typeof flujoHTML!=='undefined'?'<div class="psec"><h2>1. Flujo del proceso de diseño</h2>'+flujoHTML+'</div>':'')
 
-    +'<div class="psec"><h2>Listado completo por categoría</h2>'
-      +catHTML
-      +'<div style="padding:10px 14px;background:#1A1916;border-radius:6px;display:flex;justify-content:space-between;align-items:center;margin-top:4px;">'
-        +'<strong style="color:#fff;">TOTAL GENERAL</strong>'
-        +'<div style="display:flex;gap:24px;text-align:right;">'
-          +'<div><div style="font-size:9px;color:#aaa;">PRESUPUESTO</div><div style="font-family:monospace;font-size:14px;font-weight:700;color:#fff;">'+fm(tot)+'</div></div>'
-          +'<div><div style="font-size:9px;color:#aaa;">DESEMBOLSADO</div><div style="font-family:monospace;font-size:14px;font-weight:700;color:#88cc99;">'+fm(desemb)+'</div></div>'
-          +'<div><div style="font-size:9px;color:#aaa;">SALDO</div><div style="font-family:monospace;font-size:14px;font-weight:700;color:#ff9999;">'+fm(saldo)+'</div></div>'
-        +'</div>'
-      +'</div>'
-    +'</div>'
+    // 2. RESUMEN FINANCIERO
+    +'<div class="psec"><h2>2. Resumen financiero</h2>'      +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px;">'        +'<div class="pkc" style="border-left:3px solid #555;"><div class="pkl">Total presupuesto</div><div class="pkv" style="font-size:20px;">'+fm(tot)+'</div><div style="font-size:10px;color:#999;">'+items.length+' ítems</div></div>'        +'<div class="pkc" style="border-left:3px solid #2A5C45;"><div class="pkl">Total desembolsado</div><div class="pkv g" style="font-size:20px;">'+fm(desemb)+'</div><div style="font-size:10px;color:#999;">'+pct+'% del presupuesto</div></div>'        +'<div class="pkc" style="border-left:3px solid #B83030;"><div class="pkl">Saldo por pagar</div><div class="pkv r" style="font-size:20px;">'+fm(saldo)+'</div><div style="font-size:10px;color:#999;">'+(100-pct)+'% pendiente</div></div>'      +'</div>'      +'<div style="padding:10px 14px;background:#F1EFE9;border-radius:6px;">'        +'<div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:6px;"><span><strong style="color:#2A5C45;">'+fm(desemb)+'</strong> de <strong>'+fm(tot)+'</strong></span><strong>'+pct+'%</strong></div>'        +'<div style="height:8px;background:#ddd;border-radius:99px;overflow:hidden;"><div style="width:'+pct+'%;height:100%;background:#2A5C45;border-radius:99px;"></div></div>'      +'</div>'    +'</div>'
+    // 3. LISTADO DE COMPRAS
+    +'<div class="psec"><h2>3. Listado de compras por categoría</h2>'      +catHTML      +'<div style="padding:10px 14px;background:#1A1916;border-radius:6px;display:flex;justify-content:space-between;align-items:center;margin-top:4px;">'        +'<strong style="color:#fff;">TOTAL GENERAL</strong>'        +'<div style="display:flex;gap:24px;text-align:right;">'          +'<div><div style="font-size:9px;color:#aaa;">PRESUPUESTO</div><div style="font-family:monospace;font-size:14px;font-weight:700;color:#fff;">'+fm(tot)+'</div></div>'          +'<div><div style="font-size:9px;color:#aaa;">DESEMBOLSADO</div><div style="font-family:monospace;font-size:14px;font-weight:700;color:#88cc99;">'+fm(desemb)+'</div></div>'          +'<div><div style="font-size:9px;color:#aaa;">SALDO</div><div style="font-family:monospace;font-size:14px;font-weight:700;color:#ff9999;">'+fm(saldo)+'</div></div>'        +'</div>'      +'</div>'    +'</div>'
+    // 4. COTIZACIONES
+    +(typeof cotLinksHTML!=='undefined'?'<div class="psec"><h2>4. Cotizaciones y documentos</h2>'+cotLinksHTML+'</div>':'')
 
-    +'<div class="psec"><h2>Cronograma del proyecto</h2>'+phHTML+logHTML+'</div>'
-
-    +'<div class="psec"><h2>Directorio de proveedores</h2>'+supHTML+'</div>'
-
+    // 5. DIRECTORIO DE PROVEEDORES
+    +'<div class="psec"><h2>5. Directorio de proveedores</h2>'+supHTML+'</div>'
+    // 6. CRONOGRAMA
+    +'<div class="psec"><h2>6. Cronograma del proyecto</h2>'+phHTML+logHTML+'</div>'
     +'<div class="pftr"><span>'+es(pInfo.name)+' · Estudio Bianco Spa</span><span>Generado el '+today+'</span></div>';
 
   document.getElementById('pdfOv').classList.add('show');
