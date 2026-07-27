@@ -629,6 +629,29 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
   line-height:1.6;
 }
 
+
+/* ── APP FOOTER ── */
+.app-footer {
+  text-align: center;
+  padding: 18px 20px 14px;
+  margin-top: 40px;
+  border-top: 1px solid var(--bd);
+  background: var(--s2);
+}
+.app-footer-main {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tx2);
+  letter-spacing: .04em;
+  margin-bottom: 3px;
+}
+.app-footer-sub {
+  font-size: 9.5px;
+  color: var(--tx3);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
 </style>
 </head>
 <body>
@@ -3516,5 +3539,11 @@ function renderGantt(){
   document.getElementById('ganttChart').innerHTML=out;
 }
 </script>
+
+<div class="app-footer">
+  <div class="app-footer-main">Desarrollado por Ankel Rocha · Estudio Bianco Spa</div>
+  <div class="app-footer-sub">Plataforma exclusiva · Uso interno · Todos los derechos reservados © 2025</div>
+</div>
+
 </body>
 </html>
