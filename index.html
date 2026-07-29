@@ -167,7 +167,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
 .phdr h1{font-size:24px;font-weight:600;color:#1A1916;margin-bottom:2px;}
 .phdr .psub{font-size:13px;color:#666;}
 .phdr .pdate{font-size:11px;color:#aaa;margin-top:5px;}
-.psec{margin-bottom:26px;}
+.psec{margin-bottom:16px;}
 .psec h2{font-size:12px;font-weight:600;color:#2A5C45;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #e0e0e0;padding-bottom:5px;margin-bottom:11px;}
 .pkr{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:15px;}
 .pkc{border:1px solid #e5e5e5;border-radius:7px;padding:10px 12px;}
@@ -187,8 +187,8 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
 .pftr{border-top:1px solid #eee;padding-top:12px;margin-top:24px;display:flex;justify-content:space-between;font-size:10px;color:#aaa;}
 #toast{position:fixed;bottom:22px;right:22px;background:var(--tx);color:#fff;font-size:13px;padding:8px 15px;border-radius:var(--r);box-shadow:var(--sh2);opacity:0;transform:translateY(8px);transition:all .24s;pointer-events:none;z-index:8000;}
 #toast.show{opacity:1;transform:translateY(0);}
-@page{size:A4 landscape;margin:10mm;}
-@media print{#pdfOv.show{position:static;background:none;padding:0;}.pda{display:none!important;}.layout{display:none!important;}body{background:#fff;}#pdfDoc{max-width:1100px;box-shadow:none;border-radius:0;max-width:100%;padding:8px;}#pdfOv.show,#pdfDoc{display:block;}}
+@page{size:A4 portrait;margin:12mm;}
+@media print{#pdfOv.show{position:static;background:none;padding:0;}.pda{display:none!important;}.layout{display:none!important;}body{background:#fff;}#pdfDoc{max-width:820px;box-shadow:none;border-radius:0;max-width:100%;padding:8px;}#pdfOv.show,#pdfDoc{display:block;}}
 
 /* ── GESTIÓN DE PROYECTO ──────────────────────────────────────── */
 .gp-tabs{display:flex;gap:0;border-bottom:2px solid var(--bd);margin-bottom:20px;}
@@ -546,20 +546,19 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
 
 /* ── PDF PORTADA CORPORATIVA ─────────────────────────────────────────── */
 @media print {
-  .pdf-cover { page-break-after: always; }
-  .pdf-section { page-break-after: always; }
-  .pdf-section:last-child { page-break-after: avoid; }
+  /* Sin saltos forzados: el contenido fluye continuo.
+     Solo evitamos que tablas y bloques se corten a la mitad. */
+  .psec, .ptbls, table, .pkc, .pdf-cover-footer { break-inside: avoid; }
 }
 .pdf-cover {
-  width:100%; min-height:520px; background:#fff;
+  width:100%; background:#fff;
   display:flex; flex-direction:column;
-  border-bottom: 3px solid #1A1916;
-  padding-bottom: 32px; margin-bottom: 40px;
-  page-break-after: always;
+  border-bottom: 2px solid #1A1916;
+  padding-bottom: 18px; margin-bottom: 22px;
 }
 .pdf-cover-top {
   display:flex; align-items:center; justify-content:space-between;
-  padding: 32px 40px 24px; border-bottom: 1px solid #e8e6e0;
+  padding: 20px 32px 16px; border-bottom: 1px solid #e8e6e0;
 }
 .pdf-cover-logos {
   display:flex; align-items:center; gap:28px;
@@ -572,8 +571,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
   font-size:11px; color:#999; letter-spacing:.05em;
 }
 .pdf-cover-body {
-  padding: 40px 40px 24px;
-  flex:1;
+  padding: 22px 32px 14px;
 }
 .pdf-cover-tag {
   font-size:10px; font-weight:600; text-transform:uppercase;
@@ -590,13 +588,13 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
   font-size:12px; color:#999;
 }
 .pdf-cover-bar {
-  height:3px; width:60px; margin: 28px 0;
+  height:3px; width:60px; margin: 16px 0;
   background: linear-gradient(90deg,#1A1916,#888);
   border-radius:99px;
 }
 .pdf-cover-index {
-  display:grid; grid-template-columns:1fr 1fr; gap:6px 24px;
-  margin-bottom:32px;
+  display:grid; grid-template-columns:1fr 1fr; gap:5px 24px;
+  margin-bottom:14px;
 }
 .pdf-cover-idx-item {
   font-size:12px; color:#444; padding:5px 0;
@@ -2009,6 +2007,7 @@ function showPDF(){
       const linked=items.filter(r=>r.supplier&&r.supplier.toUpperCase()===s.name.toUpperCase());
       supRows+='<tr>'
         +'<td style="font-weight:600;">'+es(s.name)+'</td>'
+        +'<td style="font-size:11px;color:#555;">'+(s.contact?es(s.contact):'—')+'</td>'
         +'<td>'+(s.phone||'—')+'</td>'
         +'<td style="color:#1A4A7A;">'+(s.email||'—')+'</td>'
         +'<td style="font-size:11px;color:#555;">'+(s.addr||'—')+'</td>'
@@ -2084,6 +2083,8 @@ function showPDF(){
 
   document.getElementById('pdfOv').classList.add('show');
   document.body.style.overflow='hidden';
+  // Disparar impresión/guardado automáticamente
+  setTimeout(function(){ window.print(); }, 400);
 }
 function hidePDF(){document.getElementById('pdfOv').classList.remove('show');document.body.style.overflow='';}
 document.getElementById('pdfOv').addEventListener('click',function(e){if(e.target===this)hidePDF();});
