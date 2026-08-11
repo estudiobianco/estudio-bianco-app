@@ -1635,7 +1635,7 @@ function changeCat(id,newCat){var r=items.find(function(x){return x.id===id;});i
 function uI(id,f,v){const r=items.find(x=>x.id===id);if(r){r[f]=v;rC();sAll();}}
 // Quiet update: saves field without re-rendering the table (for expand panel fields)
 function uIQ(id,f,v){const r=items.find(x=>x.id===id);if(r){r[f]=v;sAll();}}
-function dI(id){if(confirm('¿Eliminar este ítem?')){items=items.filter(x=>x.id!==id);rC();sAll();}}
+function dI(id){if(confirm('¿Eliminar este ítem?')){items=items.filter(x=>x.id!==id);if(typeof window.sbDeleteItem==='function'){try{window.sbDeleteItem(currentProjId,id);}catch(e){}}rC();sAll();}}
 function addItem(){const newCat=document.getElementById('fCat').value||'Mobiliario';items.push(mg({id:nii++,cat:newCat,item:'Nuevo ítem',supplier:'',qty:1,unit:0,notes:''}));document.getElementById('fPay').value='';document.getElementById('fDel').value='';document.getElementById('fCS').value='';document.getElementById('fQ').value='';const catKey=newCat.replace(/[^a-zA-Z0-9]/g,'_');accOpen[catKey]=true;saveAccOpen();rC();sAll();}
 function expCSV(){const f=gF();const rows=[['Categoría','Espacio','Ítem','Proveedor','Cant.','Precio unit.','Total','Est.cliente','Est.pago','Est.entrega','Est.instalación','Especificaciones','URL']];f.forEach(r=>rows.push([r.cat,r.space||'',r.item,r.supplier,r.qty,r.unit,rT(r),r.clientStatus,r.payStatus,r.deliveryStatus,r.installStatus,r.specs,r.productUrl]));const csv=rows.map(r=>r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);const _csvname=(projects.find(x=>x.id===currentProjId)||{name:'proyecto'}).name.replace(/[^a-zA-Z0-9]/g,'_').substring(0,25);a.download=_csvname+'.csv';a.click();}
 
@@ -3702,7 +3702,7 @@ function renderGantt(){
     else { el.textContent='\u26a0 Sin conexión'; el.style.color='var(--wn)'; }
   }
 
-  // GUARDAR (debounce 1.2s): reemplaza todos los items del proyecto (borrar + insertar)
+  // GUARDAR (debounce 0.8s): upsert seguro por (project_id,id) — NUNCA borra, solo actualiza/agrega
   window.sbSave=function(pid,its){
     if(!pid||!its) return;
     clearTimeout(_t);
@@ -3710,18 +3710,21 @@ function renderGantt(){
     _t=setTimeout(function(){
       if(!snapshot.length){ setStatus('ok'); return; }
       setStatus('saving');
-      // 1) Borrar los existentes del proyecto
-      fetch(URL+'/rest/v1/items?project_id=eq.'+encodeURIComponent(pid),{
-        method:'DELETE', headers:H
-      }).then(function(delR){
-        if(!delR.ok) throw new Error('delete');
-        // 2) Insertar el snapshot completo
-        return fetch(URL+'/rest/v1/items',{
-          method:'POST', headers:H, body:JSON.stringify(snapshot)
-        });
-      }).then(function(insR){ setStatus(insR.ok?'ok':'err'); })
+      // UPSERT: actualiza los que existen, inserta los nuevos, sin borrar nada
+      fetch(URL+'/rest/v1/items?on_conflict=project_id,id',{
+        method:'POST',
+        headers:Object.assign({},H,{'Prefer':'resolution=merge-duplicates'}),
+        body:JSON.stringify(snapshot)
+      }).then(function(r){ setStatus(r.ok?'ok':'err'); })
         .catch(function(){ setStatus('err'); });
-    },1200);
+    },800);
+  };
+  // BORRAR UN ITEM específico de la nube (cuando el usuario borra un item en la app)
+  window.sbDeleteItem=function(pid,itemId){
+    if(!pid||itemId==null) return;
+    fetch(URL+'/rest/v1/items?project_id=eq.'+encodeURIComponent(pid)+'&id=eq.'+encodeURIComponent(itemId),{
+      method:'DELETE', headers:H
+    }).catch(function(){});
   };
 
   // CARGAR: baja los items del proyecto
