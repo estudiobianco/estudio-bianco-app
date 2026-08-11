@@ -823,7 +823,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
     <input type="date" id="lastRevGlobal" onchange="saveGlobal()">
     <span id="lastRevLabel" style="font-size:11px;color:var(--tx2);"></span>
     <button class="btn prim" onclick="manualSave()" style="height:28px;font-size:12px;padding:0 12px;margin-left:8px;">Guardar cambios</button>
-    <span id="saveStatus" style="font-size:12px;margin-left:6px;"></span>
+    <span id="saveStatus" style="font-size:12px;margin-left:6px;"></span><span id="syncStatus" style="font-size:11px;margin-left:8px;color:var(--tx3);"></span><button class="btn" id="sbSyncBtn" onclick="syncFromCloud()" style="height:28px;font-size:12px;padding:0 12px;margin-left:8px;display:none;">&#8635; Sincronizar</button>
   </div>
   <div class="kr" id="comprasKPI"></div>
   <div class="tb">
@@ -1334,6 +1334,7 @@ function sAll(){
     localStorage.setItem('ar6_p'+currentProjId+'_cots',JSON.stringify(cots));
     var el=document.getElementById('saveStatus');if(el){el.textContent='Guardado';el.style.color='var(--ac)';clearTimeout(window._st);window._st=setTimeout(function(){el.textContent='';},3000);}
   }catch(e){}
+  if(typeof window.sbSave==='function'){try{window.sbSave(currentProjId,items);}catch(e){}}
 }
 function manualSave(){sAll();updateBackupInfo();tst('Datos guardados');}
 function saveGlobal(){gd.lastReview=document.getElementById('lastRevGlobal').value;sv('ar5_global',gd);document.getElementById('lastRevLabel').textContent=gd.lastReview?'('+fd(gd.lastReview)+')'  :'';}
@@ -3407,6 +3408,25 @@ function rPend2(){
   }catch(e){console.error('rPend2:',e);}
 }
 
+
+function syncFromCloud(){
+  if(typeof window.sbLoad!=='function'){tst('Sin conexión a la nube');return;}
+  if(!currentProjId){tst('Abre un proyecto primero');return;}
+  var btn=document.getElementById('sbSyncBtn');
+  if(btn){btn.textContent='Sincronizando...';btn.disabled=true;}
+  window.sbLoad(currentProjId,function(d){
+    if(btn){btn.textContent='\u21bb Sincronizar';btn.disabled=false;}
+    if(d&&d.length){
+      items=d.map(mg);
+      try{localStorage.setItem('ar6_p'+currentProjId+'_items',JSON.stringify(items));}catch(e){}
+      rC();updateBackupInfo();uNT();
+      tst('\u2713 Sincronizado desde la nube ('+d.length+' ítems)');
+    }else{
+      tst('Sin datos en la nube para este proyecto');
+    }
+  });
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────────
 // Show access modal on startup
 appMode = localStorage.getItem('ar6_mode') || 'worker';
@@ -3612,5 +3632,103 @@ function renderGantt(){
 </div>
 
 <datalist id="supplierList"></datalist>
+
+<script>
+/* ═══ SINCRONIZACIÓN SUPABASE (aislado) ═══ */
+(function(){
+  var URL='https://iucjhzsnlotojvpyjcfo.supabase.co';
+  var KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1Y2poenNubG90b2p2cHlqY2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMTIzMTYsImV4cCI6MjA5NDY4ODMxNn0.PKLG4LS1EjgfHE0GXAnyxWuEUhlZy5s7TWxe8luvuik';
+  var H={ 'apikey':KEY, 'Authorization':'Bearer '+KEY, 'Content-Type':'application/json' };
+  var _t=null;
+
+  // camelCase (app) -> snake_case (Supabase)
+  function toRow(r,pid){
+    return {
+      id: r.id, project_id: pid,
+      cat: r.cat||'', item: r.item||'', supplier: r.supplier||'',
+      qty: r.qty||1, unit: r.unit||0, space: r.space||'',
+      notes: r.notes||'', specs: r.specs||'', product_url: r.productUrl||'',
+      pay_status: r.payStatus||'Pendiente',
+      delivery_status: r.deliveryStatus||'Sin iniciar',
+      install_status: r.installStatus||'Pendiente',
+      client_status: r.clientStatus||'',
+      client_approval_date: r.clientApprovalDate||'',
+      last_review_date: r.lastReviewDate||'',
+      p1pct:r.p1pct||0,p1amt:r.p1amt||0,p1date:r.p1date||'',p1method:r.p1method||'',p1note:r.p1note||'',
+      p2pct:r.p2pct||0,p2amt:r.p2amt||0,p2date:r.p2date||'',p2method:r.p2method||'',p2note:r.p2note||'',
+      p3pct:r.p3pct||0,p3amt:r.p3amt||0,p3date:r.p3date||'',p3method:r.p3method||'',p3note:r.p3note||'',
+      p4pct:r.p4pct||0,p4amt:r.p4amt||0,p4date:r.p4date||'',p4method:r.p4method||'',p4note:r.p4note||'',
+      order_date:r.orderDate||'', lead_weeks: (r.leadWeeks===''||r.leadWeeks==null)?null:r.leadWeeks,
+      est_delivery:r.estDelivery||'', actual_delivery:r.actualDelivery||'',
+      install_date:r.installDate||'', track_note:r.trackNote||''
+    };
+  }
+  // snake_case (Supabase) -> camelCase (app)
+  function fromRow(x){
+    return {
+      id: x.id, cat: x.cat||'', item: x.item||'', supplier: x.supplier||'',
+      qty: x.qty||1, unit: x.unit||0, space: x.space||'',
+      notes: x.notes||'', specs: x.specs||'', productUrl: x.product_url||'',
+      payStatus: x.pay_status||'Pendiente',
+      deliveryStatus: x.delivery_status||'Sin iniciar',
+      installStatus: x.install_status||'Pendiente',
+      clientStatus: x.client_status||'',
+      clientApprovalDate: x.client_approval_date||'',
+      lastReviewDate: x.last_review_date||'',
+      p1pct:x.p1pct||0,p1amt:x.p1amt||0,p1date:x.p1date||'',p1method:x.p1method||'',p1note:x.p1note||'',
+      p2pct:x.p2pct||0,p2amt:x.p2amt||0,p2date:x.p2date||'',p2method:x.p2method||'',p2note:x.p2note||'',
+      p3pct:x.p3pct||0,p3amt:x.p3amt||0,p3date:x.p3date||'',p3method:x.p3method||'',p3note:x.p3note||'',
+      p4pct:x.p4pct||0,p4amt:x.p4amt||0,p4date:x.p4date||'',p4method:x.p4method||'',p4note:x.p4note||'',
+      orderDate:x.order_date||'', leadWeeks:x.lead_weeks==null?'':x.lead_weeks,
+      estDelivery:x.est_delivery||'', actualDelivery:x.actual_delivery||'',
+      installDate:x.install_date||'', trackNote:x.track_note||''
+    };
+  }
+
+  function setStatus(s){
+    var el=document.getElementById('syncStatus'); if(!el) return;
+    clearTimeout(window._sst);
+    if(s==='saving'){ el.textContent='Guardando en la nube…'; el.style.color='var(--tx3)'; }
+    else if(s==='ok'){ el.textContent='\u2713 Sincronizado'; el.style.color='var(--ac)'; window._sst=setTimeout(function(){el.textContent='';},3000); }
+    else { el.textContent='\u26a0 Sin conexión'; el.style.color='var(--wn)'; }
+  }
+
+  // GUARDAR (debounce 1.2s): reemplaza todos los items del proyecto (borrar + insertar)
+  window.sbSave=function(pid,its){
+    if(!pid||!its) return;
+    clearTimeout(_t);
+    var snapshot=its.map(function(r){return toRow(r,pid);});
+    _t=setTimeout(function(){
+      if(!snapshot.length){ setStatus('ok'); return; }
+      setStatus('saving');
+      // 1) Borrar los existentes del proyecto
+      fetch(URL+'/rest/v1/items?project_id=eq.'+encodeURIComponent(pid),{
+        method:'DELETE', headers:H
+      }).then(function(delR){
+        if(!delR.ok) throw new Error('delete');
+        // 2) Insertar el snapshot completo
+        return fetch(URL+'/rest/v1/items',{
+          method:'POST', headers:H, body:JSON.stringify(snapshot)
+        });
+      }).then(function(insR){ setStatus(insR.ok?'ok':'err'); })
+        .catch(function(){ setStatus('err'); });
+    },1200);
+  };
+
+  // CARGAR: baja los items del proyecto
+  window.sbLoad=function(pid,cb){
+    fetch(URL+'/rest/v1/items?project_id=eq.'+encodeURIComponent(pid)+'&select=*&order=id',{ headers:H })
+      .then(function(r){ return r.ok?r.json():null; })
+      .then(function(data){ cb(data&&data.length?data.map(fromRow):null); })
+      .catch(function(){ cb(null); });
+  };
+
+  // Mostrar el botón Sincronizar cuando el módulo esté listo
+  function showBtn(){ var b=document.getElementById('sbSyncBtn'); if(b) b.style.display=''; }
+  if(document.readyState==='complete'||document.readyState==='interactive'){ setTimeout(showBtn,300); }
+  else { document.addEventListener('DOMContentLoaded',function(){ setTimeout(showBtn,300); }); }
+})();
+</script>
+
 </body>
 </html>
