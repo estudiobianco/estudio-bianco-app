@@ -2363,6 +2363,7 @@ function saveNewProj(){
     }
   }
   svProjects(projects);
+  if(typeof window.sbSaveProject==='function'){try{window.sbSaveProject(projects[projects.length-1]);}catch(e){}}
   closeNewProj();
   renderHome();
 }
@@ -3723,8 +3724,45 @@ function renderGantt(){
       .catch(function(){ cb(null); });
   };
 
+  // Convertir proyecto app <-> nube
+  function projToRow(p){ return { id:p.id, name:p.name, client:p.client||'', color:p.color||'#2A5C45', status:p.status||'Activo', addr:p.addr||'', start_date:p.startDate||'', notes:p.notes||'' }; }
+  function projFromRow(x){ return { id:x.id, name:x.name, client:x.client||'', color:x.color||'#2A5C45', status:x.status||'Activo', addr:x.addr||'', startDate:x.start_date||'', notes:x.notes||'' }; }
+
+  // Cargar la lista de proyectos desde la nube
+  window.sbLoadProjects=function(cb){
+    fetch(URL+'/rest/v1/projects?select=*&order=created_at',{ headers:H })
+      .then(function(r){ return r.ok?r.json():null; })
+      .then(function(data){ cb(data&&data.length?data.map(projFromRow):null); })
+      .catch(function(){ cb(null); });
+  };
+  // Guardar/actualizar un proyecto en la nube
+  window.sbSaveProject=function(p){
+    fetch(URL+'/rest/v1/projects?on_conflict=id',{
+      method:'POST', headers:Object.assign({},H,{'Prefer':'resolution=merge-duplicates'}),
+      body:JSON.stringify(projToRow(p))
+    }).catch(function(){});
+  };
+
+  // Al iniciar: traer los proyectos de la nube y fusionarlos con los locales
+  function loadProjectsFromCloud(){
+    if(typeof window.sbLoadProjects!=='function') return;
+    window.sbLoadProjects(function(cloudProjs){
+      if(!cloudProjs||!cloudProjs.length) return;
+      try{
+        var local = JSON.parse(localStorage.getItem('ar6_projects')||'[]');
+        var byId = {};
+        local.forEach(function(p){ byId[p.id]=p; });
+        cloudProjs.forEach(function(p){ byId[p.id]=p; }); // la nube manda
+        var merged = Object.keys(byId).map(function(k){ return byId[k]; });
+        localStorage.setItem('ar6_projects', JSON.stringify(merged));
+        if(typeof projects!=='undefined'){ projects.length=0; merged.forEach(function(p){ projects.push(p); }); }
+        if(typeof renderHome==='function') renderHome();
+      }catch(e){}
+    });
+  }
+
   // Mostrar el botón Sincronizar cuando el módulo esté listo
-  function showBtn(){ var b=document.getElementById('sbSyncBtn'); if(b) b.style.display=''; }
+  function showBtn(){ var b=document.getElementById('sbSyncBtn'); if(b) b.style.display=''; setTimeout(loadProjectsFromCloud, 200); }
   if(document.readyState==='complete'||document.readyState==='interactive'){ setTimeout(showBtn,300); }
   else { document.addEventListener('DOMContentLoaded',function(){ setTimeout(showBtn,300); }); }
 })();
