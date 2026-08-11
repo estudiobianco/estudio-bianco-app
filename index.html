@@ -2291,6 +2291,27 @@ function openProject(pid){
   // Reset to compras tab
   go('compras');
   updateBackupInfo();
+  // AUTO-CARGAR items desde la nube al abrir el proyecto
+  if(typeof window.sbLoad==='function'){
+    var _openPid=pid;
+    var _ss=document.getElementById('syncStatus');
+    if(_ss){_ss.textContent='Cargando desde la nube…';_ss.style.color='var(--tx3)';}
+    window.sbLoad(pid,function(cloud){
+      // Solo aplicar si seguimos en el mismo proyecto (no cambió mientras cargaba)
+      if(currentProjId!==_openPid) return;
+      if(cloud&&cloud.length){
+        items=cloud.map(mg);
+        try{localStorage.setItem('ar6_p'+_openPid+'_items',JSON.stringify(items));}catch(e){}
+        nii=Math.max(0,...items.map(function(i){return i.id;}))+1;
+        try{rC();}catch(e){}
+        updateBackupInfo();
+        try{uNT();}catch(e){}
+        if(_ss){_ss.textContent='\u2713 Actualizado';_ss.style.color='var(--ac)';clearTimeout(window._sst);window._sst=setTimeout(function(){_ss.textContent='';},2500);}
+      } else {
+        if(_ss){_ss.textContent='';}
+      }
+    });
+  }
 }
 
 function goHome(){
