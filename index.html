@@ -2551,6 +2551,14 @@ function applyMode(){
   updateNavTotal();
   var _k=document.getElementById('comprasKPI');if(_k)try{rCKPI();}catch(e){}
   var _pb=document.getElementById('pdfBtn');if(_pb)_pb.style.display=appMode==='admin'?'':'none';
+  // Ocultar pestaña Financiero para trabajadores
+  var _fin=document.getElementById('htab-financiero');
+  if(_fin)_fin.style.display=isAdmin?'':'none';
+  // Si el trabajador está en la sección financiera, volver a proyectos
+  if(!isAdmin){
+    var _finSec=document.getElementById('hsec-financiero');
+    if(_finSec&&_finSec.classList.contains('active')){try{homeTab('proyectos');}catch(e){}}
+  }
 }
 
 // Override go() to block honorarios for workers
