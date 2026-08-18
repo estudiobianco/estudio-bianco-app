@@ -794,6 +794,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
     <div class="ni" onclick="go('seguimiento')" id="nav-seguimiento"><span class="ic">📦</span>Seguimiento</div>
     <div class="ni" onclick="go('cotizaciones')" id="nav-cotizaciones"><span class="ic">📄</span>Cotizaciones</div>
     <div class="ni" onclick="go('proveedores')" id="nav-proveedores"><span class="ic">🏪</span>Proveedores</div>
+    <div class="ni" onclick="go('pagosprov')" id="nav-pagosprov"><span class="ic">💸</span>Pagos proveedores</div>
     <div class="nsl">Honorarios</div>
     <div class="ni" onclick="go('honorarios')" id="nav-honorarios"><span class="ic">💳</span>Honorarios I</div>
     <div class="nsl">CRM</div>
@@ -923,6 +924,14 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
   <div id="supList"></div>
 </div>
 
+<div class="page" id="page-pagosprov">
+  <div class="ph">
+    <div><h1>Pagos a proveedores</h1><p>Resumen de transferencias por proveedor · cuánto se ha pagado y cuánto falta</p></div>
+  </div>
+  <div class="kr" id="pagosProvKPI"></div>
+  <div id="pagosProvList"></div>
+</div>
+
 <div class="page" id="page-cotizaciones">
   <div class="ph"><div><h1>Cotizaciones</h1><p>Gestión de cotizaciones por proveedor · enlaza ítems del listado para gestionar compras</p></div></div>
   <div class="kr" id="cotKPI"></div>
@@ -987,6 +996,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
 <div class="page" id="page-gestion">
   <div class="ph"><div><h1>Gestión de Proyecto</h1><p>Bitácora de obra y reuniones · Carta Gantt con atrasos y avances</p></div></div>
   <div class="kr" id="gpKPI"></div>
+  <div id="pagosAlertPanel"></div>
   <div class="gp-tabs">
     <div class="gp-tab active" id="gptab-bitacora" onclick="gpTab('bitacora')">📓 Bitácora</div>
     <div class="gp-tab" id="gptab-gantt" onclick="gpTab('gantt')">📊 Carta Gantt</div>
@@ -1001,7 +1011,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
           <div class="fg"><label>Fecha</label><input type="date" id="nDate" style="height:33px;"></div>
           <div class="fg"><label>Tipo</label>
             <select id="nType" style="height:33px;font-size:13px;padding:0 8px;border:1px solid var(--bd2);border-radius:var(--rs);background:var(--surface);">
-              <option>Reunión cliente</option><option>Bitácora de obra</option><option>Hito</option><option>Compromiso</option><option>Nota general</option>
+              <option>Reunión cliente</option><option>Bitácora de obra</option><option>Hito</option><option>Compromiso</option><option>💰 Pago programado</option><option>Nota general</option>
             </select>
           </div>
           <div class="fg"><label>Estado</label>
@@ -1011,6 +1021,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
           </div>
           <div class="fg"><label>Responsable</label><input type="text" id="nResp" placeholder="Estudio Bianco, cliente…" style="height:33px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 9px;font-size:13px;"></div>
           <div class="fg"><label>Fecha vencimiento / compromiso</label><input type="date" id="nDue" style="height:33px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 9px;font-size:13px;"></div>
+          <div class="fg"><label>Monto ($) — si es pago</label><input type="text" id="nAmount" placeholder="0" oninput="this.value=this.value.replace(/[^0-9]/g,'')" style="height:33px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 9px;font-size:13px;"></div>
           <div class="fg log-eg3"><label>Título</label><input type="text" id="nTitle" placeholder="Ej: Reunión de avance semana 14" style="height:33px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 9px;font-size:13px;"></div>
           <div class="fg log-eg3"><label>Descripción / resumen</label><textarea id="nDesc" rows="3" placeholder="Qué se discutió, qué se inspeccionó, avances, observaciones…" style="border:1px solid var(--bd2);border-radius:var(--rs);padding:7px 9px;font-size:13px;font-family:'DM Sans',sans-serif;resize:vertical;"></textarea></div>
           <div class="fg log-eg3"><label>Compromisos adquiridos</label><textarea id="nCommits" rows="2" placeholder="Qué se comprometió, plazos acordados, acciones a seguir…" style="border:1px solid var(--bd2);border-radius:var(--rs);padding:7px 9px;font-size:13px;font-family:'DM Sans',sans-serif;resize:vertical;"></textarea></div>
@@ -1345,7 +1356,7 @@ const fd=d=>{if(!d)return'—';const[y,m,dd]=d.split('-');return dd+'/'+m+'/'+y;
 const rT=r=>r.qty*r.unit;
 const es=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
 function tst(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
-function go(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');({compras:rC,pagados:function(){rPag();setTimeout(rPend2,50);},pendientes:rPend,seguimiento:rSeg,cotizaciones:rCot,honorarios:rH,gestion:rGP,crm:rCRM,proveedores:function(){try{rSup();}catch(e){}}})[id]?.();}
+function go(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');({compras:rC,pagados:function(){rPag();setTimeout(rPend2,50);},pendientes:rPend,seguimiento:rSeg,cotizaciones:rCot,honorarios:rH,gestion:rGP,crm:rCRM,proveedores:function(){try{rSup();}catch(e){}},pagosprov:function(){try{rPagosProv();}catch(e){}}})[id]?.();}
 function uNT(){var n=document.getElementById('navTotDiv');if(!n)return;if(appMode==='admin'&&currentProjId){n.style.display='';document.getElementById('navTotal').textContent=fm(items.filter(function(r){return r.cat!=='Honorarios';}).reduce(function(a,r){return a+rT(r);},0));}else{n.style.display='none';}}
 function tp(r){return(r.p1amt||0)+(r.p2amt||0)+(r.p3amt||0)+(r.p4amt||0);}
 function tpend(r){return Math.max(0,rT(r)-tp(r));}
@@ -2296,7 +2307,19 @@ function openProject(pid){
     var _openPid=pid;
     var _ss=document.getElementById('syncStatus');
     if(_ss){_ss.textContent='Cargando desde la nube…';_ss.style.color='var(--tx3)';}
-    window.sbLoad(pid,function(cloud){
+    // Cargar logs (bitácora/pagos) de la nube al abrir
+      if(typeof window.sbLoadLogs==='function'){
+        window.sbLoadLogs(_openPid,function(cloudLogs){
+          if(currentProjId!==_openPid)return;
+          if(cloudLogs&&cloudLogs.length){
+            logs=cloudLogs.map(mgL);
+            try{sv('ar5_logs',logs);}catch(e){}
+            if(typeof nil!=='undefined')nil=Math.max(0,...logs.map(function(l){return l.id;}))+1;
+            try{var _pg=document.getElementById('page-gestion');if(_pg&&_pg.classList.contains('active'))rGP();}catch(e){}
+          }
+        });
+      }
+      window.sbLoad(pid,function(cloud){
       // Solo aplicar si seguimos en el mismo proyecto (no cambió mientras cargaba)
       if(currentProjId!==_openPid) return;
       if(cloud&&cloud.length){
@@ -3477,10 +3500,10 @@ const DL=[
   {id:3,date:'2026-01-30',type:'Reunión cliente',title:'Reunión de avance enero 2026',desc:'Revisión de avances: obra civil al 60%, equipamiento cocina por confirmar. Cliente aprueba propuesta de iluminación.',commits:'Cliente confirma mesa comedor antes del 15/02. Aprobar paleta de pinturas pendiente.',responsible:'Estudio Bianco',dueDate:'2026-02-15',status:'Completado'},
   {id:4,date:'2026-04-28',type:'Reunión cliente',title:'Reunión de avance abril 2026',desc:'Estado actual del proyecto. Pendientes de resolución y próximas compras.',commits:'Confirmar selección final de colores pintura terraza. Gestionar cotización mobiliario a medida.',responsible:'Estudio Bianco',dueDate:'2026-05-10',status:'Pendiente'}
 ];
-function mgL(l){return Object.assign({type:'Nota general',title:'',desc:'',commits:'',responsible:'',dueDate:'',status:'Pendiente'},l);}
+function mgL(l){return Object.assign({type:'Nota general',title:'',desc:'',commits:'',responsible:'',dueDate:'',status:'Pendiente',amount:0,category:''},l);}
 let logs=ld('ar5_logs',DL).map(mgL);
 let nil=Math.max(0,...logs.map(l=>l.id))+1;
-function sLogs(){sv('ar5_logs',logs);}
+function sLogs(){sv('ar5_logs',logs);if(typeof window.sbSaveLogs==='function'){try{window.sbSaveLogs(currentProjId,logs);}catch(e){}}}
 function ltCls(t){return {'Reunión cliente':'lt-reu','Bitácora de obra':'lt-bit','Hito':'lt-hit','Compromiso':'lt-com','Nota general':'lt-not'}[t]||'lt-not';}
 function lsCls(s){return {'Pendiente':'ls-pen','En curso':'ls-cur','Completado':'ls-com','Atrasado':'ls-atr'}[s]||'ls-pen';}
 
@@ -3495,7 +3518,62 @@ function gpTab(tab){
   if(tab==='bitacora')renderBitacora();
 }
 function toggleLogForm(){const b=document.getElementById('logFormBody');b.style.display=b.style.display==='none'?'block':'none';}
+
+function renderPagosAlert(){
+  var panel=document.getElementById('pagosAlertPanel');
+  if(!panel)return;
+  var pagos=(logs||[]).filter(function(l){return (l.type||'').indexOf('Pago')>-1;});
+  if(!pagos.length){ panel.innerHTML=''; return; }
+  var hoy=new Date(); hoy.setHours(0,0,0,0);
+  function diasPara(f){ if(!f)return null; var d=new Date(f+'T00:00:00'); return Math.round((d-hoy)/86400000); }
+  var vencidos=[],estaSemana=[],proximos=[],pagados=[];
+  pagos.forEach(function(l){
+    if(l.status==='Completado'){ pagados.push(l); return; }
+    var dd=diasPara(l.dueDate);
+    if(dd===null){ proximos.push(l); }
+    else if(dd<0){ vencidos.push(l); }
+    else if(dd<=7){ estaSemana.push(l); }
+    else { proximos.push(l); }
+  });
+  function money(n){ return '$'+(n||0).toLocaleString('es-CL'); }
+  function fecha(f){ if(!f)return 'sin fecha'; var p=f.split('-'); return p[2]+'/'+p[1]; }
+  function card(l,color,dd){
+    var extra = dd===null?'' : (dd<0?('<span style="color:#B83030;font-weight:600;"> · vencido hace '+Math.abs(dd)+'d</span>') : (dd===0?'<span style="color:#B87A00;font-weight:600;"> · ¡HOY!</span>':'<span style="color:#666;"> · en '+dd+'d</span>'));
+    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-left:3px solid '+color+';background:var(--surface);border-radius:4px;margin-bottom:6px;">'
+      +'<div style="flex:1;"><div style="font-weight:600;font-size:13px;">'+es(l.title||'Pago')+'</div>'
+      +'<div style="font-size:11px;color:var(--tx2);">'+fecha(l.dueDate)+extra+(l.category?' · '+es(l.category):'')+'</div></div>'
+      +'<div style="font-family:monospace;font-weight:700;font-size:14px;color:'+color+';">'+money(l.amount)+'</div>'
+      +'<button onclick="marcarPagado('+l.id+')" style="font-size:10px;padding:3px 8px;border:1px solid var(--ac);background:var(--ac);color:#fff;border-radius:4px;cursor:pointer;white-space:nowrap;">✓ Pagado</button>'
+      +'</div>';
+  }
+  var html2='<div style="border:1px solid var(--bd);border-radius:var(--r);padding:14px;margin-bottom:16px;background:var(--s2);">';
+  html2+='<div style="font-weight:600;font-size:14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">🔔 Alarmas de pagos</div>';
+  if(vencidos.length){
+    html2+='<div style="font-size:11px;font-weight:700;color:#B83030;text-transform:uppercase;letter-spacing:.05em;margin:8px 0 4px;">🔴 Vencidos ('+vencidos.length+')</div>';
+    vencidos.forEach(function(l){ html2+=card(l,'#B83030',diasPara(l.dueDate)); });
+  }
+  if(estaSemana.length){
+    html2+='<div style="font-size:11px;font-weight:700;color:#B87A00;text-transform:uppercase;letter-spacing:.05em;margin:8px 0 4px;">🟡 Esta semana ('+estaSemana.length+')</div>';
+    estaSemana.forEach(function(l){ html2+=card(l,'#B87A00',diasPara(l.dueDate)); });
+  }
+  if(proximos.length){
+    html2+='<div style="font-size:11px;font-weight:700;color:#2A5C45;text-transform:uppercase;letter-spacing:.05em;margin:8px 0 4px;">🟢 Próximos ('+proximos.length+')</div>';
+    proximos.forEach(function(l){ html2+=card(l,'#2A5C45',diasPara(l.dueDate)); });
+  }
+  if(pagados.length){
+    var totalPagado=pagados.reduce(function(a,l){return a+(l.amount||0);},0);
+    html2+='<div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;margin:10px 0 4px;">✓ Pagados ('+pagados.length+') · '+money(totalPagado)+'</div>';
+  }
+  html2+='</div>';
+  panel.innerHTML=html2;
+}
+function marcarPagado(id){
+  var l=(logs||[]).find(function(x){return x.id===id;});
+  if(l){ l.status='Completado'; sLogs(); rGP(); tst('✓ Marcado como pagado'); }
+}
+
 function rGP(){
+  try{renderPagosAlert();}catch(e){}
   const pending=logs.filter(l=>l.status==='Pendiente'||l.status==='En curso').length;
   const overdue=logs.filter(l=>{if(!l.dueDate)return false;if(l.status==='Completado')return false;return new Date(l.dueDate)<new Date();}).length;
   const meetings=logs.filter(l=>l.type==='Reunión cliente').length;
@@ -3512,15 +3590,15 @@ function addLog(){
   const date=document.getElementById('nDate').value;
   const title=document.getElementById('nTitle').value.trim();
   if(!date||!title){alert('Ingresa fecha y título.');return;}
-  logs.unshift(mgL({id:nil++,date,type:document.getElementById('nType').value,title,desc:document.getElementById('nDesc').value,commits:document.getElementById('nCommits').value,responsible:document.getElementById('nResp').value,dueDate:document.getElementById('nDue').value,status:document.getElementById('nStatus').value}));
+  logs.unshift(mgL({id:nil++,date,type:document.getElementById('nType').value,title,desc:document.getElementById('nDesc').value,commits:document.getElementById('nCommits').value,responsible:document.getElementById('nResp').value,dueDate:document.getElementById('nDue').value,status:document.getElementById('nStatus').value,amount:+((document.getElementById('nAmount')||{}).value||0)}));
   sLogs();
-  ['nDate','nTitle','nDesc','nCommits','nResp','nDue'].forEach(id=>{document.getElementById(id).value='';});
+  ['nDate','nTitle','nDesc','nCommits','nResp','nDue','nAmount'].forEach(id=>{var e=document.getElementById(id);if(e)e.value='';});
   document.getElementById('nType').value='Reunión cliente';
   document.getElementById('nStatus').value='Pendiente';
   rGP();tst('Entrada agregada');
 }
 function uLog(id,f,v){const l=logs.find(x=>x.id===id);if(l){l[f]=v;sLogs();rGP();}}
-function dLog(id){if(confirm('¿Eliminar esta entrada?')){logs=logs.filter(x=>x.id!==id);sLogs();rGP();}}
+function dLog(id){if(confirm('¿Eliminar esta entrada?')){logs=logs.filter(x=>x.id!==id);if(typeof window.sbDeleteLog==='function'){try{window.sbDeleteLog(currentProjId,id);}catch(e){}}sLogs();rGP();}}
 function toggleLogEdit(id){const p=document.getElementById('logedit-'+id);if(p)p.style.display=p.style.display==='none'?'block':'none';}
 function renderBitacora(){
   const ftype=document.getElementById('fLogType').value;
@@ -3793,10 +3871,268 @@ function renderGantt(){
     });
   }
 
+  // ── LOGS (bitácora / pagos) ──────────────────────────────────────────
+  function logToRow(l,pid){
+    return { id:l.id, project_id:pid, date:l.date||'', type:l.type||'Nota general',
+      title:l.title||'', description:l.desc||'', commits:l.commits||'',
+      responsible:l.responsible||'', due_date:l.dueDate||'', status:l.status||'Pendiente',
+      amount:l.amount||0, category:l.category||'' };
+  }
+  function logFromRow(x){
+    return { id:x.id, date:x.date||'', type:x.type||'Nota general', title:x.title||'',
+      desc:x.description||'', commits:x.commits||'', responsible:x.responsible||'',
+      dueDate:x.due_date||'', status:x.status||'Pendiente', amount:x.amount||0, category:x.category||'' };
+  }
+  var _lt=null;
+  window.sbSaveLogs=function(pid,arr){
+    if(!pid||!arr)return;
+    clearTimeout(_lt);
+    var snap=arr.map(function(l){return logToRow(l,pid);});
+    _lt=setTimeout(function(){
+      if(!snap.length)return;
+      fetch(URL+'/rest/v1/logs?on_conflict=project_id,id',{
+        method:'POST', headers:Object.assign({},H,{'Prefer':'resolution=merge-duplicates'}),
+        body:JSON.stringify(snap)
+      }).catch(function(){});
+    },900);
+  };
+  window.sbLoadLogs=function(pid,cb){
+    fetch(URL+'/rest/v1/logs?project_id=eq.'+encodeURIComponent(pid)+'&select=*&order=date.desc',{ headers:H })
+      .then(function(r){ return r.ok?r.json():null; })
+      .then(function(data){ cb(data&&data.length?data.map(logFromRow):null); })
+      .catch(function(){ cb(null); });
+  };
+  window.sbDeleteLog=function(pid,logId){
+    if(!pid||logId==null)return;
+    fetch(URL+'/rest/v1/logs?project_id=eq.'+encodeURIComponent(pid)+'&id=eq.'+encodeURIComponent(logId),{
+      method:'DELETE', headers:H
+    }).catch(function(){});
+  };
+
+  // ── PAGOS A PROVEEDORES ──────────────────────────────────────────────
+  window.sbSaveProvPay=function(row){
+    if(!row||!row.project_id)return;
+    fetch(URL+'/rest/v1/supplier_payments?on_conflict=project_id,id',{
+      method:'POST', headers:Object.assign({},H,{'Prefer':'resolution=merge-duplicates'}),
+      body:JSON.stringify(row)
+    }).catch(function(){});
+  };
+  window.sbLoadProvPay=function(pid,cb){
+    fetch(URL+'/rest/v1/supplier_payments?project_id=eq.'+encodeURIComponent(pid)+'&select=*&order=pdate',{ headers:H })
+      .then(function(r){ return r.ok?r.json():null; })
+      .then(function(data){ cb(data||[]); })
+      .catch(function(){ cb([]); });
+  };
+  window.sbDeleteProvPay=function(pid,payId){
+    fetch(URL+'/rest/v1/supplier_payments?project_id=eq.'+encodeURIComponent(pid)+'&id=eq.'+encodeURIComponent(payId),{
+      method:'DELETE', headers:H
+    }).catch(function(){});
+  };
+
   // Mostrar el botón Sincronizar cuando el módulo esté listo
   function showBtn(){ var b=document.getElementById('sbSyncBtn'); if(b) b.style.display=''; setTimeout(loadProjectsFromCloud, 200); }
   if(document.readyState==='complete'||document.readyState==='interactive'){ setTimeout(showBtn,300); }
   else { document.addEventListener('DOMContentLoaded',function(){ setTimeout(showBtn,300); }); }
+})();
+</script>
+
+
+<script>
+/* ═══ PAGOS A PROVEEDORES (vista + lógica) ═══ */
+(function(){
+  window.__provPays = [];   // transferencias del proyecto actual (cache local)
+  window.__provPaysPid = null;
+
+  function money(n){ return '$'+Math.round(n||0).toLocaleString('es-CL'); }
+  function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function fechaCorta(f){ if(!f)return ''; var p=f.split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0].substring(2)):f; }
+
+  // Agrupa los items del proyecto por proveedor y calcula el total a pagar de cada uno
+  function totalesPorProveedor(){
+    var map = {};
+    (items||[]).forEach(function(it){
+      var sup = (it.supplier||'').trim() || '(Sin proveedor)';
+      var monto = (it.qty||1)*(it.unit||0);
+      if(!map[sup]) map[sup] = { supplier:sup, totalItems:0, nItems:0 };
+      map[sup].totalItems += monto;
+      map[sup].nItems++;
+    });
+    return map;
+  }
+
+  // Carga las transferencias del proyecto desde la nube y renderiza
+  window.rPagosProv = function(){
+    var pid = currentProjId;
+    if(!pid){ return; }
+    // Si ya tenemos cache de este proyecto, renderizar de una y refrescar en segundo plano
+    if(window.__provPaysPid===pid && window.__provPays){
+      pintarPagosProv();
+    }
+    if(typeof window.sbLoadProvPay==='function'){
+      window.sbLoadProvPay(pid, function(rows){
+        if(currentProjId!==pid) return;
+        window.__provPays = rows||[];
+        window.__provPaysPid = pid;
+        pintarPagosProv();
+      });
+    } else {
+      pintarPagosProv();
+    }
+  };
+
+  function pintarPagosProv(){
+    var cont = document.getElementById('pagosProvList');
+    var kpi = document.getElementById('pagosProvKPI');
+    if(!cont) return;
+    var tot = totalesPorProveedor();
+    var pays = window.__provPays||[];
+
+    // Sumar pagos por proveedor
+    var pagadoPor = {};
+    pays.forEach(function(p){
+      var s=(p.supplier||'').trim()||'(Sin proveedor)';
+      pagadoPor[s]=(pagadoPor[s]||0)+(+p.amount||0);
+    });
+
+    // KPIs globales
+    var granTotal=0, granPagado=0;
+    Object.keys(tot).forEach(function(s){ granTotal+=tot[s].totalItems; });
+    pays.forEach(function(p){ granPagado+=(+p.amount||0); });
+    var granSaldo = granTotal-granPagado;
+    if(kpi){
+      kpi.innerHTML =
+        '<div class="kc"><div class="kl">Total a pagar</div><div class="kv">'+money(granTotal)+'</div></div>'
+       +'<div class="kc"><div class="kl">Transferido</div><div class="kv" style="color:var(--ac);">'+money(granPagado)+'</div></div>'
+       +'<div class="kc"><div class="kl">Saldo pendiente</div><div class="kv" style="color:'+(granSaldo>0?'#B87A00':'var(--ac)')+';">'+money(granSaldo)+'</div></div>';
+    }
+
+    // Lista de proveedores (los que tienen items en el proyecto), ordenados por saldo mayor
+    var provs = Object.keys(tot).sort(function(a,b){
+      var sa=tot[a].totalItems-(pagadoPor[a]||0), sb=tot[b].totalItems-(pagadoPor[b]||0);
+      return sb-sa;
+    });
+    if(!provs.length){ cont.innerHTML='<p style="color:var(--tx3);font-style:italic;padding:20px;">No hay proveedores con ítems en este proyecto todavía.</p>'; return; }
+
+    var html='';
+    provs.forEach(function(sup){
+      var totalPagar = tot[sup].totalItems;
+      var pagado = pagadoPor[sup]||0;
+      var saldo = totalPagar-pagado;
+      var pct = totalPagar>0 ? Math.min(100, Math.round(pagado/totalPagar*100)) : 0;
+      var supPays = pays.filter(function(p){ return ((p.supplier||'').trim()||'(Sin proveedor)')===sup; })
+                        .sort(function(a,b){ return (a.pdate||'').localeCompare(b.pdate||''); });
+      var saldoColor = saldo>0?'#B87A00':(saldo<0?'#B83030':'var(--ac)');
+      var supId = 'sp_'+sup.replace(/[^a-zA-Z0-9]/g,'_');
+
+      html+='<div style="border:1px solid var(--bd);border-radius:var(--r);margin-bottom:12px;overflow:hidden;">';
+      // Cabecera del proveedor
+      html+='<div style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--s2);cursor:pointer;" onclick="togglePagoProv(\''+supId+'\')">';
+      html+='<div style="flex:1;"><div style="font-weight:600;font-size:14px;">'+esc(sup)+'</div><div style="font-size:11px;color:var(--tx3);">'+tot[sup].nItems+' ítem(s) · '+supPays.length+' transferencia(s)</div></div>';
+      html+='<div style="text-align:right;min-width:110px;"><div style="font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.04em;">A pagar</div><div style="font-weight:600;font-size:13px;">'+money(totalPagar)+'</div></div>';
+      html+='<div style="text-align:right;min-width:110px;"><div style="font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.04em;">Transferido</div><div style="font-weight:600;font-size:13px;color:var(--ac);">'+money(pagado)+'</div></div>';
+      html+='<div style="text-align:right;min-width:110px;"><div style="font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.04em;">Saldo</div><div style="font-weight:700;font-size:13px;color:'+saldoColor+';">'+money(saldo)+'</div></div>';
+      html+='<div style="font-size:18px;color:var(--tx3);">›</div>';
+      html+='</div>';
+      // Barra de progreso
+      html+='<div style="height:4px;background:var(--bd2);"><div style="height:100%;width:'+pct+'%;background:var(--ac);"></div></div>';
+      // Detalle expandible
+      html+='<div id="'+supId+'" style="display:none;padding:14px 16px;background:var(--surface);">';
+      // Transferencias
+      if(supPays.length){
+        html+='<div style="font-size:11px;font-weight:600;color:var(--tx2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Transferencias registradas</div>';
+        supPays.forEach(function(p){
+          html+='<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--bd2);">';
+          html+='<div style="flex:1;"><div style="font-weight:600;font-size:13px;">'+money(p.amount)+'<span style="font-weight:400;color:var(--tx3);font-size:11px;"> · '+fechaCorta(p.pdate)+(p.meth?' · '+esc(p.meth):'')+'</span></div>';
+          if(p.nota) html+='<div style="font-size:11px;color:var(--tx3);">'+esc(p.nota)+'</div>';
+          html+='</div>';
+          html+='<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:'+(p.fact?'#E1F5EE':'#F5EDE1')+';color:'+(p.fact?'#0F6E56':'#8B6914')+';">'+(p.fact?'✓ Factura':'Factura pend.')+'</span>';
+          html+='<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:'+(p.bol==='ok'?'#E1F5EE':'#F5EDE1')+';color:'+(p.bol==='ok'?'#0F6E56':'#8B6914')+';">'+(p.bol==='ok'?'✓ Boleta':'Boleta pend.')+'</span>';
+          html+='<button onclick="delPagoProv('+p.id+')" style="font-size:11px;color:#B83030;background:none;border:none;cursor:pointer;">✕</button>';
+          html+='</div>';
+        });
+      } else {
+        html+='<div style="font-size:12px;color:var(--tx3);font-style:italic;margin-bottom:10px;">Sin transferencias registradas todavía.</div>';
+      }
+      // Botón registrar transferencia
+      html+='<button class="btn prim" onclick="abrirFormPagoProv(\''+esc(sup).replace(/\x27/g,"")+'\')" style="margin-top:12px;height:32px;font-size:12px;">+ Registrar transferencia</button>';
+      html+='</div>';
+      html+='</div>';
+    });
+    cont.innerHTML = html;
+  }
+
+  window.togglePagoProv=function(id){
+    var el=document.getElementById(id);
+    if(el) el.style.display = el.style.display==='none'?'block':'none';
+  };
+
+  // Formulario para registrar una transferencia
+  window.abrirFormPagoProv=function(sup){
+    var m=document.getElementById('provPayModal');
+    if(!m){
+      m=document.createElement('div');
+      m.id='provPayModal';
+      m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:flex;align-items:center;justify-content:center;';
+      m.innerHTML='<div style="background:var(--surface);border-radius:var(--r);padding:22px;width:420px;max-width:92vw;box-shadow:0 10px 40px rgba(0,0,0,.2);">'
+        +'<h2 style="font-size:16px;margin-bottom:4px;">Registrar transferencia</h2>'
+        +'<p id="ppmSup" style="font-size:12px;color:var(--tx3);margin-bottom:16px;"></p>'
+        +'<div style="display:flex;flex-direction:column;gap:11px;">'
+        +'<div><label style="font-size:11px;color:var(--tx2);display:block;margin-bottom:3px;">Monto ($)</label><input type="text" id="ppmAmount" placeholder="0" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')" style="width:100%;height:34px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 10px;font-size:14px;"></div>'
+        +'<div style="display:flex;gap:10px;"><div style="flex:1;"><label style="font-size:11px;color:var(--tx2);display:block;margin-bottom:3px;">Fecha</label><input type="date" id="ppmDate" style="width:100%;height:34px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 10px;font-size:13px;"></div>'
+        +'<div style="flex:1;"><label style="font-size:11px;color:var(--tx2);display:block;margin-bottom:3px;">Método</label><input type="text" id="ppmMeth" placeholder="Transferencia" style="width:100%;height:34px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 10px;font-size:13px;"></div></div>'
+        +'<div><label style="font-size:11px;color:var(--tx2);display:block;margin-bottom:3px;">Nota (opcional)</label><input type="text" id="ppmNota" placeholder="Ej: abono muebles a medida" style="width:100%;height:34px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 10px;font-size:13px;"></div>'
+        +'<div style="display:flex;gap:18px;margin-top:2px;"><label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="ppmFact"> Factura emitida</label>'
+        +'<label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="ppmBol"> Boleta ok</label></div>'
+        +'</div>'
+        +'<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;">'
+        +'<button class="btn" onclick="cerrarFormPagoProv()" style="height:34px;">Cancelar</button>'
+        +'<button class="btn prim" onclick="guardarPagoProv()" style="height:34px;">Guardar</button>'
+        +'</div></div>';
+      document.body.appendChild(m);
+    }
+    m.style.display='flex';
+    m.dataset.sup=sup;
+    document.getElementById('ppmSup').textContent='Proveedor: '+sup;
+    document.getElementById('ppmAmount').value='';
+    document.getElementById('ppmDate').value=new Date().toISOString().slice(0,10);
+    document.getElementById('ppmMeth').value='Transferencia';
+    document.getElementById('ppmNota').value='';
+    document.getElementById('ppmFact').checked=false;
+    document.getElementById('ppmBol').checked=false;
+    setTimeout(function(){ document.getElementById('ppmAmount').focus(); },50);
+  };
+  window.cerrarFormPagoProv=function(){ var m=document.getElementById('provPayModal'); if(m)m.style.display='none'; };
+
+  window.guardarPagoProv=function(){
+    var m=document.getElementById('provPayModal');
+    var sup=m.dataset.sup;
+    var amount=+(document.getElementById('ppmAmount').value||0);
+    if(!amount){ tst('Ingresa un monto'); return; }
+    var row={
+      id: Date.now(),
+      project_id: currentProjId,
+      supplier: sup,
+      amount: amount,
+      pdate: document.getElementById('ppmDate').value||'',
+      meth: document.getElementById('ppmMeth').value||'',
+      nota: document.getElementById('ppmNota').value||'',
+      fact: document.getElementById('ppmFact').checked,
+      bol: document.getElementById('ppmBol').checked?'ok':'no'
+    };
+    window.__provPays = window.__provPays||[];
+    window.__provPays.push(row);
+    if(typeof window.sbSaveProvPay==='function'){ try{ window.sbSaveProvPay(row); }catch(e){} }
+    cerrarFormPagoProv();
+    pintarPagosProv();
+    tst('✓ Transferencia registrada');
+  };
+
+  window.delPagoProv=function(id){
+    if(!confirm('¿Eliminar esta transferencia?')) return;
+    window.__provPays=(window.__provPays||[]).filter(function(p){ return p.id!==id; });
+    if(typeof window.sbDeleteProvPay==='function'){ try{ window.sbDeleteProvPay(currentProjId,id); }catch(e){} }
+    pintarPagosProv();
+  };
 })();
 </script>
 
