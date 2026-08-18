@@ -789,12 +789,12 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
   <div class="nm">
     <div class="nsl">Compras</div>
     <div class="ni active" onclick="go('compras')" id="nav-compras"><span class="ic">📋</span>Listado general</div>
-    <div class="ni" onclick="go('pagados')" id="nav-pagados"><span class="ic">✅</span>Estado de pagos</div>
+    
     <div class="ni" onclick="go('pendientes')" id="nav-pendientes" style="display:none;"><span class="ic">⏳</span>Pagos pendientes</div>
     <div class="ni" onclick="go('seguimiento')" id="nav-seguimiento"><span class="ic">📦</span>Seguimiento</div>
     <div class="ni" onclick="go('cotizaciones')" id="nav-cotizaciones"><span class="ic">📄</span>Cotizaciones</div>
     <div class="ni" onclick="go('proveedores')" id="nav-proveedores"><span class="ic">🏪</span>Proveedores</div>
-    <div class="ni" onclick="go('pagosprov')" id="nav-pagosprov"><span class="ic">💸</span>Pagos proveedores</div>
+    <div class="ni" onclick="go('pagosprov')" id="nav-pagosprov"><span class="ic">💸</span>Pagos</div>
     <div class="nsl">Honorarios</div>
     <div class="ni" onclick="go('honorarios')" id="nav-honorarios"><span class="ic">💳</span>Honorarios I</div>
     <div class="nsl">CRM</div>
@@ -803,7 +803,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
     <div class="ni" onclick="go('gestion')" id="nav-gestion"><span class="ic">📊</span>Gestión proyecto</div>
   </div>
   <div class="nbot">
-    <button class="pdfbtn" id="pdfBtn" onclick="showPDF()">⬇ Descargar PDF</button>
+    <button class="pdfbtn" id="pdfBtn" onclick="pdfResumenCliente()">⬇ Descargar informe del proyecto</button>
     <div id="navModeB" class="mode-badge worker" onclick="openAccessModal()" style="width:100%;justify-content:center;margin-bottom:8px;" title="Cambiar modo de acceso">👷 Trabajador</div>
     <div class="ntot" id="navTotDiv" style="display:none;"><div class="lbl">Total proyecto</div><div class="val" id="navTotal">—</div></div>
   </div>
@@ -812,7 +812,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
 
 <div class="page active" id="page-compras">
   <div class="ph"><div><h1>Listado de compras</h1><p>Edita directamente · › para especificaciones, URL producto y pagos parciales</p></div>
-  <button class="btn prim" id="btnResumenPDF" onclick="pdfResumenCliente()" style="margin-top:4px;">📄 Descargar resumen del proyecto</button></div>
+</div>
   <div class="backup-bar" id="backupBar">
     <span class="bbl">💾 Datos:</span>
     <span id="backupInfo" style="color:var(--tx2);flex:1;">Cargando…</span>
@@ -927,7 +927,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
 
 <div class="page" id="page-pagosprov">
   <div class="ph">
-    <div><h1>Pagos a proveedores</h1><p>Resumen de transferencias por proveedor · cuánto se ha pagado y cuánto falta</p></div>
+    <div><h1>Pagos</h1><p>Abonos por proveedor · cuánto se ha pagado, cuánto falta y quién pagó</p></div>
     
   </div>
   <div class="kr" id="pagosProvKPI"></div>
@@ -2600,9 +2600,13 @@ function applyMode(){
   // Ocultar pestaña Financiero para trabajadores
   var _fin=document.getElementById('htab-financiero');
   if(_fin)_fin.style.display=isAdmin?'':'none';
-  // Ocultar pestaña Pagos proveedores para trabajadores
+  // Ocultar pestaña Pagos para trabajadores (info financiera)
   var _pp=document.getElementById('nav-pagosprov');
   if(_pp)_pp.style.display=isAdmin?'':'none';
+  // Ocultar Cotizaciones para trabajadores (contiene montos)
+  var _cot=document.getElementById('nav-cotizaciones');
+  if(_cot)_cot.style.display=isAdmin?'':'none';
+  if(!isAdmin){ var _cotg=document.getElementById('page-cotizaciones'); if(_cotg&&_cotg.classList.contains('active')){try{go('compras');}catch(e){}} }
   // Ocultar botón Descargar resumen PDF para trabajadores (info financiera)
   var _rpdf=document.getElementById('btnResumenPDF');
   if(_rpdf)_rpdf.style.display=isAdmin?'':'none';
@@ -3996,17 +4000,22 @@ function renderGantt(){
     var tot = totalesPorProveedor();
     var pays = window.__provPays||[];
 
-    // Sumar pagos por proveedor
-    var pagadoPor = {};
+    // Sumar pagos por proveedor: abonos registrados + cuotas pagadas en los ítems
+    var pagadoPor = {}, cuotasPor = {};
     pays.forEach(function(p){
       var s=(p.supplier||'').trim()||'(Sin proveedor)';
       pagadoPor[s]=(pagadoPor[s]||0)+(+p.amount||0);
+    });
+    (items||[]).forEach(function(it){
+      var s=(it.supplier||'').trim()||'(Sin proveedor)';
+      var c=(it.p1amt||0)+(it.p2amt||0)+(it.p3amt||0)+(it.p4amt||0);
+      if(c>0){ cuotasPor[s]=(cuotasPor[s]||0)+c; pagadoPor[s]=(pagadoPor[s]||0)+c; }
     });
 
     // KPIs globales
     var granTotal=0, granPagado=0;
     Object.keys(tot).forEach(function(s){ granTotal+=tot[s].totalItems; });
-    pays.forEach(function(p){ granPagado+=(+p.amount||0); });
+    Object.keys(pagadoPor).forEach(function(s){ granPagado+=pagadoPor[s]; });
     var granSaldo = granTotal-granPagado;
     if(kpi){
       kpi.innerHTML =
@@ -4038,7 +4047,8 @@ function renderGantt(){
       html+='<div style="display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--s2);cursor:pointer;" onclick="togglePagoProv(\''+supId+'\')">';
       html+='<div style="flex:1;"><div style="font-weight:600;font-size:14px;">'+esc(sup)+'</div><div style="font-size:11px;color:var(--tx3);">'+tot[sup].nItems+' ítem(s) · '+supPays.length+' transferencia(s)</div></div>';
       html+='<div style="text-align:right;min-width:110px;"><div style="font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.04em;">A pagar</div><div style="font-weight:600;font-size:13px;">'+money(totalPagar)+'</div></div>';
-      html+='<div style="text-align:right;min-width:110px;"><div style="font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.04em;">Transferido</div><div style="font-weight:600;font-size:13px;color:var(--ac);">'+money(pagado)+'</div></div>';
+      var _cq=cuotasPor[sup]||0;
+      html+='<div style="text-align:right;min-width:110px;"><div style="font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.04em;">Pagado</div><div style="font-weight:600;font-size:13px;color:var(--ac);">'+money(pagado)+'</div>'+(_cq>0?'<div style="font-size:9px;color:var(--tx3);">incl. '+money(_cq)+' en ítems</div>':'')+'</div>';
       html+='<div style="text-align:right;min-width:110px;"><div style="font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.04em;">Saldo</div><div style="font-weight:700;font-size:13px;color:'+saldoColor+';">'+money(saldo)+'</div></div>';
       html+='<div style="font-size:18px;color:var(--tx3);">›</div>';
       html+='</div>';
@@ -4051,7 +4061,8 @@ function renderGantt(){
         html+='<div style="font-size:11px;font-weight:600;color:var(--tx2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;">Transferencias registradas</div>';
         supPays.forEach(function(p){
           html+='<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--bd2);">';
-          html+='<div style="flex:1;"><div style="font-weight:600;font-size:13px;">'+money(p.amount)+'<span style="font-weight:400;color:var(--tx3);font-size:11px;"> · '+fechaCorta(p.pdate)+(p.meth?' · '+esc(p.meth):'')+'</span></div>';
+          var _mq2=String(p.meth||'').split(' | ');
+          html+='<div style="flex:1;"><div style="font-weight:600;font-size:13px;">'+money(p.amount)+'<span style="font-weight:400;color:var(--tx3);font-size:11px;"> · '+fechaCorta(p.pdate)+(_mq2[0]?' · '+esc(_mq2[0]):'')+'</span></div>'+(_mq2[1]?'<div style="font-size:10px;color:var(--tx3);">'+esc(_mq2[1])+'</div>':'');
           if(p.nota) html+='<div style="font-size:11px;color:var(--tx3);">'+esc(p.nota)+'</div>';
           html+='</div>';
           html+='<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:'+(p.fact?'#E1F5EE':'#F5EDE1')+';color:'+(p.fact?'#0F6E56':'#8B6914')+';">'+(p.fact?'✓ Factura':'Factura pend.')+'</span>';
@@ -4096,6 +4107,7 @@ function renderGantt(){
         +'<div><label style="font-size:11px;color:var(--tx2);display:block;margin-bottom:3px;">Monto ($)</label><input type="text" id="ppmAmount" placeholder="0" oninput="this.value=this.value.replace(/[^0-9]/g,\'\')" style="width:100%;height:34px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 10px;font-size:14px;"></div>'
         +'<div style="display:flex;gap:10px;"><div style="flex:1;"><label style="font-size:11px;color:var(--tx2);display:block;margin-bottom:3px;">Fecha</label><input type="date" id="ppmDate" style="width:100%;height:34px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 10px;font-size:13px;"></div>'
         +'<div style="flex:1;"><label style="font-size:11px;color:var(--tx2);display:block;margin-bottom:3px;">Método</label><input type="text" id="ppmMeth" placeholder="Transferencia" style="width:100%;height:34px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 10px;font-size:13px;"></div></div>'
+        +'<div><label style="font-size:11px;color:var(--tx2);display:block;margin-bottom:3px;">Quién pagó</label><select id="ppmQuien" style="width:100%;height:34px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 10px;font-size:13px;background:var(--surface);"><option>Cliente directo al proveedor</option><option>Cliente a Estudio Bianco</option><option>Estudio Bianco al proveedor</option><option>Otro</option></select></div>'
         +'<div><label style="font-size:11px;color:var(--tx2);display:block;margin-bottom:3px;">Nota (opcional)</label><input type="text" id="ppmNota" placeholder="Ej: abono muebles a medida" style="width:100%;height:34px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 10px;font-size:13px;"></div>'
         +'<div><label style="font-size:11px;color:var(--tx2);display:block;margin-bottom:3px;">Comprobante (imagen)</label><input type="file" id="ppmFile" accept="image/*" onchange="subirComprobante(this)" style="width:100%;font-size:12px;"><div id="ppmCompPreview" style="margin-top:6px;"></div><input type="hidden" id="ppmComp"></div>'
         +'<div style="display:flex;gap:18px;margin-top:2px;"><label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="ppmFact"> Factura emitida</label>'
@@ -4114,7 +4126,9 @@ function renderGantt(){
     document.getElementById('ppmSup').textContent='Proveedor: '+sup;
     document.getElementById('ppmAmount').value = editRow ? (editRow.amount||'') : '';
     document.getElementById('ppmDate').value = editRow ? (editRow.pdate||'') : new Date().toISOString().slice(0,10);
-    document.getElementById('ppmMeth').value = editRow ? (editRow.meth||'') : 'Transferencia';
+    var _mq = editRow ? String(editRow.meth||'').split(' | ') : ['Transferencia',''];
+    document.getElementById('ppmMeth').value = _mq[0]||'Transferencia';
+    var _qsel=document.getElementById('ppmQuien'); if(_qsel){ _qsel.value = _mq[1]||'Cliente directo al proveedor'; }
     document.getElementById('ppmNota').value = editRow ? (editRow.nota||'') : '';
     document.getElementById('ppmFact').checked = editRow ? !!editRow.fact : false;
     document.getElementById('ppmBol').checked = editRow ? (editRow.bol==='ok') : false;
@@ -4165,7 +4179,7 @@ function renderGantt(){
       if(ex){
         ex.amount=amount;
         ex.pdate=document.getElementById('ppmDate').value||'';
-        ex.meth=document.getElementById('ppmMeth').value||'';
+        ex.meth=(document.getElementById('ppmMeth').value||'')+' | '+(document.getElementById('ppmQuien').value||'');
         ex.nota=document.getElementById('ppmNota').value||'';
         ex.fact=document.getElementById('ppmFact').checked;
         ex.bol=document.getElementById('ppmBol').checked?'ok':'no';
@@ -4178,7 +4192,7 @@ function renderGantt(){
       var row={
         id: Date.now(), project_id: currentProjId, supplier: sup, amount: amount,
         pdate: document.getElementById('ppmDate').value||'',
-        meth: document.getElementById('ppmMeth').value||'',
+        meth: (document.getElementById('ppmMeth').value||'')+' | '+(document.getElementById('ppmQuien').value||''),
         nota: document.getElementById('ppmNota').value||'',
         fact: document.getElementById('ppmFact').checked,
         bol: document.getElementById('ppmBol').checked?'ok':'no',
@@ -4225,9 +4239,10 @@ window.pdfResumenCliente = function(){
   var pays = window.__provPays||[];
   var pagadoMap={};
   pays.forEach(function(p){ var s=(p.supplier||'').trim()||'(Sin proveedor)'; pagadoMap[s]=(pagadoMap[s]||0)+(+p.amount||0); });
+  (items||[]).forEach(function(it){ var s=(it.supplier||'').trim()||'(Sin proveedor)'; var c=(it.p1amt||0)+(it.p2amt||0)+(it.p3amt||0)+(it.p4amt||0); if(c>0) pagadoMap[s]=(pagadoMap[s]||0)+c; });
   var granTotal=0, granPagado=0;
   Object.keys(totMap).forEach(function(s){ granTotal+=totMap[s].total; });
-  pays.forEach(function(p){ granPagado+=(+p.amount||0); });
+  Object.keys(pagadoMap).forEach(function(s){ granPagado+=pagadoMap[s]; });
   var granSaldo=granTotal-granPagado;
   var pctPagado = granTotal>0 ? Math.round(granPagado/granTotal*100) : 0;
   var provs=Object.keys(totMap).filter(function(s){ return totMap[s].total>0; })
@@ -4308,6 +4323,30 @@ window.pdfResumenCliente = function(){
     calHTML='<div class="sec">Calendario de pagos</div><div class="cals">'+calGrid+'</div><div class="leyenda">'+leyenda+'</div>';
   }
 
+  // ── LISTADO DE COMPRAS por categoría ──
+  var listadoHTML='';
+  var porCat={};
+  (items||[]).forEach(function(it){ var c=it.cat||'Sin categoría'; if(!porCat[c])porCat[c]=[]; porCat[c].push(it); });
+  var catKeys=Object.keys(porCat);
+  if(catKeys.length){
+    var lrows='';
+    catKeys.forEach(function(c){
+      var subt=0; porCat[c].forEach(function(it){ subt+=(it.qty||1)*(it.unit||0); });
+      lrows+='<tr class="cat-row"><td colspan="4">'+esc(c)+'</td><td style="text-align:right;">'+money(subt)+'</td></tr>';
+      porCat[c].forEach(function(it){
+        var t=(it.qty||1)*(it.unit||0);
+        var ps=it.payStatus||'Pendiente', ds=it.deliveryStatus||'Sin iniciar';
+        var psC = ps==='Pagado'?'#2F8663':(ps==='Pagado parcialmente'?'#B8901F':'#8A857C');
+        lrows+='<tr><td style="padding-left:14px;">'+esc(it.item||'')+'</td><td style="color:#8A857C;font-size:10.5px;">'+esc(it.supplier||'')+'</td>'
+          +'<td style="text-align:center;font-size:10px;color:'+psC+';font-weight:600;">'+esc(ps)+'</td>'
+          +'<td style="text-align:center;font-size:10px;color:#8A857C;">'+esc(ds)+'</td>'
+          +'<td style="text-align:right;">'+money(t)+'</td></tr>';
+      });
+    });
+    listadoHTML='<div class="sec">Listado de compras</div>'
+      +'<table><thead><tr><th>Ítem</th><th>Proveedor</th><th style="text-align:center;">Pago</th><th style="text-align:center;">Entrega</th><th style="text-align:right;">Monto</th></tr></thead><tbody>'+lrows+'</tbody></table>';
+  }
+
   // ── detalle por proveedor ──
   var filas='';
   provs.forEach(function(sup){
@@ -4378,6 +4417,7 @@ window.pdfResumenCliente = function(){
     +'tbody td{padding:8px 6px;border-bottom:1px solid #F0EDE6;}'
     +'.subrow td{border-bottom:1px solid #F7F5F0;padding:3px 6px;}'
     +'.total-row td{border-top:1.5px solid #1F1D1A;border-bottom:none;padding-top:10px;font-weight:700;font-size:13px;}'
+    +'.cat-row td{background:#F5F2EC;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#5A554D;padding:6px;}'
     +'.footer{margin-top:22px;padding-top:12px;border-top:1px solid #E5E1D8;text-align:center;}'
     +'.footer div{font-size:8px;color:#A8A29A;letter-spacing:.5px;line-height:1.6;}'
     +'</style></head><body>'
@@ -4394,6 +4434,7 @@ window.pdfResumenCliente = function(){
     +barraHTML
     +proxHTML
     +calHTML
+    +listadoHTML
     +'<div class="sec">Detalle por proveedor</div>'
     +'<table><thead><tr><th>Proveedor</th><th style="text-align:right;">Total</th><th style="text-align:right;">Pagado</th><th style="text-align:right;">Saldo</th><th style="text-align:center;">Estado</th></tr></thead>'
     +'<tbody>'+filas
