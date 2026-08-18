@@ -1013,7 +1013,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
           <div class="fg"><label>Fecha</label><input type="date" id="nDate" style="height:33px;"></div>
           <div class="fg"><label>Tipo</label>
             <select id="nType" style="height:33px;font-size:13px;padding:0 8px;border:1px solid var(--bd2);border-radius:var(--rs);background:var(--surface);">
-              <option>Reunión cliente</option><option>Bitácora de obra</option><option>Hito</option><option>Compromiso</option><option>💰 Pago programado</option><option>Nota general</option>
+              <option>Reunión cliente</option><option>Bitácora de obra</option><option>Hito</option><option>Compromiso</option><option>💰 Pago programado</option><option>📅 Cambio de fecha</option><option>Nota general</option>
             </select>
           </div>
           <div class="fg"><label>Estado</label>
@@ -1300,7 +1300,7 @@ function mg(i){
   var _tot=(i.qty||1)*(i.unit||0);
   if(_paid>0&&i.payStatus==='Pendiente'){i.payStatus=_paid>=_tot?'Pagado':'Pagado parcialmente';}
   const pm={'Pendiente':'Pendiente','Pagado':'Pagado','En proceso':'Pendiente','Por confirmar':'Pendiente'};
-  return Object.assign({payStatus:pm[i.status]||'Pendiente',deliveryStatus:'Sin iniciar',installStatus:'Pendiente',clientStatus:'',clientApprovalDate:'',productUrl:'',specs:'',space:'',lastReviewDate:'',p1pct:0,p1amt:0,p1date:'',p1method:'',p1note:'',p2pct:0,p2amt:0,p2date:'',p2method:'',p2note:'',p3pct:0,p3amt:0,p3date:'',p3method:'',p3note:'',p4pct:0,p4amt:0,p4date:'',p4method:'',p4note:'',orderDate:'',leadWeeks:'',estDelivery:'',actualDelivery:'',installDate:'',trackNote:''},i);
+  return Object.assign({payStatus:pm[i.status]||'Pendiente',deliveryStatus:'Sin iniciar',installStatus:'Pendiente',clientStatus:'',clientApprovalDate:'',productUrl:'',specs:'',space:'',lastReviewDate:'',p1pct:0,p1amt:0,p1date:'',p1method:'',p1note:'',p2pct:0,p2amt:0,p2date:'',p2method:'',p2note:'',p3pct:0,p3amt:0,p3date:'',p3method:'',p3note:'',p4pct:0,p4amt:0,p4date:'',p4method:'',p4note:'',orderDate:'',leadWeeks:'',leadUnit:'semanas',estDelivery:'',actualDelivery:'',installDate:'',trackNote:'',dateHistory:[]},i);
 }
 function mgP(p){return Object.assign({docType:'',docNum:''},p);}
 function mgC(c){return Object.assign({name:'',supplier:'',date:'',amount:0,status:'Pendiente',notes:'',url:'',itemIds:[]},c);}
@@ -1607,9 +1607,9 @@ function rC(){
         <div class="fg"><label>Est. cliente</label><select onchange="uIQ(${r.id},'clientStatus',this.value)">${CS_OPTS.map(s=>`<option value="${s}"${s===r.clientStatus?' selected':''}>${s||'Sin estado'}</option>`).join('')}</select></div>
         <div class="fg"><label>Fecha aprobación cliente</label><input type="date" value="${r.clientApprovalDate||''}" oninput="uIQ(${r.id},'clientApprovalDate',this.value)"></div>
         <div class="fg"><label>Última revisión</label><input type="date" value="${r.lastReviewDate||''}" oninput="uIQ(${r.id},'lastReviewDate',this.value)"></div>
-        <div class="fg"><label>Fecha de pedido</label><input type="date" value="${r.orderDate||''}" oninput="uIQ(${r.id},'orderDate',this.value)"></div>
-        <div class="fg"><label>Lead time (semanas)</label><input type="number" value="${r.leadWeeks||''}" min="0" placeholder="ej. 6" oninput="uIQ(${r.id},'leadWeeks',+this.value)"></div>
-        <div class="fg"><label>Entrega estimada</label><input type="date" value="${r.estDelivery||''}" oninput="uIQ(${r.id},'estDelivery',this.value)"></div>
+        <div class="fg"><label>Fecha de pedido</label><input type="date" value="${r.orderDate||''}" onchange="uIQ(${r.id},'orderDate',this.value);recalcEst(${r.id});"></div>
+        <div class="fg"><label>Plazo del proveedor</label><div style="display:flex;gap:4px;"><input type="number" value="${r.leadWeeks||''}" min="0" placeholder="ej. 60" style="flex:1;min-width:0;" oninput="setPlazo(${r.id},+this.value,null)"><select style="flex:1.4;min-width:0;height:33px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:12px;padding:0 4px;" onchange="setPlazo(${r.id},null,this.value)"><option value="habiles" ${(r.leadUnit||'semanas')==='habiles'?'selected':''}>días hábiles</option><option value="corridos" ${(r.leadUnit||'semanas')==='corridos'?'selected':''}>días corridos</option><option value="semanas" ${(r.leadUnit||'semanas')==='semanas'?'selected':''}>semanas</option></select></div></div>
+        <div class="fg"><label>Entrega estimada ${r.estDelivery&&r.leadWeeks&&r.orderDate?'<span style="font-size:9px;color:var(--ac);font-weight:400;">(calculada)</span>':''}</label><input type="date" value="${r.estDelivery||''}" onchange="cambiarEstDelivery(${r.id},this.value)"></div>
         <div class="fg"><label>Entrega real</label><input type="date" value="${r.actualDelivery||''}" oninput="uIQ(${r.id},'actualDelivery',this.value)"></div>
         <div class="fg"><label>Fecha instalación</label><input type="date" value="${r.installDate||''}" oninput="uIQ(${r.id},'installDate',this.value)"></div>
         <div class="fg xg2"><label>Notas</label><input type="text" value="${es(r.notes||'')}" oninput="uIQ(${r.id},'notes',this.value)" placeholder="—"></div>
@@ -1647,6 +1647,60 @@ function changeCat(id,newCat){var r=items.find(function(x){return x.id===id;});i
 
 function uI(id,f,v){const r=items.find(x=>x.id===id);if(r){r[f]=v;rC();sAll();}}
 // Quiet update: saves field without re-rendering the table (for expand panel fields)
+
+// ── PLAZOS Y CÁLCULO DE ENTREGA ──────────────────────────────────────
+function addBusinessDays(dateStr,n){
+  var d=new Date(dateStr+'T00:00:00'); var added=0;
+  while(added<n){ d.setDate(d.getDate()+1); var wd=d.getDay(); if(wd!==0&&wd!==6) added++; }
+  return d.toISOString().slice(0,10);
+}
+function addCalendarDays(dateStr,n){ var d=new Date(dateStr+'T00:00:00'); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
+function calcEstDelivery(r){
+  if(!r.orderDate||!r.leadWeeks) return '';
+  var u=r.leadUnit||'semanas', n=+r.leadWeeks||0;
+  if(u==='habiles') return addBusinessDays(r.orderDate,n);
+  if(u==='corridos') return addCalendarDays(r.orderDate,n);
+  return addCalendarDays(r.orderDate,n*7);
+}
+function recalcEst(id){
+  var r=items.find(function(x){return x.id===id;}); if(!r)return;
+  var nueva=calcEstDelivery(r);
+  if(nueva && nueva!==r.estDelivery){ aplicarCambioFecha(r,nueva,'auto'); }
+}
+function setPlazo(id,n,unit){
+  var r=items.find(function(x){return x.id===id;}); if(!r)return;
+  if(n!==null) r.leadWeeks=n;
+  if(unit!==null) r.leadUnit=unit;
+  sAll(); recalcEst(id);
+}
+function cambiarEstDelivery(id,v){
+  var r=items.find(function(x){return x.id===id;}); if(!r)return;
+  if(v===r.estDelivery) return;
+  aplicarCambioFecha(r,v,'manual');
+}
+// Aplica un cambio de fecha estimada. Si ya había fecha, pide la razón y la guarda en el historial.
+function aplicarCambioFecha(r,nueva,origen){
+  var anterior=r.estDelivery||'';
+  if(anterior && anterior!==nueva){
+    var motivo=prompt('La entrega estimada cambia de '+fechaCortaES(anterior)+' a '+fechaCortaES(nueva)+'.\n\n¿Por qué cambió? (se guardará en el historial y puede ir al informe del cliente)','');
+    if(motivo===null){ try{rC();}catch(e){} return; } // canceló: no cambia
+    r.dateHistory=r.dateHistory||[];
+    r.dateHistory.push({ from:anterior, to:nueva, reason:motivo||'', when:new Date().toISOString().slice(0,10), by:origen });
+    // También lo dejo en la bitácora del proyecto para que sea visible en Gestión
+    try{
+      if(typeof logs!=='undefined'){
+        logs.unshift(mgL({ id:(typeof nil!=='undefined'?nil++:Date.now()), date:new Date().toISOString().slice(0,10),
+          type:'Cambio de fecha', title:'Entrega de "'+(r.item||'ítem')+'" pasa de '+fechaCortaES(anterior)+' a '+fechaCortaES(nueva),
+          desc:motivo||'', responsible:'', dueDate:nueva, status:'Completado' }));
+        sLogs();
+      }
+    }catch(e){}
+  }
+  r.estDelivery=nueva;
+  sAll(); try{rC();}catch(e){}
+}
+function fechaCortaES(f){ if(!f)return '—'; var p=f.split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):f; }
+
 function uIQ(id,f,v){const r=items.find(x=>x.id===id);if(r){r[f]=v;sAll();}}
 function dI(id){if(confirm('¿Eliminar este ítem?')){items=items.filter(x=>x.id!==id);if(typeof window.sbDeleteItem==='function'){try{window.sbDeleteItem(currentProjId,id);}catch(e){}}rC();sAll();}}
 function addItem(){const newCat=document.getElementById('fCat').value||'Mobiliario';items.push(mg({id:nii++,cat:newCat,item:'Nuevo ítem',supplier:'',qty:1,unit:0,notes:''}));document.getElementById('fPay').value='';document.getElementById('fDel').value='';document.getElementById('fCS').value='';document.getElementById('fQ').value='';const catKey=newCat.replace(/[^a-zA-Z0-9]/g,'_');accOpen[catKey]=true;saveAccOpen();rC();sAll();}
@@ -3536,7 +3590,6 @@ function renderPagosAlert(){
   var panel=document.getElementById('pagosAlertPanel');
   if(!panel)return;
   var pagos=(logs||[]).filter(function(l){return (l.type||'').indexOf('Pago')>-1;});
-  if(!pagos.length){ panel.innerHTML=''; return; }
   var hoy=new Date(); hoy.setHours(0,0,0,0);
   function diasPara(f){ if(!f)return null; var d=new Date(f+'T00:00:00'); return Math.round((d-hoy)/86400000); }
   var vencidos=[],estaSemana=[],proximos=[],pagados=[];
@@ -3559,7 +3612,9 @@ function renderPagosAlert(){
       +'<button onclick="marcarPagado('+l.id+')" style="font-size:10px;padding:3px 8px;border:1px solid var(--ac);background:var(--ac);color:#fff;border-radius:4px;cursor:pointer;white-space:nowrap;">✓ Pagado</button>'
       +'</div>';
   }
-  var html2='<div style="border:1px solid var(--bd);border-radius:var(--r);padding:14px;margin-bottom:16px;background:var(--s2);">';
+  var html2='';
+  if(pagos.length){
+  html2+='<div style="border:1px solid var(--bd);border-radius:var(--r);padding:14px;margin-bottom:16px;background:var(--s2);">';
   html2+='<div style="font-weight:600;font-size:14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">🔔 Alarmas de pagos</div>';
   if(vencidos.length){
     html2+='<div style="font-size:11px;font-weight:700;color:#B83030;text-transform:uppercase;letter-spacing:.05em;margin:8px 0 4px;">🔴 Vencidos ('+vencidos.length+')</div>';
@@ -3578,6 +3633,32 @@ function renderPagosAlert(){
     html2+='<div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.05em;margin:10px 0 4px;">✓ Pagados ('+pagados.length+') · '+money(totalPagado)+'</div>';
   }
   html2+='</div>';
+  }
+
+  // ── ALARMAS DE ENTREGA (desde los ítems con entrega estimada) ──
+  var entregas=(items||[]).filter(function(it){ return it.estDelivery && it.deliveryStatus!=='Entregado' && it.deliveryStatus!=='Instalado'; });
+  if(entregas.length){
+    var eVenc=[],eSem=[],eProx=[];
+    entregas.forEach(function(it){
+      var dd=diasPara(it.estDelivery);
+      if(dd<0)eVenc.push(it); else if(dd<=14)eSem.push(it); else eProx.push(it);
+    });
+    function ecard(it,color,dd){
+      var extra = dd<0?('<span style="color:#B83030;font-weight:600;"> · atrasada '+Math.abs(dd)+'d</span>') : (dd===0?'<span style="color:#B87A00;font-weight:600;"> · ¡HOY!</span>':'<span style="color:#666;"> · en '+dd+'d</span>');
+      var hist=(it.dateHistory&&it.dateHistory.length)?'<div style="font-size:10px;color:var(--tx3);margin-top:2px;">↳ '+es(it.dateHistory[it.dateHistory.length-1].reason||'fecha ajustada')+'</div>':'';
+      return '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-left:3px solid '+color+';background:var(--surface);border-radius:4px;margin-bottom:6px;">'
+        +'<div style="flex:1;"><div style="font-weight:600;font-size:13px;">'+es(it.item||'')+'</div>'
+        +'<div style="font-size:11px;color:var(--tx2);">'+fecha(it.estDelivery)+extra+(it.supplier?' · '+es(it.supplier):'')+'</div>'+hist+'</div>'
+        +'<span style="font-size:10px;color:var(--tx3);white-space:nowrap;">'+es(it.deliveryStatus||'')+'</span>'
+        +'</div>';
+    }
+    html2+='<div style="border:1px solid var(--bd);border-radius:var(--r);padding:14px;margin-bottom:16px;background:var(--s2);">';
+    html2+='<div style="font-weight:600;font-size:14px;margin-bottom:10px;">📦 Alarmas de entrega</div>';
+    if(eVenc.length){ html2+='<div style="font-size:11px;font-weight:700;color:#B83030;text-transform:uppercase;letter-spacing:.05em;margin:8px 0 4px;">🔴 Atrasadas ('+eVenc.length+')</div>'; eVenc.forEach(function(it){ html2+=ecard(it,'#B83030',diasPara(it.estDelivery)); }); }
+    if(eSem.length){ html2+='<div style="font-size:11px;font-weight:700;color:#B87A00;text-transform:uppercase;letter-spacing:.05em;margin:8px 0 4px;">🟡 Próximas 2 semanas ('+eSem.length+')</div>'; eSem.forEach(function(it){ html2+=ecard(it,'#B87A00',diasPara(it.estDelivery)); }); }
+    if(eProx.length){ html2+='<div style="font-size:11px;font-weight:700;color:#2A5C45;text-transform:uppercase;letter-spacing:.05em;margin:8px 0 4px;">🟢 Más adelante ('+eProx.length+')</div>'; eProx.slice(0,8).forEach(function(it){ html2+=ecard(it,'#2A5C45',diasPara(it.estDelivery)); }); if(eProx.length>8) html2+='<div style="font-size:11px;color:var(--tx3);padding:4px 12px;">+'+(eProx.length-8)+' más</div>'; }
+    html2+='</div>';
+  }
   panel.innerHTML=html2;
 }
 function marcarPagado(id){
@@ -3781,7 +3862,8 @@ function renderGantt(){
       p4pct:r.p4pct||0,p4amt:r.p4amt||0,p4date:r.p4date||'',p4method:r.p4method||'',p4note:r.p4note||'',
       order_date:r.orderDate||'', lead_weeks: (r.leadWeeks===''||r.leadWeeks==null)?null:r.leadWeeks,
       est_delivery:r.estDelivery||'', actual_delivery:r.actualDelivery||'',
-      install_date:r.installDate||'', track_note:r.trackNote||''
+      install_date:r.installDate||'', track_note:r.trackNote||'',
+      lead_unit:r.leadUnit||'semanas', date_history:JSON.stringify(r.dateHistory||[])
     };
   }
   // snake_case (Supabase) -> camelCase (app)
@@ -3802,7 +3884,8 @@ function renderGantt(){
       p4pct:x.p4pct||0,p4amt:x.p4amt||0,p4date:x.p4date||'',p4method:x.p4method||'',p4note:x.p4note||'',
       orderDate:x.order_date||'', leadWeeks:x.lead_weeks==null?'':x.lead_weeks,
       estDelivery:x.est_delivery||'', actualDelivery:x.actual_delivery||'',
-      installDate:x.install_date||'', trackNote:x.track_note||''
+      installDate:x.install_date||'', trackNote:x.track_note||'',
+      leadUnit:x.lead_unit||'semanas', dateHistory:(function(){try{return JSON.parse(x.date_history||'[]');}catch(e){return [];}})()
     };
   }
 
@@ -3823,12 +3906,24 @@ function renderGantt(){
       if(!snapshot.length){ setStatus('ok'); return; }
       setStatus('saving');
       // UPSERT: actualiza los que existen, inserta los nuevos, sin borrar nada
-      fetch(URL+'/rest/v1/items?on_conflict=project_id,id',{
-        method:'POST',
-        headers:Object.assign({},H,{'Prefer':'resolution=merge-duplicates'}),
-        body:JSON.stringify(snapshot)
-      }).then(function(r){ setStatus(r.ok?'ok':'err'); })
-        .catch(function(){ setStatus('err'); });
+      function doUpsert(rows){
+        return fetch(URL+'/rest/v1/items?on_conflict=project_id,id',{
+          method:'POST',
+          headers:Object.assign({},H,{'Prefer':'resolution=merge-duplicates'}),
+          body:JSON.stringify(rows)
+        });
+      }
+      doUpsert(snapshot).then(function(r){
+        if(r.ok){ setStatus('ok'); return; }
+        // Si falla por columnas nuevas inexistentes (lead_unit/date_history), reintentar sin ellas
+        return r.text().then(function(t){
+          if(/lead_unit|date_history/.test(t)){
+            var strip=snapshot.map(function(x){ var y=Object.assign({},x); delete y.lead_unit; delete y.date_history; return y; });
+            return doUpsert(strip).then(function(r2){ setStatus(r2.ok?'ok':'err'); });
+          }
+          setStatus('err');
+        });
+      }).catch(function(){ setStatus('err'); });
     },800);
   };
   // BORRAR UN ITEM específico de la nube (cuando el usuario borra un item en la app)
@@ -4323,6 +4418,39 @@ window.pdfResumenCliente = function(){
     calHTML='<div class="sec">Calendario de pagos</div><div class="cals">'+calGrid+'</div><div class="leyenda">'+leyenda+'</div>';
   }
 
+  // ── PRÓXIMAS ENTREGAS (ítems con entrega estimada, no entregados) ──
+  var entregasHTML='';
+  var entPend=(items||[]).filter(function(it){ return it.estDelivery && it.deliveryStatus!=='Entregado' && it.deliveryStatus!=='Instalado'; })
+    .sort(function(a,b){ return (a.estDelivery||'').localeCompare(b.estDelivery||''); });
+  if(entPend.length){
+    var erows='';
+    entPend.slice(0,12).forEach(function(it){
+      var dd=Math.round((new Date(it.estDelivery+'T00:00:00')-hoyD)/86400000);
+      var cu = dd<0?('atrasada '+Math.abs(dd)+' días'):(dd===0?'hoy':(dd===1?'mañana':('en '+dd+' días')));
+      var col = dd<0?'#B83030':(dd<=14?'#B8901F':'#2F8663');
+      erows+='<div class="prox-row"><span class="prox-dot" style="background:'+col+';"></span>'
+        +'<div class="prox-info"><div class="prox-title">'+esc(it.item||'')+(it.supplier?' <span style="font-weight:400;color:#8A857C;">· '+esc(it.supplier)+'</span>':'')+'</div>'
+        +'<div class="prox-fecha">'+fechaLarga(it.estDelivery)+' · '+cu+'</div></div>'
+        +'<div class="prox-monto" style="font-size:10px;font-weight:600;color:'+col+';">'+esc(it.deliveryStatus||'')+'</div></div>';
+    });
+    entregasHTML='<div class="sec">Próximas entregas</div><div class="prox-box">'+erows+'</div>';
+  }
+
+  // ── NOVEDADES: cambios de fecha con su razón (para explicar al cliente) ──
+  var novedadesHTML='';
+  var cambios=[];
+  (items||[]).forEach(function(it){ (it.dateHistory||[]).forEach(function(h){ cambios.push({ item:it.item||'', from:h.from, to:h.to, reason:h.reason||'', when:h.when||'' }); }); });
+  cambios.sort(function(a,b){ return (b.when||'').localeCompare(a.when||''); });
+  if(cambios.length){
+    var nrows='';
+    cambios.slice(0,10).forEach(function(c){
+      nrows+='<div class="nov-row"><div class="nov-when">'+fechaCorta(c.when)+'</div>'
+        +'<div class="nov-body"><b>'+esc(c.item)+'</b>: entrega pasa de '+fechaCorta(c.from)+' a '+fechaCorta(c.to)
+        +(c.reason?'<div class="nov-reason">'+esc(c.reason)+'</div>':'')+'</div></div>';
+    });
+    novedadesHTML='<div class="sec">Novedades del proyecto</div><div class="nov-box">'+nrows+'</div>';
+  }
+
   // ── LISTADO DE COMPRAS por categoría ──
   var listadoHTML='';
   var porCat={};
@@ -4397,6 +4525,13 @@ window.pdfResumenCliente = function(){
     +'.prox-title{font-size:12px;font-weight:600;}'
     +'.prox-fecha{font-size:10px;color:#938E85;}'
     +'.prox-monto{flex-shrink:0;font-size:13px;font-weight:700;}'
+    +'.prox-dot{flex-shrink:0;width:9px;height:9px;border-radius:50%;}'
+    +'.nov-box{background:#FAF9F6;border-radius:8px;padding:4px 14px;}'
+    +'.nov-row{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid #EFEBE3;font-size:11.5px;}'
+    +'.nov-row:last-child{border-bottom:none;}'
+    +'.nov-when{flex-shrink:0;width:60px;color:#938E85;font-size:10.5px;}'
+    +'.nov-body{flex:1;}'
+    +'.nov-reason{color:#6B665E;font-style:italic;margin-top:2px;}'
     +'.cals{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}'
     +'.cal{background:#FAF9F6;border-radius:6px;padding:7px 6px 9px;}'
     +'.cal-mes{font-size:9px;font-weight:600;text-align:center;color:#3A3833;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;}'
@@ -4433,7 +4568,9 @@ window.pdfResumenCliente = function(){
     +'</div>'
     +barraHTML
     +proxHTML
+    +entregasHTML
     +calHTML
+    +novedadesHTML
     +listadoHTML
     +'<div class="sec">Detalle por proveedor</div>'
     +'<table><thead><tr><th>Proveedor</th><th style="text-align:right;">Total</th><th style="text-align:right;">Pagado</th><th style="text-align:right;">Saldo</th><th style="text-align:center;">Estado</th></tr></thead>'
