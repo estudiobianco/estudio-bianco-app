@@ -2598,6 +2598,10 @@ function applyMode(){
   // Ocultar pestaña Financiero para trabajadores
   var _fin=document.getElementById('htab-financiero');
   if(_fin)_fin.style.display=isAdmin?'':'none';
+  // Ocultar pestaña Pagos proveedores para trabajadores
+  var _pp=document.getElementById('nav-pagosprov');
+  if(_pp)_pp.style.display=isAdmin?'':'none';
+  if(!isAdmin){ var _ppg=document.getElementById('page-pagosprov'); if(_ppg&&_ppg.classList.contains('active')){try{go('compras');}catch(e){}} }
   // Si el trabajador está en la sección financiera, volver a proyectos
   if(!isAdmin){
     var _finSec=document.getElementById('hsec-financiero');
@@ -4047,7 +4051,9 @@ function renderGantt(){
           html+='</div>';
           html+='<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:'+(p.fact?'#E1F5EE':'#F5EDE1')+';color:'+(p.fact?'#0F6E56':'#8B6914')+';">'+(p.fact?'✓ Factura':'Factura pend.')+'</span>';
           html+='<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:'+(p.bol==='ok'?'#E1F5EE':'#F5EDE1')+';color:'+(p.bol==='ok'?'#0F6E56':'#8B6914')+';">'+(p.bol==='ok'?'✓ Boleta':'Boleta pend.')+'</span>';
-          html+='<button onclick="delPagoProv('+p.id+')" style="font-size:11px;color:#B83030;background:none;border:none;cursor:pointer;">✕</button>';
+          if(p.comprobante){ html+='<a href="'+p.comprobante+'" target="_blank" title="Ver comprobante" style="font-size:14px;text-decoration:none;">📎</a>'; }
+          html+='<button onclick="editPagoProv('+p.id+')" title="Editar" style="font-size:13px;color:var(--tx2);background:none;border:none;cursor:pointer;">✎</button>';
+          html+='<button onclick="delPagoProv('+p.id+')" title="Eliminar" style="font-size:11px;color:#B83030;background:none;border:none;cursor:pointer;">✕</button>';
           html+='</div>';
         });
       } else {
@@ -4067,7 +4073,12 @@ function renderGantt(){
   };
 
   // Formulario para registrar una transferencia
-  window.abrirFormPagoProv=function(sup){
+  window.editPagoProv=function(id){
+    var p=(window.__provPays||[]).find(function(x){return x.id===id;});
+    if(!p) return;
+    abrirFormPagoProv(p.supplier, p);
+  };
+  window.abrirFormPagoProv=function(sup, editRow){
     var m=document.getElementById('provPayModal');
     if(!m){
       m=document.createElement('div');
@@ -4081,6 +4092,7 @@ function renderGantt(){
         +'<div style="display:flex;gap:10px;"><div style="flex:1;"><label style="font-size:11px;color:var(--tx2);display:block;margin-bottom:3px;">Fecha</label><input type="date" id="ppmDate" style="width:100%;height:34px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 10px;font-size:13px;"></div>'
         +'<div style="flex:1;"><label style="font-size:11px;color:var(--tx2);display:block;margin-bottom:3px;">Método</label><input type="text" id="ppmMeth" placeholder="Transferencia" style="width:100%;height:34px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 10px;font-size:13px;"></div></div>'
         +'<div><label style="font-size:11px;color:var(--tx2);display:block;margin-bottom:3px;">Nota (opcional)</label><input type="text" id="ppmNota" placeholder="Ej: abono muebles a medida" style="width:100%;height:34px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 10px;font-size:13px;"></div>'
+        +'<div><label style="font-size:11px;color:var(--tx2);display:block;margin-bottom:3px;">Comprobante (imagen)</label><input type="file" id="ppmFile" accept="image/*" onchange="subirComprobante(this)" style="width:100%;font-size:12px;"><div id="ppmCompPreview" style="margin-top:6px;"></div><input type="hidden" id="ppmComp"></div>'
         +'<div style="display:flex;gap:18px;margin-top:2px;"><label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="ppmFact"> Factura emitida</label>'
         +'<label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="ppmBol"> Boleta ok</label></div>'
         +'</div>'
@@ -4092,39 +4104,85 @@ function renderGantt(){
     }
     m.style.display='flex';
     m.dataset.sup=sup;
+    m.dataset.editid = editRow ? editRow.id : '';
+    document.querySelector('#provPayModal h2').textContent = editRow ? 'Editar transferencia' : 'Registrar transferencia';
     document.getElementById('ppmSup').textContent='Proveedor: '+sup;
-    document.getElementById('ppmAmount').value='';
-    document.getElementById('ppmDate').value=new Date().toISOString().slice(0,10);
-    document.getElementById('ppmMeth').value='Transferencia';
-    document.getElementById('ppmNota').value='';
-    document.getElementById('ppmFact').checked=false;
-    document.getElementById('ppmBol').checked=false;
+    document.getElementById('ppmAmount').value = editRow ? (editRow.amount||'') : '';
+    document.getElementById('ppmDate').value = editRow ? (editRow.pdate||'') : new Date().toISOString().slice(0,10);
+    document.getElementById('ppmMeth').value = editRow ? (editRow.meth||'') : 'Transferencia';
+    document.getElementById('ppmNota').value = editRow ? (editRow.nota||'') : '';
+    document.getElementById('ppmFact').checked = editRow ? !!editRow.fact : false;
+    document.getElementById('ppmBol').checked = editRow ? (editRow.bol==='ok') : false;
+    var _f=document.getElementById('ppmFile'); if(_f)_f.value='';
+    document.getElementById('ppmComp').value = editRow ? (editRow.comprobante||'') : '';
+    var _pv=document.getElementById('ppmCompPreview');
+    if(_pv) _pv.innerHTML = (editRow&&editRow.comprobante) ? '<img src="'+editRow.comprobante+'" style="max-height:70px;border-radius:6px;border:1px solid var(--bd2);"> <span style="color:var(--tx3);font-size:11px;">Comprobante actual</span>' : '';
     setTimeout(function(){ document.getElementById('ppmAmount').focus(); },50);
   };
   window.cerrarFormPagoProv=function(){ var m=document.getElementById('provPayModal'); if(m)m.style.display='none'; };
 
+  var SB_URL='https://iucjhzsnlotojvpyjcfo.supabase.co';
+  var SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1Y2poenNubG90b2p2cHlqY2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMTIzMTYsImV4cCI6MjA5NDY4ODMxNn0.PKLG4LS1EjgfHE0GXAnyxWuEUhlZy5s7TWxe8luvuik';
+  var SB_BUCKET='Imagenes app estudio bianco';
+
+  window.subirComprobante=function(input){
+    var file=input.files&&input.files[0];
+    if(!file)return;
+    var prev=document.getElementById('ppmCompPreview');
+    if(file.size>8*1024*1024){ if(prev)prev.innerHTML='<span style="color:#B83030;font-size:11px;">La imagen es muy pesada (máx 8MB)</span>'; input.value=''; return; }
+    if(prev)prev.innerHTML='<span style="color:var(--tx3);font-size:11px;">Subiendo comprobante…</span>';
+    var ext=(file.name.split('.').pop()||'jpg').toLowerCase();
+    var path='comprobantes/'+(currentProjId||'x')+'_'+Date.now()+'.'+ext;
+    fetch(SB_URL+'/storage/v1/object/'+encodeURIComponent(SB_BUCKET)+'/'+path,{
+      method:'POST',
+      headers:{ 'apikey':SB_KEY, 'Authorization':'Bearer '+SB_KEY, 'Content-Type':file.type||'image/jpeg' },
+      body:file
+    }).then(function(r){
+      if(!r.ok) throw new Error('upload');
+      var url=SB_URL+'/storage/v1/object/public/'+encodeURIComponent(SB_BUCKET)+'/'+path;
+      document.getElementById('ppmComp').value=url;
+      if(prev)prev.innerHTML='<img src="'+url+'" style="max-height:70px;border-radius:6px;border:1px solid var(--bd2);"> <span style="color:var(--ac);font-size:11px;">✓ Comprobante listo</span>';
+    }).catch(function(){
+      if(prev)prev.innerHTML='<span style="color:#B83030;font-size:11px;">No se pudo subir. Intenta de nuevo.</span>';
+    });
+  };
+
   window.guardarPagoProv=function(){
     var m=document.getElementById('provPayModal');
     var sup=m.dataset.sup;
+    var editId=m.dataset.editid;
     var amount=+(document.getElementById('ppmAmount').value||0);
     if(!amount){ tst('Ingresa un monto'); return; }
-    var row={
-      id: Date.now(),
-      project_id: currentProjId,
-      supplier: sup,
-      amount: amount,
-      pdate: document.getElementById('ppmDate').value||'',
-      meth: document.getElementById('ppmMeth').value||'',
-      nota: document.getElementById('ppmNota').value||'',
-      fact: document.getElementById('ppmFact').checked,
-      bol: document.getElementById('ppmBol').checked?'ok':'no'
-    };
     window.__provPays = window.__provPays||[];
-    window.__provPays.push(row);
-    if(typeof window.sbSaveProvPay==='function'){ try{ window.sbSaveProvPay(row); }catch(e){} }
-    cerrarFormPagoProv();
-    pintarPagosProv();
-    tst('✓ Transferencia registrada');
+    if(editId){
+      // EDICIÓN: actualizar el registro existente
+      var ex=window.__provPays.find(function(x){return x.id===+editId;});
+      if(ex){
+        ex.amount=amount;
+        ex.pdate=document.getElementById('ppmDate').value||'';
+        ex.meth=document.getElementById('ppmMeth').value||'';
+        ex.nota=document.getElementById('ppmNota').value||'';
+        ex.fact=document.getElementById('ppmFact').checked;
+        ex.bol=document.getElementById('ppmBol').checked?'ok':'no';
+        var _c=document.getElementById('ppmComp').value; if(_c)ex.comprobante=_c;
+        if(typeof window.sbSaveProvPay==='function'){ try{ window.sbSaveProvPay(ex); }catch(e){} }
+      }
+      cerrarFormPagoProv(); pintarPagosProv(); tst('✓ Transferencia actualizada');
+    } else {
+      // ALTA: nuevo registro
+      var row={
+        id: Date.now(), project_id: currentProjId, supplier: sup, amount: amount,
+        pdate: document.getElementById('ppmDate').value||'',
+        meth: document.getElementById('ppmMeth').value||'',
+        nota: document.getElementById('ppmNota').value||'',
+        fact: document.getElementById('ppmFact').checked,
+        bol: document.getElementById('ppmBol').checked?'ok':'no',
+        comprobante: document.getElementById('ppmComp').value||''
+      };
+      window.__provPays.push(row);
+      if(typeof window.sbSaveProvPay==='function'){ try{ window.sbSaveProvPay(row); }catch(e){} }
+      cerrarFormPagoProv(); pintarPagosProv(); tst('✓ Transferencia registrada');
+    }
   };
 
   window.delPagoProv=function(id){
