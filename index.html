@@ -4018,18 +4018,22 @@ function renderGantt(){
   };
 
   // ── PAGOS A PROVEEDORES ──────────────────────────────────────────────
-  window.sbSaveProvPay=function(row){
-    if(!row||!row.project_id)return;
+  window.sbSaveProvPay=function(row,cb){
+    if(!row||!row.project_id){ if(cb)cb(false); return; }
+    var clean={}; Object.keys(row).forEach(function(k){ if(k.charAt(0)!=='_') clean[k]=row[k]; });
     fetch(URL+'/rest/v1/supplier_payments?on_conflict=project_id,id',{
       method:'POST', headers:Object.assign({},H,{'Prefer':'resolution=merge-duplicates'}),
-      body:JSON.stringify(row)
-    }).catch(function(){});
+      body:JSON.stringify(clean)
+    }).then(function(r){
+      if(r.ok){ if(cb)cb(true); return; }
+      return r.text().then(function(t){ try{ console.warn('[EB] Error guardando transferencia en la nube:', r.status, t); }catch(e){} if(cb)cb(false); });
+    }).catch(function(){ if(cb)cb(false); });
   };
   window.sbLoadProvPay=function(pid,cb){
     fetch(URL+'/rest/v1/supplier_payments?project_id=eq.'+encodeURIComponent(pid)+'&select=*&order=pdate',{ headers:H })
       .then(function(r){ return r.ok?r.json():null; })
-      .then(function(data){ cb(data||[]); })
-      .catch(function(){ cb([]); });
+      .then(function(data){ cb(data); })
+      .catch(function(){ cb(null); });
   };
   window.sbDeleteProvPay=function(pid,payId){
     fetch(URL+'/rest/v1/supplier_payments?project_id=eq.'+encodeURIComponent(pid)+'&id=eq.'+encodeURIComponent(payId),{
@@ -4051,6 +4055,12 @@ function renderGantt(){
   window.__provPays = [];   // transferencias del proyecto actual (cache local)
   window.__provPaysPid = null;
 
+  // Respaldo local de transferencias (para no perderlas si la nube falla)
+  function lsLoadPP(pid){ try{ return JSON.parse(localStorage.getItem('ar6_p'+pid+'_provpays')||'[]'); }catch(e){ return []; } }
+  function lsSavePP(pid,rows){ try{ localStorage.setItem('ar6_p'+pid+'_provpays', JSON.stringify(rows||[])); }catch(e){} }
+  function lsLoadDelPP(pid){ try{ return JSON.parse(localStorage.getItem('ar6_p'+pid+'_provpays_del')||'[]'); }catch(e){ return []; } }
+  function lsSaveDelPP(pid,ids){ try{ localStorage.setItem('ar6_p'+pid+'_provpays_del', JSON.stringify((ids||[]).slice(-200))); }catch(e){} }
+
   function money(n){ return '$'+Math.round(n||0).toLocaleString('es-CL'); }
   function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
   function fechaCorta(f){ if(!f)return ''; var p=f.split('-'); return p.length===3?(p[2]+'/'+p[1]+'/'+p[0].substring(2)):f; }
@@ -4068,23 +4078,44 @@ function renderGantt(){
     return map;
   }
 
-  // Carga las transferencias del proyecto desde la nube y renderiza
+  // Carga las transferencias: primero el respaldo local, luego fusiona con la nube
   window.rPagosProv = function(){
     var pid = currentProjId;
     if(!pid){ return; }
-    // Si ya tenemos cache de este proyecto, renderizar de una y refrescar en segundo plano
-    if(window.__provPaysPid===pid && window.__provPays){
-      pintarPagosProv();
+    if(window.__provPaysPid!==pid || !window.__provPays || !window.__provPays.length){
+      window.__provPays = lsLoadPP(pid);
+      window.__provPaysPid = pid;
     }
+    pintarPagosProv();
     if(typeof window.sbLoadProvPay==='function'){
       window.sbLoadProvPay(pid, function(rows){
         if(currentProjId!==pid) return;
-        window.__provPays = rows||[];
+        if(rows==null){ return; } // sin conexion: mantener la vista local
+        var _del = lsLoadDelPP(pid);
+        var byId = {}, pend = [];
+        rows.forEach(function(r){
+          if(_del.indexOf(r.id)>=0){
+            // se elimino aqui pero sigue en la nube: reintentar el borrado
+            if(typeof window.sbDeleteProvPay==='function'){ try{ window.sbDeleteProvPay(pid, r.id); }catch(e){} }
+            return;
+          }
+          r._synced = true; byId[r.id] = r;
+        });
+        (window.__provPays||[]).forEach(function(r){
+          if(byId[r.id]!=null) return;            // ya vino de la nube
+          if(_del.indexOf(r.id)>=0) return;       // eliminado aqui
+          if(r._synced) return;                   // estaba en la nube y ya no: lo borraron desde otro computador
+          byId[r.id] = r; pend.push(r);           // nunca llego a la nube: conservar y reintentar la subida
+        });
+        var merged = Object.keys(byId).map(function(k){ return byId[k]; });
+        window.__provPays = merged;
         window.__provPaysPid = pid;
+        lsSavePP(pid, merged);
+        pend.forEach(function(r){
+          if(typeof window.sbSaveProvPay==='function'){ try{ window.sbSaveProvPay(r, function(ok){ if(ok){ r._synced=true; lsSavePP(pid, window.__provPays); } }); }catch(e){} }
+        });
         pintarPagosProv();
       });
-    } else {
-      pintarPagosProv();
     }
   };
 
@@ -4279,7 +4310,12 @@ function renderGantt(){
         ex.fact=document.getElementById('ppmFact').checked;
         ex.bol=document.getElementById('ppmBol').checked?'ok':'no';
         var _c=document.getElementById('ppmComp').value; if(_c)ex.comprobante=_c;
-        if(typeof window.sbSaveProvPay==='function'){ try{ window.sbSaveProvPay(ex); }catch(e){} }
+        ex._synced = false;
+        lsSavePP(currentProjId, window.__provPays);
+        if(typeof window.sbSaveProvPay==='function'){ try{ window.sbSaveProvPay(ex, function(ok){
+          if(ok){ ex._synced=true; lsSavePP(ex.project_id, window.__provPays); }
+          else { tst('⚠ No se pudo guardar en la nube. Quedo respaldada en este computador y se reintentara.'); }
+        }); }catch(e){} }
       }
       cerrarFormPagoProv(); pintarPagosProv(); tst('✓ Transferencia actualizada');
     } else {
@@ -4293,16 +4329,24 @@ function renderGantt(){
         bol: document.getElementById('ppmBol').checked?'ok':'no',
         comprobante: document.getElementById('ppmComp').value||''
       };
+      row._synced = false;
       window.__provPays.push(row);
-      if(typeof window.sbSaveProvPay==='function'){ try{ window.sbSaveProvPay(row); }catch(e){} }
+      lsSavePP(currentProjId, window.__provPays);
+      if(typeof window.sbSaveProvPay==='function'){ try{ window.sbSaveProvPay(row, function(ok){
+        if(ok){ row._synced=true; lsSavePP(row.project_id, window.__provPays); }
+        else { tst('⚠ No se pudo guardar en la nube. Quedo respaldada en este computador y se reintentara.'); }
+      }); }catch(e){} }
       cerrarFormPagoProv(); pintarPagosProv(); tst('✓ Transferencia registrada');
     }
   };
 
   window.delPagoProv=function(id){
     if(!confirm('¿Eliminar esta transferencia?')) return;
+    var pid=currentProjId;
     window.__provPays=(window.__provPays||[]).filter(function(p){ return p.id!==id; });
-    if(typeof window.sbDeleteProvPay==='function'){ try{ window.sbDeleteProvPay(currentProjId,id); }catch(e){} }
+    lsSavePP(pid, window.__provPays);
+    var _del=lsLoadDelPP(pid); if(_del.indexOf(id)<0){ _del.push(id); lsSaveDelPP(pid,_del); }
+    if(typeof window.sbDeleteProvPay==='function'){ try{ window.sbDeleteProvPay(pid,id); }catch(e){} }
     pintarPagosProv();
   };
 })();
