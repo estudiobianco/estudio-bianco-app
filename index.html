@@ -4343,13 +4343,31 @@ window.pdfResumenCliente = function(){
   var provs=Object.keys(totMap).filter(function(s){ return totMap[s].total>0; })
     .sort(function(a,b){ return (totMap[b].total-(pagadoMap[b]||0))-(totMap[a].total-(pagadoMap[a]||0)); });
 
-  // ── pagos programados (para calendario y próximos pagos) ──
-  var prog = (typeof logs!=='undefined'?logs:[]).filter(function(l){ return (l.type||'').indexOf('Pago')>-1 && l.dueDate; })
-    .sort(function(a,b){ return (a.dueDate||'').localeCompare(b.dueDate||''); });
+  // ── EVENTOS DE PAGO: pagos programados (Gestión) + cuotas de los ítems con fecha ──
+  var eventos=[];
+  // a) Pagos programados de Gestión
+  (typeof logs!=='undefined'?logs:[]).forEach(function(l){
+    if((l.type||'').indexOf('Pago')>-1 && l.dueDate){
+      eventos.push({ fecha:l.dueDate, title:l.title||'Pago', monto:+l.amount||0, pagado:l.status==='Completado', tipo:'pago' });
+    }
+  });
+  // b) Cuotas de los ítems (p1..p4) con fecha
+  (items||[]).forEach(function(it){
+    var tot=(it.qty||1)*(it.unit||0);
+    for(var n=1;n<=4;n++){
+      var f=it['p'+n+'date'], amt=+it['p'+n+'amt']||0, pct=+it['p'+n+'pct']||0;
+      if(!f) continue;
+      var monto=amt||Math.round(tot*pct/100)||0;
+      if(!monto) continue;
+      // Se considera pagado si el ítem está Pagado, o si la glosa/método indica pagado, o si el ítem entero está pagado
+      var pagado = (it.payStatus==='Pagado') || (n<4 && (it['p'+n+'note']||'').toLowerCase().indexOf('pagad')>-1);
+      eventos.push({ fecha:f, title:(it.item||'Ítem')+(pct?' ('+pct+'%)':''), monto:monto, pagado:pagado, tipo:'cuota', sup:it.supplier||'' });
+    }
+  });
+  eventos.sort(function(a,b){ return (a.fecha||'').localeCompare(b.fecha||''); });
   var colores=['#B8901F','#2F8663','#3A72B0','#B05836','#7A5EA8','#B83030','#2A8A8A','#9A6A1F'];
-  var progInfo=prog.map(function(l,i){
-    return { fecha:l.dueDate, label:String(i+1), title:l.title||'Pago', monto:+l.amount||0,
-             pagado:l.status==='Completado', color:colores[i%colores.length] };
+  var progInfo=eventos.map(function(e,i){
+    e.label=String(i+1); e.color = e.pagado ? '#2F8663' : colores[i%colores.length]; return e;
   });
 
   // ── BARRA DE PROGRESO ──
@@ -4360,29 +4378,48 @@ window.pdfResumenCliente = function(){
       +'<div class="prog-labels"><span><b>'+pctPagado+'%</b> pagado ('+money(granPagado)+')</span><span>Falta '+money(granSaldo)+'</span></div>'
     +'</div>';
 
-  // ── PRÓXIMOS PAGOS (los no pagados con fecha >= hoy) ──
-  var proximos = progInfo.filter(function(p){ return !p.pagado && p.fecha>=hoyISO; });
+  // ── PRÓXIMOS PAGOS: esta semana (destacado), después los siguientes, y un resumen de lo ya pagado ──
+  var pendientes = progInfo.filter(function(p){ return !p.pagado && p.fecha>=hoyISO; });
+  var vencidos   = progInfo.filter(function(p){ return !p.pagado && p.fecha<hoyISO; });
+  var yaPagados  = progInfo.filter(function(p){ return p.pagado; });
+  var estaSemana = pendientes.filter(function(p){ return Math.round((new Date(p.fecha+'T00:00:00')-hoyD)/86400000)<=7; });
+  var despues    = pendientes.filter(function(p){ return Math.round((new Date(p.fecha+'T00:00:00')-hoyD)/86400000)>7; });
+  function proxRow(p,extraStyle){
+    var dd=Math.round((new Date(p.fecha+'T00:00:00')-hoyD)/86400000);
+    var cuando = p.pagado ? 'pagado' : (dd<0?('vencido hace '+Math.abs(dd)+' días'):(dd===0?'hoy':(dd===1?'mañana':('en '+dd+' días'))));
+    return '<div class="prox-row" style="'+(extraStyle||'')+'">'
+      +'<span class="prox-num" style="background:'+p.color+';">'+p.label+'</span>'
+      +'<div class="prox-info"><div class="prox-title">'+esc(p.title)+(p.sup?' <span style="font-weight:400;color:#8A857C;">· '+esc(p.sup)+'</span>':'')+'</div><div class="prox-fecha">'+fechaLarga(p.fecha)+' · '+cuando+'</div></div>'
+      +'<div class="prox-monto">'+money(p.monto)+'</div>'
+      +'</div>';
+  }
   var proxHTML='';
-  if(proximos.length){
-    var rows='';
-    proximos.forEach(function(p){
-      var dd=Math.round((new Date(p.fecha+'T00:00:00')-hoyD)/86400000);
-      var cuando = dd===0?'hoy':(dd===1?'mañana':('en '+dd+' días'));
-      rows+='<div class="prox-row">'
-        +'<span class="prox-num" style="background:'+p.color+';">'+p.label+'</span>'
-        +'<div class="prox-info"><div class="prox-title">'+esc(p.title)+'</div><div class="prox-fecha">'+fechaLarga(p.fecha)+' · '+cuando+'</div></div>'
-        +'<div class="prox-monto">'+money(p.monto)+'</div>'
-        +'</div>';
-    });
-    proxHTML=''
-      +'<div class="sec">Próximos pagos · prepárate para estas fechas</div>'
-      +'<div class="prox-box">'+rows+'</div>';
+  if(vencidos.length||estaSemana.length||despues.length||yaPagados.length){
+    proxHTML+='<div class="sec">Pagos · qué toca y cuándo</div>';
+    if(vencidos.length){
+      proxHTML+='<div class="prox-label" style="color:#B83030;">Pendientes de fecha pasada</div><div class="prox-box" style="border-color:#E8C4C4;background:#FBEFEF;">';
+      vencidos.forEach(function(p){ proxHTML+=proxRow(p); }); proxHTML+='</div>';
+    }
+    if(estaSemana.length){
+      var totSem=estaSemana.reduce(function(a,p){return a+p.monto;},0);
+      proxHTML+='<div class="prox-label" style="color:#B8901F;">Esta semana · '+money(totSem)+'</div><div class="prox-box" style="border:1.5px solid #E2C58A;background:#FBF3E3;">';
+      estaSemana.forEach(function(p){ proxHTML+=proxRow(p); }); proxHTML+='</div>';
+    }
+    if(despues.length){
+      proxHTML+='<div class="prox-label">Más adelante</div><div class="prox-box">';
+      despues.forEach(function(p){ proxHTML+=proxRow(p); }); proxHTML+='</div>';
+    }
+    if(yaPagados.length){
+      var totPag=yaPagados.reduce(function(a,p){return a+p.monto;},0);
+      proxHTML+='<div class="prox-label" style="color:#2F8663;">Ya pagado · '+money(totPag)+'</div><div class="prox-box" style="background:#EEF6F2;border-color:#CFE5DA;">';
+      yaPagados.forEach(function(p){ proxHTML+=proxRow(p,'opacity:.85;'); }); proxHTML+='</div>';
+    }
   }
 
   // ── CALENDARIO COMPACTO (escala a muchos meses) ──
   var calHTML='';
   if(progInfo.length){
-    var byDate={}; progInfo.forEach(function(p){ byDate[p.fecha]=p; });
+    var byDate={}; progInfo.forEach(function(p){ (byDate[p.fecha]=byDate[p.fecha]||[]).push(p); });
     var fechas=progInfo.map(function(p){return p.fecha;}).concat([hoyISO]).sort();
     var d0=new Date(fechas[0]+'T00:00:00'), d1=new Date(fechas[fechas.length-1]+'T00:00:00');
     var meses=[]; var cur=new Date(d0.getFullYear(), d0.getMonth(), 1);
@@ -4399,19 +4436,30 @@ window.pdfResumenCliente = function(){
       var days=new Date(mm.y,mm.m+1,0).getDate();
       for(var i=0;i<startDow;i++){ h+='<div class="cal-d"></div>'; }
       for(var d=1;d<=days;d++){
-        var key=mm.y+'-'+pad(mm.m+1)+'-'+pad(d); var p=byDate[key];
-        if(p){ h+='<div class="cal-d pago" style="background:'+p.color+';">'+d+'<span class="cal-badge">'+p.label+'</span></div>'; }
-        else if(key===hoyISO){ h+='<div class="cal-d hoy">'+d+'</div>'; }
-        else{ h+='<div class="cal-d">'+d+'</div>'; }
+        var key=mm.y+'-'+pad(mm.m+1)+'-'+pad(d); var evs=byDate[key];
+        if(evs&&evs.length){
+          var p=evs[0];
+          var ddk=Math.round((new Date(key+'T00:00:00')-hoyD)/86400000);
+          var semana = (!p.pagado && ddk>=0 && ddk<=7);
+          var bg = p.pagado ? '#2F8663' : p.color;
+          var ring = semana ? 'box-shadow:0 0 0 1.5px #1F1D1A;' : '';
+          var txt = evs.length>1 ? (evs.length+' pagos') : (p.title.length>14?p.title.substring(0,13)+'…':p.title);
+          h+='<div class="cal-d pago" style="background:'+bg+';'+ring+'" title="'+esc(evs.map(function(e){return e.title+' '+money(e.monto);}).join(' | '))+'">'
+            +'<span class="cal-num">'+d+(p.pagado?' ✓':'')+'</span><span class="cal-txt">'+esc(txt)+'</span></div>';
+        }
+        else if(key===hoyISO){ h+='<div class="cal-d hoy"><span class="cal-num">'+d+'</span></div>'; }
+        else{ h+='<div class="cal-d"><span class="cal-num">'+d+'</span></div>'; }
       }
       h+='</div></div>'; calGrid+=h;
     });
     var leyenda='';
     progInfo.forEach(function(p){
+      var ddl=Math.round((new Date(p.fecha+'T00:00:00')-hoyD)/86400000);
+      var tag = p.pagado ? ' <b style="color:#2F8663;">✓ pagado</b>' : (ddl>=0&&ddl<=7 ? ' <b style="color:#B8901F;">esta semana</b>' : (ddl<0?' <b style="color:#B83030;">pendiente</b>':''));
       leyenda+='<div class="leg-row">'
         +'<span class="leg-num" style="background:'+p.color+';">'+p.label+'</span>'
         +'<span class="leg-fecha">'+fechaCorta(p.fecha)+'</span>'
-        +'<span class="leg-title">'+esc(p.title)+(p.pagado?' <b style="color:#2F8663;">✓ pagado</b>':'')+'</span>'
+        +'<span class="leg-title">'+esc(p.title)+(p.sup?' <span style="color:#8A857C;">· '+esc(p.sup)+'</span>':'')+tag+'</span>'
         +'<span class="leg-monto">'+money(p.monto)+'</span>'
         +'</div>';
     });
@@ -4532,15 +4580,18 @@ window.pdfResumenCliente = function(){
     +'.nov-when{flex-shrink:0;width:60px;color:#938E85;font-size:10.5px;}'
     +'.nov-body{flex:1;}'
     +'.nov-reason{color:#6B665E;font-style:italic;margin-top:2px;}'
-    +'.cals{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}'
+    +'.cals{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}'
     +'.cal{background:#FAF9F6;border-radius:6px;padding:7px 6px 9px;}'
-    +'.cal-mes{font-size:9px;font-weight:600;text-align:center;color:#3A3833;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;}'
-    +'.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;}'
-    +'.cal-dow{font-size:5.5px;color:#B0AAA0;text-align:center;font-weight:600;}'
-    +'.cal-d{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:7px;color:#6B665E;position:relative;}'
-    +'.cal-d.pago{border-radius:3px;font-weight:700;color:#fff;}'
-    +'.cal-d.pago .cal-badge{position:absolute;top:-3px;right:-2px;width:9px;height:9px;border-radius:50%;background:#1F1D1A;color:#fff;font-size:5.5px;font-weight:700;display:flex;align-items:center;justify-content:center;}'
+    +'.cal-mes{font-size:9.5px;font-weight:700;text-align:center;color:#3A3833;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;}'
+    +'.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1.5px;}'
+    +'.cal-dow{font-size:6px;color:#B0AAA0;text-align:center;font-weight:600;}'
+    +'.cal-d{min-height:19px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:7px;color:#6B665E;position:relative;padding:1px;}'
+    +'.cal-num{font-size:7px;line-height:1;}'
+    +'.cal-txt{font-size:4.6px;line-height:1.05;text-align:center;font-weight:600;margin-top:1px;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}'
+    +'.cal-d.pago{border-radius:3px;color:#fff;}'
+    +'.cal-d.pago .cal-num{font-weight:700;}'
     +'.cal-d.hoy{border:1px dashed #B0AAA0;border-radius:3px;font-weight:600;color:#3A3833;}'
+    +'.prox-label{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#938E85;font-weight:700;margin:10px 0 5px;}'
     +'.leyenda{margin-top:11px;}'
     +'.leg-row{display:flex;align-items:center;gap:9px;padding:5px 0;border-bottom:1px solid #F0EDE6;}'
     +'.leg-num{flex-shrink:0;width:17px;height:17px;border-radius:50%;color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;}'
