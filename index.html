@@ -236,6 +236,11 @@ details.alarm-det .alarm-body{padding:2px 14px 12px;}
 /* LOG FORM */
 .log-form-card{background:var(--s2);border:1px solid var(--bd);border-radius:var(--r);padding:16px 17px;margin-bottom:16px;}
 .log-form-card h3{font-size:13px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+/* COLUMNAS AJUSTABLES LISTADO */
+.colgrip{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize;z-index:5;border-right:2px solid transparent;}
+.colgrip:hover{border-right-color:var(--ac);}
+body.col-resizing{cursor:col-resize !important;user-select:none;}
+body.col-resizing *{cursor:col-resize !important;}
 /* GANTT */
 .gantt-outer{background:var(--surface);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:16px;}
 .gantt-scroll{overflow-x:auto;}
@@ -1409,6 +1414,37 @@ function gF(){
   if(spEl){const spaces=[...new Set(items.map(r=>r.space||'').filter(Boolean))].sort();const cur=spEl.value;spEl.innerHTML='<option value="">Todos los espacios</option>'+spaces.map(s=>`<option${s===cur?' selected':''}>${s}</option>`).join('');}
   return items.filter(r=>{if(cat&&r.cat!==cat)return false;if(pay&&r.payStatus!==pay)return false;if(del&&r.deliveryStatus!==del)return false;if(cs&&r.clientStatus!==cs)return false;if(sp&&(r.space||'')!==sp)return false;if(q&&!r.item.toLowerCase().includes(q)&&!r.supplier.toLowerCase().includes(q))return false;return true;});
 }
+// ── Anchos de columna ajustables del Listado general ──
+const COMPRAS_COLW_DEF=[26,130,105,220,120,150,200,88,118,115,105,90,26];
+let comprasColW=null;
+function getComprasColW(){
+  if(comprasColW)return comprasColW;
+  try{
+    const s=JSON.parse(localStorage.getItem('ar6_compras_colw')||'null');
+    comprasColW=(Array.isArray(s)&&s.length===COMPRAS_COLW_DEF.length)?s.map((v,i)=>Math.max(30,+v||COMPRAS_COLW_DEF[i])):COMPRAS_COLW_DEF.slice();
+  }catch(e){comprasColW=COMPRAS_COLW_DEF.slice();}
+  return comprasColW;
+}
+function applyComprasColW(){
+  const w=getComprasColW();const sum=w.reduce((a,b)=>a+b,0);
+  document.querySelectorAll('#comprasAccordion table.compras-tbl').forEach(t=>{
+    const cols=t.querySelectorAll('colgroup col');
+    w.forEach((x,i)=>{if(cols[i])cols[i].style.width=x+'px';});
+    t.style.width=sum+'px';
+  });
+}
+function saveComprasColW(){try{localStorage.setItem('ar6_compras_colw',JSON.stringify(getComprasColW()));}catch(e){}}
+function startColResize(e,idx){
+  e.preventDefault();e.stopPropagation();
+  const w=getComprasColW();
+  const startX=e.clientX,startW=w[idx];
+  document.body.classList.add('col-resizing');
+  function mv(ev){w[idx]=Math.max(45,Math.round(startW+ev.clientX-startX));applyComprasColW();}
+  function up(){document.removeEventListener('mousemove',mv);document.removeEventListener('mouseup',up);document.body.classList.remove('col-resizing');saveComprasColW();}
+  document.addEventListener('mousemove',mv);
+  document.addEventListener('mouseup',up);
+}
+function resetColW(idx){const w=getComprasColW();w[idx]=COMPRAS_COLW_DEF[idx];applyComprasColW();saveComprasColW();}
 function provPaysTotal(){
   // Suma de las transferencias por proveedor (pestaña Pagos) del proyecto actual.
   // Usa la caché en memoria si corresponde al proyecto; si no, el respaldo en localStorage.
@@ -1572,22 +1608,15 @@ function rC(){
     body.style.overflowX='auto';
     // Table
     const tbl=document.createElement('table');
-    tbl.style.cssText='width:100%;border-collapse:collapse;font-size:12.5px;';
-    tbl.innerHTML=`<thead><tr>
-      <th style="width:26px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);"></th>
-      <th style="width:130px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">CATEGORÍA</th>
-      <th style="width:105px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">ESPACIO</th>
-      <th style="min-width:185px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">ÍTEM</th>
-      <th style="width:120px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">PROVEEDOR</th>
-      <th style="width:150px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:center;">CANT.</th>
-      <th style="width:200px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:center;">PRECIO</th>
-      <th style="width:88px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">TOTAL</th>
-      <th style="width:118px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">EST. CLIENTE</th>
-      <th style="width:115px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">EST. PAGO</th>
-      <th style="width:105px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">EST. ENTREGA</th>
-      <th style="width:90px;background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);text-align:left;">INSTAL.</th>
-      <th style="width:26px;background:var(--s2);border-bottom:1px solid var(--bd);"></th>
-    </tr></thead>`;
+    const _cw=getComprasColW();
+    tbl.className='compras-tbl';
+    tbl.style.cssText='table-layout:fixed;width:'+_cw.reduce((a,b)=>a+b,0)+'px;min-width:100%;border-collapse:collapse;font-size:12.5px;';
+    const _TH='background:var(--s2);font-size:10px;font-weight:600;color:var(--tx2);padding:7px 9px;border-bottom:1px solid var(--bd);position:relative;';
+    const _COLT=['','CATEGORÍA','ESPACIO','ÍTEM','PROVEEDOR','CANT.','PRECIO','TOTAL','EST. CLIENTE','EST. PAGO','EST. ENTREGA','INSTAL.',''];
+    tbl.innerHTML='<colgroup>'+_cw.map(x=>'<col style="width:'+x+'px">').join('')+'</colgroup>'
+      +'<thead><tr>'+_COLT.map((tt,i)=>'<th style="'+_TH+'text-align:'+((i===5||i===6)?'center':'left')+';">'+tt
+        +(i>0&&i<12?'<div class="colgrip" onmousedown="startColResize(event,'+i+')" ondblclick="resetColW('+i+')" title="Arrastra para cambiar el ancho · doble clic para restaurar"></div>':'')
+        +'</th>').join('')+'</tr></thead>';
     const tbody=document.createElement('tbody');
     group.forEach(r=>{
       const t=rT(r);
@@ -1605,8 +1634,8 @@ function rC(){
         <td style="padding:5px 8px;"><input type="text" value="${es(r.space||'')}" oninput="uIQ(${r.id},'space',this.value)" onchange="uI(${r.id},'space',this.value)" placeholder="Espacio…" style="${IS}"></td>
         <td style="padding:5px 8px;"><div style="display:flex;align-items:center;gap:5px;">${urlIcon}<input type="text" value="${es(r.item)}" onchange="uI(${r.id},'item',this.value)" style="${IS}flex:1;min-width:0;"></div></td>
         <td style="padding:5px 8px;"><input type="text" value="${es(r.supplier)}" list="supplierList" autocomplete="off" onchange="uI(${r.id},'supplier',this.value);upsertSupplier(this.value)" style="${IS}"></td>
-        <td style="padding:5px 8px;"><input type="number" value="${r.qty}" min="0" onchange="uI(${r.id},'qty',+this.value)" style="${ISN}width:135px;font-size:11px;text-align:center;"></td>
-        <td style="padding:5px 8px;"><div style="display:flex;align-items:center;gap:2px;"><span style="font-size:11px;color:var(--tx2);font-family:'DM Mono',monospace;">$</span><input type="text" id="uprice-${r.id}" value="${r.unit>0?r.unit.toLocaleString('es-CL'):''}" placeholder="0" onfocus="this.value=parseFloat(this.value.replace(/[^0-9]/g,''))||''" onblur="var v=+this.value.replace(/[^0-9]/g,'');uI(${r.id},'unit',v);this.value=v>0?v.toLocaleString('es-CL'):''" style="${ISN}width:175px;font-size:11px;"></div></td>
+        <td style="padding:5px 8px;"><input type="number" value="${r.qty}" min="0" onchange="uI(${r.id},'qty',+this.value)" style="${ISN}width:100%;font-size:11px;text-align:center;"></td>
+        <td style="padding:5px 8px;"><div style="display:flex;align-items:center;gap:2px;"><span style="font-size:11px;color:var(--tx2);font-family:'DM Mono',monospace;">$</span><input type="text" id="uprice-${r.id}" value="${r.unit>0?r.unit.toLocaleString('es-CL'):''}" placeholder="0" onfocus="this.value=parseFloat(this.value.replace(/[^0-9]/g,''))||''" onblur="var v=+this.value.replace(/[^0-9]/g,'');uI(${r.id},'unit',v);this.value=v>0?v.toLocaleString('es-CL'):''" style="${ISN}flex:1;min-width:0;font-size:11px;"></div></td>
         <td style="padding:5px 8px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;padding-right:10px;">${t>0?fm(t):'—'}</td>
         <td style="padding:5px 8px;"><select onchange="uI(${r.id},'clientStatus',this.value)" class="${csc}" style="${ISS}">${CS_OPTS.map(s=>`<option value="${s}"${s===r.clientStatus?' selected':''}>${s||'Sin estado'}</option>`).join('')}</select></td>
         <td style="padding:5px 8px;"><select onchange="uI(${r.id},'payStatus',this.value)" class="${pc}" style="${ISS}">${PAY_OPTS.map(s=>`<option${s===r.payStatus?' selected':''}>${s}</option>`).join('')}</select></td>
@@ -4808,7 +4837,7 @@ window.pdfResumenCliente = function(){
   var doc=''
     +'<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Resumen '+esc(pInfo.name)+'</title>'
     +'<style>'
-    +'@page{size:A4 portrait;margin:14mm 12mm;}'
+    +'@page{size:letter portrait;margin:14mm 12mm;}'
     +'*{margin:0;padding:0;box-sizing:border-box;}'
     +'body{font-family:Helvetica,Arial,sans-serif;color:#2A2824;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
     +'.brand-sub{font-size:8px;letter-spacing:2px;color:#A8A29A;text-transform:uppercase;margin-top:3px;}'
@@ -4816,17 +4845,17 @@ window.pdfResumenCliente = function(){
     +'.rule{height:1px;background:#E5E1D8;margin:12px 0 15px;}'
     +'h1{font-family:Georgia,serif;font-size:21px;font-weight:400;color:#1F1D1A;}'
     +'.sub{font-size:12px;color:#8A857C;margin-top:4px;}'
-    +'.kpis{display:flex;gap:9px;margin:18px 0;}'
+    +'.kpis{display:flex;gap:9px;margin:18px 0;page-break-inside:avoid;break-inside:avoid;}'
     +'.kpi{flex:1;background:#FAF9F6;border-radius:8px;padding:11px 13px;}'
     +'.kpi .l{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#938E85;}'
     +'.kpi .v{font-size:16px;font-weight:700;margin-top:4px;}'
-    +'.sec{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8B6914;font-weight:700;margin:20px 0 10px;}'
+    +'.sec{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8B6914;font-weight:700;margin:20px 0 10px;page-break-after:avoid;break-after:avoid;}'
     +'.prog-wrap{margin-bottom:4px;}'
     +'.prog-bar{height:16px;background:#EDEAE3;border-radius:8px;overflow:hidden;}'
     +'.prog-fill{height:100%;background:linear-gradient(90deg,#2F8663,#3DA57C);border-radius:8px;}'
     +'.prog-labels{display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:#6B665E;}'
     +'.prox-box{background:#FBF6EE;border:1px solid #ECDFC8;border-radius:8px;padding:6px 14px;}'
-    +'.prox-row{display:flex;align-items:center;gap:11px;padding:8px 0;border-bottom:1px solid #EFE6D5;}'
+    +'.prox-row{display:flex;align-items:center;gap:11px;padding:8px 0;border-bottom:1px solid #EFE6D5;page-break-inside:avoid;break-inside:avoid;}'
     +'.prox-row:last-child{border-bottom:none;}'
     +'.prox-num{flex-shrink:0;width:19px;height:19px;border-radius:50%;color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;}'
     +'.prox-info{flex:1;}'
@@ -4835,13 +4864,13 @@ window.pdfResumenCliente = function(){
     +'.prox-monto{flex-shrink:0;font-size:13px;font-weight:700;}'
     +'.prox-dot{flex-shrink:0;width:9px;height:9px;border-radius:50%;}'
     +'.nov-box{background:#FAF9F6;border-radius:8px;padding:4px 14px;}'
-    +'.nov-row{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid #EFEBE3;font-size:11.5px;}'
+    +'.nov-row{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid #EFEBE3;font-size:11.5px;page-break-inside:avoid;break-inside:avoid;}'
     +'.nov-row:last-child{border-bottom:none;}'
     +'.nov-when{flex-shrink:0;width:60px;color:#938E85;font-size:10.5px;}'
     +'.nov-body{flex:1;}'
     +'.nov-reason{color:#6B665E;font-style:italic;margin-top:2px;}'
     +'.cals{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}'
-    +'.cal{background:#FAF9F6;border-radius:6px;padding:7px 6px 9px;}'
+    +'.cal{background:#FAF9F6;border-radius:6px;padding:7px 6px 9px;page-break-inside:avoid;break-inside:avoid;}'
     +'.cal-mes{font-size:9.5px;font-weight:700;text-align:center;color:#3A3833;margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px;}'
     +'.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1.5px;}'
     +'.cal-dow{font-size:6px;color:#B0AAA0;text-align:center;font-weight:600;}'
@@ -4853,7 +4882,7 @@ window.pdfResumenCliente = function(){
     +'.cal-d.hoy{border:1px dashed #B0AAA0;border-radius:3px;font-weight:600;color:#3A3833;}'
     +'.prox-label{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#938E85;font-weight:700;margin:10px 0 5px;}'
     +'.leyenda{margin-top:11px;}'
-    +'.leg-row{display:flex;align-items:center;gap:9px;padding:5px 0;border-bottom:1px solid #F0EDE6;}'
+    +'.leg-row{display:flex;align-items:center;gap:9px;padding:5px 0;border-bottom:1px solid #F0EDE6;page-break-inside:avoid;break-inside:avoid;}'
     +'.leg-num{flex-shrink:0;width:17px;height:17px;border-radius:50%;color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;}'
     +'.leg-fecha{flex-shrink:0;width:56px;font-size:11px;color:#8A857C;}'
     +'.leg-title{flex:1;font-size:11px;}'
@@ -4861,13 +4890,15 @@ window.pdfResumenCliente = function(){
     +'table{width:100%;border-collapse:collapse;font-size:12px;}'
     +'thead th{text-align:left;font-size:9px;letter-spacing:.5px;text-transform:uppercase;color:#938E85;border-bottom:1.5px solid #E5E1D8;padding:7px 6px;}'
     +'tbody td{padding:8px 6px;border-bottom:1px solid #F0EDE6;}'
+    +'tr{page-break-inside:avoid;break-inside:avoid;}'
     +'.subrow td{border-bottom:1px solid #F7F5F0;padding:3px 6px;}'
     +'.total-row td{border-top:1.5px solid #1F1D1A;border-bottom:none;padding-top:10px;font-weight:700;font-size:13px;}'
     +'.cat-row td{background:#F5F2EC;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:#5A554D;padding:6px;}'
-    +'.footer{margin-top:22px;padding-top:12px;border-top:1px solid #E5E1D8;text-align:center;}'
+    +'.footer{margin-top:22px;padding-top:12px;border-top:1px solid #E5E1D8;text-align:center;page-break-inside:avoid;break-inside:avoid;}'
+    +'.prog-wrap{page-break-inside:avoid;break-inside:avoid;}'
     +'.footer div{font-size:8px;color:#A8A29A;letter-spacing:.5px;line-height:1.6;}'
-    +'.g-wrap{border:1px solid #E5E1D8;border-radius:8px;overflow:hidden;}'
-    +'.g-hdr{display:flex;background:#FAF9F6;border-bottom:1px solid #E5E1D8;}'
+    +'.g-wrap{border:1px solid #E5E1D8;border-radius:8px;overflow:hidden;page-break-inside:avoid;break-inside:avoid;}'
+    +'.g-hdr{display:flex;background:#FAF9F6;border-bottom:1px solid #E5E1D8;page-break-after:avoid;break-after:avoid;}'
     +'.g-row{display:flex;border-top:1px solid #F0EDE6;page-break-inside:avoid;}'
     +'.g-lbl{flex:0 0 32%;max-width:32%;font-size:8.5px;padding:3px 6px;border-right:1px solid #E5E1D8;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;box-sizing:border-box;}'
     +'.g-tl{flex:1;position:relative;min-height:15px;}'
@@ -4875,7 +4906,7 @@ window.pdfResumenCliente = function(){
     +'.g-mcell{position:absolute;top:0;height:11px;font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#5A554D;text-align:center;border-right:1px solid #E5E1D8;overflow:hidden;line-height:11px;box-sizing:border-box;}'
     +'.g-drow{position:relative;height:10px;border-top:1px solid #F0EDE6;}'
     +'.g-dcell{position:absolute;top:0;height:10px;font-size:5px;color:#938E85;text-align:center;line-height:10px;border-right:0.5px solid #F0EDE6;overflow:hidden;box-sizing:border-box;}'
-    +'.g-cat{background:#F5F2EC;font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#5A554D;padding:3px 6px;border-top:1px solid #E5E1D8;page-break-inside:avoid;page-break-after:avoid;}'
+    +'.g-cat{background:#F5F2EC;font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#5A554D;padding:3px 6px;border-top:1px solid #E5E1D8;page-break-inside:avoid;page-break-after:avoid;break-after:avoid;}'
     +'.g-bar{position:absolute;top:3.5px;height:8px;border-radius:2px;}'
     +'.g-delay{position:absolute;top:3.5px;height:8px;background:repeating-linear-gradient(45deg,#B83030 0,#B83030 2px,#FBEFEF 2px,#FBEFEF 4px);border-radius:2px;}'
     +'.g-mile{position:absolute;top:1px;font-size:9px;transform:translateX(-50%);line-height:13px;}'
