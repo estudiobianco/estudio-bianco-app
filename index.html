@@ -1047,7 +1047,7 @@ body.col-resizing *{cursor:col-resize !important;}
           <div class="fg"><label>Fecha</label><input type="date" id="nDate" style="height:33px;"></div>
           <div class="fg"><label>Tipo</label>
             <select id="nType" style="height:33px;font-size:13px;padding:0 8px;border:1px solid var(--bd2);border-radius:var(--rs);background:var(--surface);">
-              <option>Reunión cliente</option><option>Bitácora de obra</option><option>Hito</option><option>Compromiso</option><option>💰 Pago programado</option><option>📅 Cambio de fecha</option><option>Nota general</option>
+              <option>Reunión cliente</option><option>Bitácora de obra</option><option>Hito</option><option>Compromiso</option><option>💰 Pago programado</option><option>📅 Cambio de fecha</option><option>🏗 Partida de obra</option><option>Nota general</option>
             </select>
           </div>
           <div class="fg"><label>Estado</label>
@@ -1058,6 +1058,7 @@ body.col-resizing *{cursor:col-resize !important;}
           <div class="fg"><label>Responsable</label><input type="text" id="nResp" placeholder="Estudio Bianco, cliente…" style="height:33px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 9px;font-size:13px;"></div>
           <div class="fg"><label>Fecha vencimiento / compromiso</label><input type="date" id="nDue" style="height:33px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 9px;font-size:13px;"></div>
           <div class="fg"><label>Monto ($) — si es pago</label><input type="text" id="nAmount" placeholder="0" oninput="this.value=this.value.replace(/[^0-9]/g,'')" style="height:33px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 9px;font-size:13px;"></div>
+          <div class="fg"><label>🔗 Vinculada a ítem del listado (opcional)</label><select id="nItemLink" style="height:33px;font-size:13px;padding:0 8px;border:1px solid var(--bd2);border-radius:var(--rs);background:var(--surface);"><option value="0">— Ninguna —</option></select></div>
           <div class="fg log-eg3"><label>Título</label><input type="text" id="nTitle" placeholder="Ej: Reunión de avance semana 14" style="height:33px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 9px;font-size:13px;"></div>
           <div class="fg log-eg3"><label>Descripción / resumen</label><textarea id="nDesc" rows="3" placeholder="Qué se discutió, qué se inspeccionó, avances, observaciones…" style="border:1px solid var(--bd2);border-radius:var(--rs);padding:7px 9px;font-size:13px;font-family:'DM Sans',sans-serif;resize:vertical;"></textarea></div>
           <div class="fg log-eg3"><label>Compromisos adquiridos</label><textarea id="nCommits" rows="2" placeholder="Qué se comprometió, plazos acordados, acciones a seguir…" style="border:1px solid var(--bd2);border-radius:var(--rs);padding:7px 9px;font-size:13px;font-family:'DM Sans',sans-serif;resize:vertical;"></textarea></div>
@@ -3630,10 +3631,28 @@ const DL=[
   {id:3,date:'2026-01-30',type:'Reunión cliente',title:'Reunión de avance enero 2026',desc:'Revisión de avances: obra civil al 60%, equipamiento cocina por confirmar. Cliente aprueba propuesta de iluminación.',commits:'Cliente confirma mesa comedor antes del 15/02. Aprobar paleta de pinturas pendiente.',responsible:'Estudio Bianco',dueDate:'2026-02-15',status:'Completado'},
   {id:4,date:'2026-04-28',type:'Reunión cliente',title:'Reunión de avance abril 2026',desc:'Estado actual del proyecto. Pendientes de resolución y próximas compras.',commits:'Confirmar selección final de colores pintura terraza. Gestionar cotización mobiliario a medida.',responsible:'Estudio Bianco',dueDate:'2026-05-10',status:'Pendiente'}
 ];
-function mgL(l){return Object.assign({type:'Nota general',title:'',desc:'',commits:'',responsible:'',dueDate:'',status:'Pendiente',amount:0,category:''},l);}
+function mgL(l){return Object.assign({type:'Nota general',title:'',desc:'',commits:'',responsible:'',dueDate:'',status:'Pendiente',amount:0,category:'',itemId:0},l);}
 let logs=ld('ar5_logs',DL).map(mgL);
 let nil=Math.max(0,...logs.map(l=>l.id))+1;
 function sLogs(){sv('ar5_logs',logs);if(typeof window.sbSaveLogs==='function'){try{window.sbSaveLogs(currentProjId,logs);}catch(e){}}}
+function itemLinkOpts(sel){
+  var opts='<option value="0">\u2014 Ninguna \u2014</option>';
+  var sorted=(items||[]).slice().sort(function(a,b){return (a.cat||'').localeCompare(b.cat||'')||(a.item||'').localeCompare(b.item||'');});
+  sorted.forEach(function(r){var nm=(r.cat?r.cat+' \u00b7 ':'')+(r.item||'');if(nm.length>52)nm=nm.substring(0,52)+'\u2026';opts+='<option value="'+r.id+'"'+((+sel===+r.id)?' selected':'')+'>'+es(nm)+'</option>';});
+  return opts;
+}
+function normTxt(s){try{return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}catch(e){return (s||'').toLowerCase();}}
+function suggestItemLink(title){
+  var tw=normTxt(title).split(/[^a-z0-9]+/).filter(function(w){return w.length>=5;});
+  if(!tw.length)return null;
+  var best=null,bestN=0;
+  (items||[]).forEach(function(r){
+    var iw=normTxt(r.item).split(/[^a-z0-9]+/).filter(function(w){return w.length>=5;});
+    var n=tw.filter(function(w){return iw.indexOf(w)>-1;}).length;
+    if(n>bestN){bestN=n;best=r;}
+  });
+  return best;
+}
 function ltCls(t){return {'Reunión cliente':'lt-reu','Bitácora de obra':'lt-bit','Hito':'lt-hit','Compromiso':'lt-com','🏗 Partida de obra':'lt-obr','Nota general':'lt-not'}[t]||'lt-not';}
 function lsCls(s){return {'Pendiente':'ls-pen','En curso':'ls-cur','Completado':'ls-com','Atrasado':'ls-atr'}[s]||'ls-pen';}
 
@@ -3800,6 +3819,7 @@ function rGP(){
     <div class="kc"><div class="kl">Vencidos</div><div class="kv r">${overdue}</div></div>
     <div class="kc"><div class="kl">Completados</div><div class="kv g">${logs.filter(l=>l.status==='Completado').length}</div></div>`;
   try{renderGpResumen();}catch(e){}
+  try{var _nil2=document.getElementById('nItemLink');if(_nil2){var _cur=+_nil2.value||0;_nil2.innerHTML=itemLinkOpts(_cur);}}catch(e){}
   renderBitacora();
   renderGantt();
 }
@@ -3807,9 +3827,15 @@ function addLog(){
   const date=document.getElementById('nDate').value;
   const title=document.getElementById('nTitle').value.trim();
   if(!date||!title){alert('Ingresa fecha y título.');return;}
-  logs.unshift(mgL({id:nil++,date,type:document.getElementById('nType').value,title,desc:document.getElementById('nDesc').value,commits:document.getElementById('nCommits').value,responsible:document.getElementById('nResp').value,dueDate:document.getElementById('nDue').value,status:document.getElementById('nStatus').value,amount:+((document.getElementById('nAmount')||{}).value||0)}));
+  var linkId=+((document.getElementById('nItemLink')||{}).value||0);
+  if(!linkId){
+    var sg=suggestItemLink(title);
+    if(sg&&confirm('Ojo: «'+title+'» se parece al ítem «'+sg.item+'» del Listado de compras.\n\n¿Quieres vincular esta entrada a ese ítem? Así en la carta Gantt aparece una sola barra y no se duplica.')){linkId=+sg.id;}
+  }
+  logs.unshift(mgL({id:nil++,date,type:document.getElementById('nType').value,title,desc:document.getElementById('nDesc').value,commits:document.getElementById('nCommits').value,responsible:document.getElementById('nResp').value,dueDate:document.getElementById('nDue').value,status:document.getElementById('nStatus').value,amount:+((document.getElementById('nAmount')||{}).value||0),itemId:linkId}));
   sLogs();
   ['nDate','nTitle','nDesc','nCommits','nResp','nDue','nAmount'].forEach(id=>{var e=document.getElementById(id);if(e)e.value='';});
+  try{document.getElementById('nItemLink').value='0';}catch(e){}
   document.getElementById('nType').value='Reunión cliente';
   document.getElementById('nStatus').value='Pendiente';
   rGP();tst('Entrada agregada');
@@ -3844,6 +3870,7 @@ function renderBitacora(){
           ${l.responsible?`<span>👤 ${es(l.responsible)}</span>`:''}
           ${l.dueDate?`<span style="${isOverdue?'color:var(--dn);font-weight:500;':''}">📅 Vence: ${fd(l.dueDate)}</span>`:''}
           ${(l.amount&&appMode==='admin')?`<span>💰 ${fm(l.amount)}</span>`:''}
+          ${(function(){if(!l.itemId)return '';var it=(items||[]).find(x=>+x.id===+l.itemId);return it?`<span title="Vinculada al ítem del listado: en la Gantt se muestra una sola barra">🔗 ${es(it.item)}</span>`:'';})()}
         </div>
       </div>
       <div id="logedit-${l.id}" style="display:none;padding:13px 15px;background:var(--s2);border-top:1px solid var(--bd);">
@@ -3854,6 +3881,7 @@ function renderBitacora(){
           <div class="fg"><label>Responsable</label><input type="text" value="${es(l.responsible)}" onchange="uLog(${l.id},'responsible',this.value)" placeholder="—"></div>
           <div class="fg"><label>Fecha vencimiento</label><input type="date" value="${l.dueDate||''}" onchange="uLog(${l.id},'dueDate',this.value)"></div>
           <div class="fg"><label>Monto ($)</label><input type="text" value="${l.amount||''}" oninput="this.value=this.value.replace(/[^0-9]/g,'')" onchange="uLog(${l.id},'amount',+this.value||0)" placeholder="0"></div>
+          <div class="fg"><label>🔗 Vinculada a ítem</label><select onchange="uLog(${l.id},'itemId',+this.value)">${itemLinkOpts(l.itemId)}</select></div>
           <div class="fg log-eg2"><label>Título</label><input type="text" value="${es(l.title)}" onchange="uLog(${l.id},'title',this.value)"></div>
           <div class="fg log-eg3"><label>Descripción</label><textarea rows="3" onchange="uLog(${l.id},'desc',this.value)" style="font-family:'DM Sans',sans-serif;font-size:13px;padding:6px 8px;border:1px solid var(--bd2);border-radius:var(--rs);width:100%;resize:vertical;">${es(l.desc)}</textarea></div>
           <div class="fg log-eg3"><label>Compromisos</label><textarea rows="2" onchange="uLog(${l.id},'commits',this.value)" style="font-family:'DM Sans',sans-serif;font-size:13px;padding:6px 8px;border:1px solid var(--bd2);border-radius:var(--rs);width:100%;resize:vertical;">${es(l.commits)}</textarea></div>
@@ -3870,11 +3898,14 @@ function renderGantt(){
   const show=document.getElementById('fGanttShow').value;
   const today=new Date();today.setHours(0,0,0,0);
   const P=s=>new Date(s+'T00:00:00');
-  const ganttItems=(show!=='logs')?workerFilter(items).filter(r=>{if(catFilter&&r.cat!==catFilter)return false;return r.estDelivery||r.orderDate||r.actualDelivery||r.installDate;}) :[];
+  let ganttItems=(show!=='logs')?workerFilter(items).filter(r=>{if(catFilter&&r.cat!==catFilter)return false;return r.estDelivery||r.orderDate||r.actualDelivery||r.installDate;}) :[];
   const ganttLogs=(show!=='items')?logs.filter(l=>l.dueDate):[];
   const isObraLog=l=>((l.type||'').indexOf('Partida de obra')>-1)&&l.date&&l.dueDate;
   const obraLogs=ganttLogs.filter(isObraLog).sort((a,b)=>(a.date||'').localeCompare(b.date||'')||(a.dueDate||'').localeCompare(b.dueDate||''));
   const hitoLogs=ganttLogs.filter(l=>!isObraLog(l));
+  // Items vinculados a una entrada de bitacora: una sola barra (la de la entrada)
+  const linkedItemIds=new Set(ganttLogs.filter(l=>+l.itemId).map(l=>+l.itemId));
+  if(linkedItemIds.size)ganttItems=ganttItems.filter(r=>!linkedItemIds.has(+r.id));
   if(!ganttItems.length&&!ganttLogs.length){
     el.innerHTML=`<div class="gantt-empty"><strong>No hay fechas registradas</strong>Para ver la carta Gantt, agrega fechas de pedido, entrega estimada o entrega real en el <strong>Listado general</strong> (haz clic en › de cada ítem, sección "Fechas de seguimiento"). Los compromisos con fecha de vencimiento en la <strong>Bitácora</strong> también aparecen aquí.</div>`;
     return;
@@ -3955,7 +3986,7 @@ function renderGantt(){
       const started=l.status==='En curso'||(!done&&!late&&P(l.date)<=today);
       const bColor=done?'#2A5C45':late?'#B83030':started?'#1A4A7A':'#C9C5BC';
       const bOp=(!done&&!late&&!started)?0.55:1;
-      const nameShort=l.title.length>38?l.title.substring(0,38)+'…':l.title;
+      const nameShort=(+l.itemId?'🔗 ':'')+(l.title.length>38?l.title.substring(0,38)+'…':l.title);
       const bl=px(l.date);const bw=Math.max(DAY*0.6,px(l.dueDate)-bl+DAY);
       const inner=`<div class="gbar" style="left:${bl}px;width:${bw}px;background:${bColor};opacity:${bOp};" title="${es(l.title)}\nInicio: ${fd(l.date)}\nTérmino: ${fd(l.dueDate)}\nEstado: ${l.status}"><span class="gbar-lbl">${bw>140?nameShort:''}</span></div>`;
       out+=`<div class="gantt-row"><div class="glc" title="${es(l.title)}">${nameShort}</div>${tl(inner)}</div>`;
@@ -3969,7 +4000,7 @@ function renderGantt(){
       const mColor=isDone?'#2A5C45':isPast?'#B83030':'#8B6914';
       const mSymbol=isDone?'◆':isPast?'◆':'◇';
       const tc=ltCls(l.type);
-      const nameShort=l.title.length>38?l.title.substring(0,38)+'…':l.title;
+      const nameShort=(+l.itemId?'🔗 ':'')+(l.title.length>38?l.title.substring(0,38)+'…':l.title);
       let inner='';
       if(l.date&&l.dueDate&&l.date!==l.dueDate){const bl=px(l.date);const bw=Math.max(DAY*0.6,px(l.dueDate)-bl+DAY);inner+=`<div class="gbar" style="left:${bl}px;width:${bw}px;background:${mColor};opacity:.35;pointer-events:none;"></div>`;}
       inner+=`<div class="gmile" style="left:${px(l.dueDate)+DAY/2}px;color:${mColor};" title="${es(l.title)}\n${fd(l.dueDate)}\n${l.status}">${mSymbol}</div>`;
@@ -4151,24 +4182,36 @@ function renderGantt(){
     return { id:l.id, project_id:pid, date:l.date||'', type:l.type||'Nota general',
       title:l.title||'', description:l.desc||'', commits:l.commits||'',
       responsible:l.responsible||'', due_date:l.dueDate||'', status:l.status||'Pendiente',
-      amount:l.amount||0, category:l.category||'' };
+      amount:l.amount||0, category:l.category||'', item_id:(+l.itemId||null) };
   }
   function logFromRow(x){
     return { id:x.id, date:x.date||'', type:x.type||'Nota general', title:x.title||'',
       desc:x.description||'', commits:x.commits||'', responsible:x.responsible||'',
-      dueDate:x.due_date||'', status:x.status||'Pendiente', amount:x.amount||0, category:x.category||'' };
+      dueDate:x.due_date||'', status:x.status||'Pendiente', amount:x.amount||0, category:x.category||'', itemId:(+x.item_id||0) };
   }
   var _lt=null;
   window.sbSaveLogs=function(pid,arr){
     if(!pid||!arr)return;
     clearTimeout(_lt);
     var snap=arr.map(function(l){return logToRow(l,pid);});
+    if(window.__logsNoItemId){snap=snap.map(function(x){var c={};Object.keys(x).forEach(function(k){if(k!=='item_id')c[k]=x[k];});return c;});}
     _lt=setTimeout(function(){
       if(!snap.length)return;
-      fetch(URL+'/rest/v1/logs?on_conflict=project_id,id',{
-        method:'POST', headers:Object.assign({},H,{'Prefer':'resolution=merge-duplicates'}),
-        body:JSON.stringify(snap)
-      }).catch(function(){});
+      function _post(rows,retried){
+        fetch(URL+'/rest/v1/logs?on_conflict=project_id,id',{
+          method:'POST', headers:Object.assign({},H,{'Prefer':'resolution=merge-duplicates'}),
+          body:JSON.stringify(rows)
+        }).then(function(r){
+          if(r.ok)return;
+          // Tolerancia: si la columna item_id aun no existe en Supabase, reintentar sin ella
+          if(!retried&&rows.length&&('item_id' in rows[0])){
+            window.__logsNoItemId=true;
+            try{console.warn('[EB] Supabase rechazo logs con item_id; reintentando sin esa columna (crear columna item_id en la tabla logs).');}catch(e){}
+            _post(rows.map(function(x){var c={};Object.keys(x).forEach(function(k){if(k!=='item_id')c[k]=x[k];});return c;}),true);
+          }
+        }).catch(function(){});
+      }
+      _post(snap,false);
     },900);
   };
   window.sbLoadLogs=function(pid,cb){
@@ -4705,6 +4748,8 @@ window.pdfResumenCliente = function(){
   function gEsObra(l){return ((l.type||'').indexOf('Partida de obra')>-1)&&l.date&&l.dueDate;}
   var gObra=gLg.filter(gEsObra).sort(function(a,b){return ((a.date||'').localeCompare(b.date||''))||((a.dueDate||'').localeCompare(b.dueDate||''));});
   var gHit=gLg.filter(function(l){return !gEsObra(l);});
+  var gLk={};gLg.forEach(function(l){if(+l.itemId)gLk[+l.itemId]=1;});
+  gIt=gIt.filter(function(r){return !gLk[+r.id];});
   if(gIt.length||gLg.length){
     function gD(s){return new Date(s+'T00:00:00');}
     var gAll=[];
