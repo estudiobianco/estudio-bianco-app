@@ -226,6 +226,7 @@ details.alarm-det .alarm-body{padding:2px 14px 12px;}
 .lt-reu{background:#E8EAF6;color:#303F9F;}
 .lt-bit{background:var(--wnl);color:var(--wn);}
 .lt-hit{background:#E8F5E9;color:#2E7D32;}
+.lt-obr{background:#EAE4D8;color:#6B4F1D;}
 .lt-com{background:var(--dnl);color:var(--dn);}
 .lt-not{background:var(--s2);color:var(--tx2);}
 /* LOG STATUS */
@@ -1068,7 +1069,7 @@ body.col-resizing *{cursor:col-resize !important;}
       </div>
     </div>
     <div class="tb" style="margin-bottom:14px;">
-      <select id="fLogType" onchange="renderBitacora()"><option value="">Todos los tipos</option><option>Reunión cliente</option><option>Bitácora de obra</option><option>Hito</option><option>Compromiso</option><option>💰 Pago programado</option><option>📅 Cambio de fecha</option><option>Nota general</option></select>
+      <select id="fLogType" onchange="renderBitacora()"><option value="">Todos los tipos</option><option>Reunión cliente</option><option>Bitácora de obra</option><option>Hito</option><option>Compromiso</option><option>💰 Pago programado</option><option>📅 Cambio de fecha</option><option>🏗 Partida de obra</option><option>Nota general</option></select>
       <select id="fLogStatus" onchange="renderBitacora()"><option value="">Todos los estados</option><option>Pendiente</option><option>En curso</option><option>Completado</option><option>Atrasado</option></select>
       <input type="text" id="fLogQ" placeholder="Buscar en bitácora…" oninput="renderBitacora()" style="flex:1;">
       <button class="btn" onclick="document.getElementById('logFormCard').style.display='block';document.getElementById('logFormBody').style.display='block';">+ Nueva entrada</button>
@@ -3621,7 +3622,7 @@ if(!localStorage.getItem('ar6_mode')){
 
 
 // ── GESTIÓN DE PROYECTO ────────────────────────────────────────────────────
-const LOG_TYPES=['Reunión cliente','Bitácora de obra','Hito','Compromiso','💰 Pago programado','📅 Cambio de fecha','Nota general'];
+const LOG_TYPES=['Reunión cliente','Bitácora de obra','Hito','Compromiso','💰 Pago programado','📅 Cambio de fecha','🏗 Partida de obra','Nota general'];
 const LOG_STATUSES=['Pendiente','En curso','Completado','Atrasado'];
 const DL=[
   {id:1,date:'2025-09-30',type:'Reunión cliente',title:'Reunión inicial de proyecto',desc:'Primera reunión con cliente. Se revisó alcance de la remodelación: cocina, terraza, living-comedor y zona mascotas.',commits:'Entrega de listado completo de materiales en 2 semanas. Visita inspección a obra el 15/10.',responsible:'Estudio Bianco',dueDate:'2025-10-15',status:'Completado'},
@@ -3633,7 +3634,7 @@ function mgL(l){return Object.assign({type:'Nota general',title:'',desc:'',commi
 let logs=ld('ar5_logs',DL).map(mgL);
 let nil=Math.max(0,...logs.map(l=>l.id))+1;
 function sLogs(){sv('ar5_logs',logs);if(typeof window.sbSaveLogs==='function'){try{window.sbSaveLogs(currentProjId,logs);}catch(e){}}}
-function ltCls(t){return {'Reunión cliente':'lt-reu','Bitácora de obra':'lt-bit','Hito':'lt-hit','Compromiso':'lt-com','Nota general':'lt-not'}[t]||'lt-not';}
+function ltCls(t){return {'Reunión cliente':'lt-reu','Bitácora de obra':'lt-bit','Hito':'lt-hit','Compromiso':'lt-com','🏗 Partida de obra':'lt-obr','Nota general':'lt-not'}[t]||'lt-not';}
 function lsCls(s){return {'Pendiente':'ls-pen','En curso':'ls-cur','Completado':'ls-com','Atrasado':'ls-atr'}[s]||'ls-pen';}
 
 function toggleLogForm(){const b=document.getElementById('logFormBody');b.style.display=b.style.display==='none'?'block':'none';}
@@ -3762,7 +3763,7 @@ function renderGpResumen(){
     var extra='';
     if(!done&&dd!==null){extra=dd<0?' · <b style="color:#B83030;">vencida hace '+Math.abs(dd)+'d</b>':(dd===0?' · <b style="color:#B87A00;">hoy</b>':' · en '+dd+'d');}
     var monto=(admin&&l.amount)?'<span class="m" style="color:'+color+';">'+fm(l.amount)+'</span>':'';
-    var tipo=(l.type||'').replace('💰 ','').replace('📅 ','');
+    var tipo=(l.type||'').replace('💰 ','').replace('📅 ','').replace('🏗 ','');
     return '<div class="gp-res-row" style="border-left-color:'+color+';'+(done?'opacity:.72;':'')+'" onclick="gpGoLog('+l.id+')" title="Ver en la bitácora">'
       +'<span class="t">'+(done?'✓ ':'')+es(l.title||'')+'</span>'
       +'<span class="d">'+es(tipo)+(when?' · '+when:'')+extra+'</span>'+monto+'</div>';
@@ -3871,6 +3872,9 @@ function renderGantt(){
   const P=s=>new Date(s+'T00:00:00');
   const ganttItems=(show!=='logs')?workerFilter(items).filter(r=>{if(catFilter&&r.cat!==catFilter)return false;return r.estDelivery||r.orderDate||r.actualDelivery||r.installDate;}) :[];
   const ganttLogs=(show!=='items')?logs.filter(l=>l.dueDate):[];
+  const isObraLog=l=>((l.type||'').indexOf('Partida de obra')>-1)&&l.date&&l.dueDate;
+  const obraLogs=ganttLogs.filter(isObraLog).sort((a,b)=>(a.date||'').localeCompare(b.date||'')||(a.dueDate||'').localeCompare(b.dueDate||''));
+  const hitoLogs=ganttLogs.filter(l=>!isObraLog(l));
   if(!ganttItems.length&&!ganttLogs.length){
     el.innerHTML=`<div class="gantt-empty"><strong>No hay fechas registradas</strong>Para ver la carta Gantt, agrega fechas de pedido, entrega estimada o entrega real en el <strong>Listado general</strong> (haz clic en › de cada ítem, sección "Fechas de seguimiento"). Los compromisos con fecha de vencimiento en la <strong>Bitácora</strong> también aparecen aquí.</div>`;
     return;
@@ -3878,7 +3882,7 @@ function renderGantt(){
   // Rango de fechas: del 1° del primer mes al último día del último mes
   const allD=[];
   ganttItems.forEach(r=>{if(r.orderDate)allD.push(P(r.orderDate));if(r.estDelivery)allD.push(P(r.estDelivery));if(r.actualDelivery)allD.push(P(r.actualDelivery));if(r.installDate)allD.push(P(r.installDate));});
-  ganttLogs.forEach(l=>allD.push(P(l.dueDate)));
+  ganttLogs.forEach(l=>{allD.push(P(l.dueDate));if(isObraLog(l))allD.push(P(l.date));});
   allD.push(today);
   let minD=new Date(Math.min(...allD)),maxD=new Date(Math.max(...allD));
   minD=new Date(minD.getFullYear(),minD.getMonth(),1);
@@ -3942,10 +3946,25 @@ function renderGantt(){
       });
     });
   }
+  // Partidas de obra (cronograma): barras sólidas
+  if(obraLogs.length){
+    out+=`<div class="gcat-hdr"><div class="glc"><span class="badge lt-obr">Obra · cronograma</span></div><div class="gtl" style="width:${W}px;"></div></div>`;
+    obraLogs.forEach(l=>{
+      const done=l.status==='Completado';
+      const late=!done&&P(l.dueDate)<today;
+      const started=l.status==='En curso'||(!done&&!late&&P(l.date)<=today);
+      const bColor=done?'#2A5C45':late?'#B83030':started?'#1A4A7A':'#C9C5BC';
+      const bOp=(!done&&!late&&!started)?0.55:1;
+      const nameShort=l.title.length>38?l.title.substring(0,38)+'…':l.title;
+      const bl=px(l.date);const bw=Math.max(DAY*0.6,px(l.dueDate)-bl+DAY);
+      const inner=`<div class="gbar" style="left:${bl}px;width:${bw}px;background:${bColor};opacity:${bOp};" title="${es(l.title)}\nInicio: ${fd(l.date)}\nTérmino: ${fd(l.dueDate)}\nEstado: ${l.status}"><span class="gbar-lbl">${bw>140?nameShort:''}</span></div>`;
+      out+=`<div class="gantt-row"><div class="glc" title="${es(l.title)}">${nameShort}</div>${tl(inner)}</div>`;
+    });
+  }
   // Hitos de bitácora
-  if(ganttLogs.length){
+  if(hitoLogs.length){
     out+=`<div class="gcat-hdr"><div class="glc"><span class="badge b-hon">Compromisos / Hitos (bitácora)</span></div><div class="gtl" style="width:${W}px;"></div></div>`;
-    ganttLogs.forEach(l=>{
+    hitoLogs.forEach(l=>{
       const isPast=P(l.dueDate)<today;const isDone=l.status==='Completado';
       const mColor=isDone?'#2A5C45':isPast?'#B83030':'#8B6914';
       const mSymbol=isDone?'◆':isPast?'◆':'◇';
@@ -4683,11 +4702,14 @@ window.pdfResumenCliente = function(){
   try{
   var gIt=(items||[]).filter(function(r){return r.estDelivery||r.orderDate||r.actualDelivery||r.installDate;});
   var gLg=(typeof logs!=='undefined'?logs:[]).filter(function(l){return l.dueDate;});
+  function gEsObra(l){return ((l.type||'').indexOf('Partida de obra')>-1)&&l.date&&l.dueDate;}
+  var gObra=gLg.filter(gEsObra).sort(function(a,b){return ((a.date||'').localeCompare(b.date||''))||((a.dueDate||'').localeCompare(b.dueDate||''));});
+  var gHit=gLg.filter(function(l){return !gEsObra(l);});
   if(gIt.length||gLg.length){
     function gD(s){return new Date(s+'T00:00:00');}
     var gAll=[];
     gIt.forEach(function(r){['orderDate','estDelivery','actualDelivery','installDate'].forEach(function(k){if(r[k])gAll.push(gD(r[k]));});});
-    gLg.forEach(function(l){gAll.push(gD(l.dueDate));});
+    gLg.forEach(function(l){gAll.push(gD(l.dueDate));if(gEsObra(l))gAll.push(gD(l.date));});
     gAll.push(hoyD);
     var gMin=new Date(Math.min.apply(null,gAll)),gMax=new Date(Math.max.apply(null,gAll));
     gMin=new Date(gMin.getFullYear(),gMin.getMonth(),1);
@@ -4744,9 +4766,20 @@ window.pdfResumenCliente = function(){
         gBody+=gRow(r.item||'',inner);
       });
     });
-    if(gLg.length){
+    if(gObra.length){
+      gBody+='<div class="g-cat">Obra · cronograma</div>';
+      gObra.forEach(function(l){
+        var oDone=l.status==='Completado';
+        var oLate=!oDone&&gD(l.dueDate)<hoyD;
+        var oStart=l.status==='En curso'||(!oDone&&!oLate&&gD(l.date)<=hoyD);
+        var oC=oDone?'#2A5C45':(oLate?'#B83030':(oStart?'#1A4A7A':'#C9C5BC'));
+        var obl=gp(l.date),obw=Math.max(0.6,gp(l.dueDate)-obl+gDay);
+        gBody+=gRow(l.title||'','<div class="g-bar" style="left:'+obl+'%;width:'+obw+'%;background:'+oC+';"></div>');
+      });
+    }
+    if(gHit.length){
       gBody+='<div class="g-cat">Hitos y compromisos (bitácora)</div>';
-      gLg.forEach(function(l){
+      gHit.forEach(function(l){
         var isPast=gD(l.dueDate)<hoyD,isDone=l.status==='Completado';
         var mC=isDone?'#2A5C45':(isPast?'#B83030':'#8B6914');
         var inner='';
