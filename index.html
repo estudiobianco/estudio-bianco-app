@@ -4974,9 +4974,11 @@ window.pdfResumenCliente = function(){
   // ── NOVEDADES: cambios de fecha con su razón (para explicar al cliente) ──
   var novedadesHTML='';
   var cambios=[];
-  (items||[]).forEach(function(it){ (it.dateHistory||[]).forEach(function(h){ cambios.push({ item:it.item||'', from:h.from, to:h.to, reason:h.reason||'', when:h.when||'' }); }); });
+  var _io=window.__ebInfOpts||null;
+  // Solo reprogramaciones reales (fecha anterior y nueva). Borrar o corregir una fecha mal ingresada no es una novedad para el cliente.
+  (items||[]).forEach(function(it){ (it.dateHistory||[]).forEach(function(h){ if(!h.from||!h.to||h.from===h.to)return; cambios.push({ item:it.item||'', from:h.from, to:h.to, reason:h.reason||'', when:h.when||'' }); }); });
   cambios.sort(function(a,b){ return (b.when||'').localeCompare(a.when||''); });
-  if(cambios.length){
+  if(cambios.length&&(!_io||_io.novedades)){
     var nrows='';
     cambios.slice(0,10).forEach(function(c){
       nrows+='<div class="nov-row"><div class="nov-when">'+fechaCorta(c.when)+'</div>'
@@ -5008,6 +5010,13 @@ window.pdfResumenCliente = function(){
     });
     listadoHTML='<div class="sec">Listado de compras</div>'
       +'<table><thead><tr><th>Ítem</th><th>Proveedor</th><th style="text-align:center;">Pago</th><th style="text-align:center;">Entrega</th><th style="text-align:right;">Monto</th></tr></thead><tbody>'+lrows+'</tbody></table>';
+  }
+  // Tabla nueva (imagen, especificaciones, cantidades, precios, estados y link), segun las opciones elegidas
+  var contactosHTML='';
+  if(_io&&typeof window.__ebTablaProductos==='function'){
+    var _lista=(items||[]).filter(function(it){return (_io.excl||[]).indexOf(it.cat||'Sin categoría')<0;});
+    listadoHTML=_lista.length?'<div class="sec">Listado de productos</div>'+window.__ebTablaProductos(_lista,_io,true):'';
+    if(_io.contactos&&typeof window.__ebContactosHTML==='function'){var _ct=window.__ebContactosHTML(_lista);if(_ct)contactosHTML='<div class="sec">Contacto de proveedores</div>'+_ct;}
   }
 
   // ── detalle por proveedor ──
@@ -5112,6 +5121,7 @@ window.pdfResumenCliente = function(){
     +'.g-leg{display:flex;flex-wrap:wrap;gap:8px;padding:5px 8px;border-top:1px solid #E5E1D8;background:#FAF9F6;font-size:7px;color:#6B665E;}'
     +'.g-leg span{display:flex;align-items:center;gap:3px;}'
     +'.g-leg i{display:inline-block;width:10px;height:6px;border-radius:1.5px;}'
+    +(window.__ebTablaCSS||'')
     +'</style></head><body>'
     +'<img src="'+window.__EB_LOGO+'" class="logo" onerror="this.style.display=none">'
     +'<div class="brand-sub">Interiorismo / Arquitectura</div>'
@@ -5135,11 +5145,13 @@ window.pdfResumenCliente = function(){
     +'<tbody>'+filas
     +'<tr class="total-row"><td>TOTAL</td><td style="text-align:right;">'+money(granTotal)+'</td><td style="text-align:right;color:#2F8663;">'+money(granPagado)+'</td><td style="text-align:right;">'+money(granSaldo)+'</td><td></td></tr>'
     +'</tbody></table>'
+    +contactosHTML
     +'<div class="footer"><div>Documento emitido el '+hoy+'</div><div>Estudio Bianco Spa / Interiorismo y arquitectura</div></div>'
     +'</body></html>';
   w.document.write(doc);
   w.document.close();
-  setTimeout(function(){ try{ w.print(); }catch(e){} }, 500);
+  if(typeof window.__ebImprimirCuandoCarguen==='function') window.__ebImprimirCuandoCarguen(w);
+  else setTimeout(function(){ try{ w.print(); }catch(e){} }, 500);
 }
 </script>
 
@@ -6165,6 +6177,57 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
     ov.style.display='flex';
   };
 
+  // ── Proveedores en la nube (tabla suppliers): antes vivian solo en cada computador ──
+  // Se sube cada cambio (upsert por id) y al abrir la app se fusiona con lo que haya en la nube.
+  // Al fusionar, lo escrito en este computador gana; la nube solo completa campos vacios.
+  var SUP_CAMPOS=['id','name','phone','email','addr','web','notes','contact'];
+  var _svSupLocal=window.svSup, _supT=null, _supCargando=false;
+  function supDel(){try{return JSON.parse(localStorage.getItem('ar6_sup_del')||'[]');}catch(e){return [];}}
+  function supDelSave(a){try{localStorage.setItem('ar6_sup_del',JSON.stringify(a.slice(-300)));}catch(e){}}
+  function subirSups(lista){
+    var filas=(lista||[]).filter(function(s){return s&&s.id&&(s.name||'').trim();}).map(function(s){var r={};SUP_CAMPOS.forEach(function(k){r[k]=s[k]==null?'':String(s[k]);});return r;});
+    if(!filas.length)return;
+    fetch(SBR_URL+'/rest/v1/suppliers?on_conflict=id',{method:'POST',headers:{'apikey':SBR_KEY,'Authorization':'Bearer '+SBR_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(filas)})
+    .then(function(r){if(!r.ok)r.text().then(function(t){try{console.warn('[EB] Proveedores: no se pudieron subir',r.status,t);}catch(e){}});}).catch(function(){});
+  }
+  if(typeof _svSupLocal==='function'){
+    window.svSup=function(s){
+      var antes=[]; try{antes=(ldSup()||[]).map(function(x){return x.id;});}catch(e){}
+      _svSupLocal(s);
+      if(_supCargando)return;
+      // Proveedores eliminados aqui: se borran tambien de la nube
+      var ahora=(s||[]).map(function(x){return x.id;});
+      var borrados=antes.filter(function(id){return ahora.indexOf(id)<0;});
+      if(borrados.length){
+        var dl=supDel().concat(borrados); supDelSave(dl);
+        borrados.forEach(function(id){fetch(SBR_URL+'/rest/v1/suppliers?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:{'apikey':SBR_KEY,'Authorization':'Bearer '+SBR_KEY}}).catch(function(){});});
+      }
+      clearTimeout(_supT); _supT=setTimeout(function(){subirSups(s);},900);
+    };
+  }
+  window.cargarProveedoresNube=function(cb){
+    fetch(SBR_URL+'/rest/v1/suppliers?select=*',{headers:{'apikey':SBR_KEY,'Authorization':'Bearer '+SBR_KEY}})
+    .then(function(r){return r.ok?r.json():null;})
+    .then(function(nube){
+      if(!nube){if(cb)cb();return;}
+      var local=[]; try{local=ldSup()||[];}catch(e){}
+      var del=supDel(), cambio=false;
+      nube.forEach(function(c){
+        if(del.indexOf(c.id)>=0)return;
+        var k=(c.name||'').trim().toUpperCase();
+        var l=local.find(function(x){return x.id===c.id;})||local.find(function(x){return (x.name||'').trim().toUpperCase()===k;});
+        if(!l){local.push({id:c.id,name:c.name||'',phone:c.phone||'',email:c.email||'',addr:c.addr||'',web:c.web||'',notes:c.notes||'',contact:c.contact||''});cambio=true;return;}
+        SUP_CAMPOS.forEach(function(f){if(f!=='id'&&!(l[f]||'').trim()&&(c[f]||'').trim()){l[f]=c[f];cambio=true;}});
+      });
+      _supCargando=true; try{ if(cambio)_svSupLocal(local); }finally{_supCargando=false;}
+      subirSups(local); // lo que solo estaba en este computador sube a la nube
+      try{updateSupplierDatalist();}catch(e){}
+      try{var pg=document.getElementById('page-proveedores');if(pg&&pg.classList.contains('active'))rSup();}catch(e){}
+      if(cb)cb();
+    }).catch(function(){if(cb)cb();});
+  };
+  setTimeout(function(){try{window.cargarProveedoresNube();}catch(e){}},1500);
+
   // Mostrar/ocultar segun perfil y refrescar el aviso al volver al inicio
   if(typeof window.applyMode==='function'){
     var _am=window.applyMode;
@@ -6177,5 +6240,235 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   infoRespaldo();
 })();
 </script>
+
+<script>
+/* ═══ INFORME DEL PROYECTO: opciones + "Guia de compra" (cliente compra directo) ═══
+   - Antes de generar se eligen tipo de informe y contenido (Manual seccion 15).
+   - La tabla de productos y los contactos de proveedores se comparten con el informe de avance.
+   - Comentarios internos: excluidos por defecto. Honorarios: solo si se eligen. */
+(function(){
+  var _avance=window.pdfResumenCliente;
+  function e(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function m(n){return '$'+Math.round(+n||0).toLocaleString('es-CL');}
+  function proy(){try{return (projects||[]).find(function(p){return p.id===currentProjId;})||{};}catch(x){return {};}}
+  function supDe(nombre){var k=(nombre||'').trim().toUpperCase();if(!k)return null;try{return (ldSup()||[]).find(function(s){return (s.name||'').trim().toUpperCase()===k;})||null;}catch(x){return null;}}
+  function dominio(u){try{return new URL(u).hostname.replace(/^www\./,'');}catch(x){return '';}}
+  function urlOk(u){return /^https?:\/\//i.test(String(u||'').trim());}
+  function totalIt(it){return (+it.qty||1)*(+it.unit||0);}
+
+  // ── Opciones (se recuerdan por proyecto) ──
+  function base(){return {tipo:'guia',agrupar:'cat',img:true,link:true,specs:true,notas:false,precios:true,contactos:true,novedades:true,excl:['Honorarios']};}
+  function cargar(){try{return Object.assign(base(),JSON.parse(localStorage.getItem('eb_informe_'+currentProjId)||'null')||{});}catch(x){return base();}}
+  function guardar(o){try{localStorage.setItem('eb_informe_'+currentProjId,JSON.stringify(o));}catch(x){}}
+  function cats(){var s={};(items||[]).forEach(function(it){s[it.cat||'Sin categoría']=1;});return Object.keys(s);}
+  function delInforme(o){return (items||[]).filter(function(it){return (o.excl||[]).indexOf(it.cat||'Sin categoría')<0;});}
+  window.__ebInfOpts=null;
+
+  // ── Tabla de productos (compartida) ──
+  window.__ebTablaCSS=''
+    +'.pt{width:100%;border-collapse:collapse;font-size:10.5px;table-layout:fixed;}'
+    +'.pt thead{display:table-header-group;}'
+    +'.pt th{text-align:left;font-size:8px;letter-spacing:.6px;text-transform:uppercase;color:#7A756C;font-weight:700;background:#F5F2EC;border-bottom:1.5px solid #D9D3C7;padding:6px 6px;}'
+    +'.pt td{padding:7px 6px;border-bottom:1px solid #ECE8E0;vertical-align:top;}'
+    +'.pt tr{page-break-inside:avoid;break-inside:avoid;}'
+    +'.pt .n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}'
+    +'.pt .c{text-align:center;}'
+    +'.pt .grp td{background:#EFEBE3;font-weight:700;font-size:9px;letter-spacing:.6px;text-transform:uppercase;color:#4A463F;padding:5px 6px;border-bottom:1px solid #D9D3C7;}'
+    +'.pt .tot td{border-top:1.5px solid #2A2825;border-bottom:none;font-weight:700;font-size:11.5px;padding-top:8px;}'
+    +'.pt .img{width:46px;height:46px;object-fit:contain;background:#fff;border:1px solid #ECE8E0;border-radius:3px;display:block;}'
+    +'.pt .noimg{width:46px;height:46px;background:#F5F2EC;border-radius:3px;}'
+    +'.pt .pn{font-weight:700;font-size:11px;color:#1F1D1A;line-height:1.3;}'
+    +'.pt .ps{color:#6B665E;font-size:9.5px;line-height:1.35;margin-top:2px;}'
+    +'.pt .pc{color:#8B6914;font-size:9.5px;font-style:italic;line-height:1.35;margin-top:2px;}'
+    +'.pt a{color:#2A5C45;text-decoration:underline;white-space:nowrap;}'
+    +'.pt .tienda{color:#938E85;font-size:8.5px;margin-top:1px;word-break:break-all;}'
+    +'.pt .est{font-size:8.5px;font-weight:700;}'
+    +'.ct{width:100%;border-collapse:collapse;font-size:10.5px;}'
+    +'.ct th{text-align:left;font-size:8px;letter-spacing:.6px;text-transform:uppercase;color:#7A756C;font-weight:700;background:#F5F2EC;border-bottom:1.5px solid #D9D3C7;padding:6px;}'
+    +'.ct td{padding:7px 6px;border-bottom:1px solid #ECE8E0;vertical-align:top;word-break:break-word;}'
+    +'.ct tr{page-break-inside:avoid;break-inside:avoid;}'
+    +'.ct a{color:#2A5C45;}'
+    +'.ct .sd{color:#B0AAA0;font-style:italic;}';
+
+  window.__ebTablaProductos=function(lista,o,conEstados){
+    o=o||cargar();
+    var cols=[];
+    if(o.img)cols.push(['','width:56px;']);
+    cols.push(['Producto','']);
+    cols.push(['Espacio','width:70px;']);
+    cols.push(['Cant.','width:34px;','c']);
+    if(o.precios){cols.push(['Precio unit.','width:70px;','n']);cols.push(['Subtotal','width:74px;','n']);}
+    cols.push(['Proveedor','width:84px;']);
+    if(conEstados){cols.push(['Pago','width:56px;','c']);cols.push(['Entrega','width:64px;','c']);}
+    if(o.link)cols.push(['Comprar','width:78px;']);
+    var nc=cols.length, iSub=-1;
+    cols.forEach(function(c,i){if(c[0]==='Subtotal')iSub=i;});
+    function filaMonto(clase,texto,monto){ // texto a la izquierda, monto alineado bajo "Subtotal"
+      if(iSub<0)return '<tr class="'+clase+'"><td colspan="'+nc+'">'+texto+'</td></tr>';
+      return '<tr class="'+clase+'"><td colspan="'+iSub+'">'+texto+'</td><td class="n">'+monto+'</td>'+(nc-iSub-1>0?'<td colspan="'+(nc-iSub-1)+'"></td>':'')+'</tr>';
+    }
+    var grupos={}, orden=[];
+    lista.forEach(function(it){var g=o.agrupar==='esp'?((it.space||'').trim()||'Sin espacio'):(it.cat||'Sin categoría');if(!grupos[g]){grupos[g]=[];orden.push(g);}grupos[g].push(it);});
+    var h='<table class="pt"><thead><tr>'+cols.map(function(c){return '<th style="'+c[1]+'"'+(c[2]?' class="'+c[2]+'"':'')+'>'+c[0]+'</th>';}).join('')+'</tr></thead><tbody>';
+    var total=0;
+    orden.forEach(function(g){
+      var sub=grupos[g].reduce(function(a,it){return a+totalIt(it);},0); total+=sub;
+      h+=filaMonto('grp',e(g)+' · '+grupos[g].length+' producto'+(grupos[g].length===1?'':'s'),sub>0?m(sub):'');
+      grupos[g].forEach(function(it){
+        var t=totalIt(it);
+        h+='<tr>';
+        if(o.img)h+='<td>'+(it.imageUrl?'<img class="img" src="'+e(it.imageUrl)+'" alt="">':'<div class="noimg"></div>')+'</td>';
+        h+='<td><div class="pn">'+e(it.item||'')+'</div>'
+          +(o.specs&&(it.specs||'').trim()?'<div class="ps">'+e(it.specs).replace(/\n/g,'<br>')+'</div>':'')
+          +(o.notas&&(it.notes||'').trim()?'<div class="pc">Nota: '+e(it.notes).replace(/\n/g,'<br>')+'</div>':'')
+          +'</td>';
+        h+='<td>'+e(it.space||'')+'</td>';
+        h+='<td class="c">'+e(it.qty||1)+'</td>';
+        if(o.precios)h+='<td class="n">'+(+it.unit>0?m(it.unit):'<span style="color:#B0AAA0;">Por cotizar</span>')+'</td><td class="n">'+(t>0?m(t):'')+'</td>';
+        h+='<td>'+e(it.supplier||'')+'</td>';
+        if(conEstados){
+          var pc=(typeof window.payCalc==='function')?window.payCalc(it):{label:it.payStatus||'Pendiente',st:it.payStatus};
+          var col=pc.st==='Pagado'?'#2F8663':(pc.st==='Pagado parcialmente'?'#B8901F':'#8A857C');
+          h+='<td class="c"><span class="est" style="color:'+col+';">'+e(pc.label)+'</span></td><td class="c"><span class="est" style="color:'+(it.deliveryStatus==='Entregado'?'#2F8663':'#6B665E')+';">'+e(it.deliveryStatus||'Por pedir')+'</span></td>';
+        }
+        if(o.link)h+='<td>'+(urlOk(it.productUrl)?'<a href="'+e(it.productUrl.trim())+'" target="_blank">Ver en tienda ↗</a><div class="tienda">'+e(dominio(it.productUrl))+'</div>':'<span style="color:#B0AAA0;">—</span>')+'</td>';
+        h+='</tr>';
+      });
+    });
+    if(o.precios)h+=filaMonto('tot','Total'+(lista.some(function(it){return !(+it.unit>0);})?' <span style="font-weight:400;font-size:9px;color:#8A857C;">(no incluye productos por cotizar)</span>':''),m(total));
+    return h+'</tbody></table>';
+  };
+
+  // ── Contactos de proveedores de los productos incluidos ──
+  window.__ebContactosHTML=function(lista){
+    var vistos={}, filas='';
+    lista.forEach(function(it){
+      var n=(it.supplier||'').trim(); if(!n)return; var k=n.toUpperCase(); if(vistos[k])return; vistos[k]=1;
+      var s=supDe(n)||{};
+      var web=(s.web||'').trim(); if(!web){var l=lista.find(function(x){return (x.supplier||'').trim().toUpperCase()===k&&urlOk(x.productUrl);});if(l)web='https://'+dominio(l.productUrl);}
+      var tel=(s.phone||'').trim(), mail=(s.email||'').trim();
+      filas+='<tr><td><b>'+e(n)+'</b>'+((s.contact||'').trim()?'<div style="color:#6B665E;font-size:9.5px;">'+e(s.contact)+'</div>':'')+'</td>'
+        +'<td>'+(tel?'<a href="tel:'+e(tel.replace(/[^\d+]/g,''))+'">'+e(tel)+'</a>':'<span class="sd">—</span>')+'</td>'
+        +'<td>'+(mail?'<a href="mailto:'+e(mail)+'">'+e(mail)+'</a>':'<span class="sd">—</span>')+'</td>'
+        +'<td>'+(web?'<a href="'+e(urlOk(web)?web:'https://'+web)+'" target="_blank">'+e(web.replace(/^https?:\/\/(www\.)?/,'').replace(/\/$/,''))+'</a>':'<span class="sd">—</span>')+'</td>'
+        +'<td>'+((s.addr||'').trim()?e(s.addr):'<span class="sd">—</span>')+'</td></tr>';
+    });
+    if(!filas)return '';
+    return '<table class="ct"><thead><tr><th style="width:22%;">Proveedor</th><th style="width:15%;">Teléfono</th><th style="width:24%;">Correo</th><th style="width:20%;">Sitio web</th><th>Dirección</th></tr></thead><tbody>'+filas+'</tbody></table>';
+  };
+
+  // ── Guia de compra ──
+  function generarGuia(o){
+    var p=proy(), lista=delInforme(o);
+    if(!lista.length){alert('No hay productos en las categorías elegidas.');return;}
+    var hoy=new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'});
+    var total=lista.reduce(function(a,it){return a+totalIt(it);},0);
+    var nProv=Object.keys(lista.reduce(function(a,it){if((it.supplier||'').trim())a[it.supplier.trim().toUpperCase()]=1;return a;},{})).length;
+    var w=window.open('','_blank'); if(!w){alert('El navegador bloqueó la ventana del informe. Permite las ventanas emergentes para esta página.');return;}
+    var doc='<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Guía de compra · '+e(p.name||'')+'</title><style>'
+      +'@page{size:letter portrait;margin:12mm 11mm;}*{margin:0;padding:0;box-sizing:border-box;}'
+      +'body{font-family:Helvetica,Arial,sans-serif;color:#2A2824;-webkit-print-color-adjust:exact;print-color-adjust:exact;}'
+      +'.logo{height:36px;margin-bottom:5px;}.brand-sub{font-size:8px;letter-spacing:2px;color:#A8A29A;text-transform:uppercase;}'
+      +'.rule{height:1px;background:#E5E1D8;margin:11px 0 14px;}'
+      +'h1{font-family:Georgia,serif;font-size:22px;font-weight:400;color:#1F1D1A;}'
+      +'.sub{font-size:12px;color:#6B665E;margin-top:4px;}.fecha{font-size:10px;color:#938E85;margin-top:2px;}'
+      +'.intro{font-size:10.5px;color:#4A463F;line-height:1.5;background:#FAF9F6;border-left:3px solid #8B7D6E;padding:9px 12px;margin:14px 0;}'
+      +'.kpis{display:flex;gap:8px;margin:0 0 16px;}.kpi{flex:1;background:#FAF9F6;border-radius:6px;padding:9px 12px;}'
+      +'.kpi .l{font-size:8px;letter-spacing:1px;text-transform:uppercase;color:#938E85;}.kpi .v{font-size:15px;font-weight:700;margin-top:3px;}'
+      +'.sec{font-size:9.5px;letter-spacing:2px;text-transform:uppercase;color:#8B6914;font-weight:700;margin:20px 0 8px;page-break-after:avoid;break-after:avoid;}'
+      +'.nota{font-size:9px;color:#938E85;margin-top:6px;line-height:1.5;}'
+      +'.footer{margin-top:20px;padding-top:10px;border-top:1px solid #E5E1D8;text-align:center;font-size:8px;color:#A8A29A;line-height:1.6;}'
+      +window.__ebTablaCSS
+      +'</style></head><body>'
+      +'<img src="'+(window.__EB_LOGO||'')+'" class="logo" onerror="this.style.display=\'none\'"><div class="brand-sub">Interiorismo / Arquitectura</div><div class="rule"></div>'
+      +'<h1>Guía de compra</h1><div class="sub">'+e(p.name||'')+(p.client?' · '+e(p.client):'')+'</div><div class="fecha">'+hoy+'</div>'
+      +'<div class="intro">Este documento reúne los productos seleccionados para tu proyecto.'+(o.link?' Haz clic en <b>“Ver en tienda”</b> para ir directo a la página de compra de cada producto.':'')+(o.contactos?' Al final están los datos de contacto de cada proveedor.':'')+(o.precios?' Los precios son referenciales a la fecha de este documento y pueden cambiar en la tienda.':'')+'</div>'
+      +'<div class="kpis"><div class="kpi"><div class="l">Productos</div><div class="v">'+lista.length+'</div></div>'
+      +(o.precios?'<div class="kpi"><div class="l">Total estimado</div><div class="v">'+m(total)+'</div></div>':'')
+      +'<div class="kpi"><div class="l">Proveedores</div><div class="v">'+nProv+'</div></div></div>'
+      +'<div class="sec">Listado de productos</div>'+window.__ebTablaProductos(lista,o,false)
+      +(o.contactos?'<div class="sec">Contacto de proveedores</div>'+window.__ebContactosHTML(lista)+'<div class="nota">Puedes contactar directamente a cada proveedor para coordinar compra, despacho e instalación.</div>':'')
+      +'<div class="footer">Documento emitido el '+hoy+'<br>Estudio Bianco Spa · Interiorismo y arquitectura</div>'
+      +'</body></html>';
+    w.document.write(doc); w.document.close();
+    imprimirCuandoCarguen(w);
+  }
+  // Espera las imagenes (max. 8 s) antes de abrir la impresion, para que salgan en el PDF
+  function imprimirCuandoCarguen(w){
+    var t0=Date.now();
+    (function esperar(){
+      var imgs=[].slice.call(w.document.images||[]);
+      var listas=imgs.every(function(i){return i.complete;});
+      if(listas||Date.now()-t0>8000){setTimeout(function(){try{w.focus();w.print();}catch(x){}},200);}
+      else setTimeout(esperar,250);
+    })();
+  }
+  window.__ebImprimirCuandoCarguen=imprimirCuandoCarguen;
+
+  // ── Ventana de opciones ──
+  function avisosProveedores(o){
+    var faltan={};
+    delInforme(o).forEach(function(it){var n=(it.supplier||'').trim();if(!n)return;var s=supDe(n);if(!s||!((s.phone||'').trim()||(s.email||'').trim()))faltan[n]=1;});
+    return Object.keys(faltan);
+  }
+  function pintarOpciones(){
+    var o=cargar(), box=document.getElementById('ebInfBox'); if(!box)return;
+    function chk(k,txt,ayuda){return '<label class="ebi-chk"><input type="checkbox" data-k="'+k+'"'+(o[k]?' checked':'')+'> <span>'+txt+(ayuda?'<small>'+ayuda+'</small>':'')+'</span></label>';}
+    var falt=avisosProveedores(o);
+    var h='<div class="ebi-h"><div class="ebi-t">Descargar informe</div><button class="fp-close" onclick="ebInfCerrar()">✕</button></div>'
+      +'<div class="ebi-sec">Tipo de informe</div>'
+      +'<label class="ebi-rad"><input type="radio" name="ebiTipo" value="guia"'+(o.tipo==='guia'?' checked':'')+'> <span><b>Guía de compra</b><small>Para proyectos sin gestión de compras: el cliente compra directo. Productos con foto, link para comprar y contacto de proveedores. Sin pagos.</small></span></label>'
+      +'<label class="ebi-rad"><input type="radio" name="ebiTipo" value="avance"'+(o.tipo==='avance'?' checked':'')+'> <span><b>Informe de avance</b><small>Para proyectos con gestión de compras: pagos, entregas, calendario y el listado de productos.</small></span></label>'
+      +'<div class="ebi-sec">Listado de productos</div>'
+      +'<div class="ebi-row"><span>Agrupar por</span><select data-k="agrupar"><option value="cat"'+(o.agrupar==='cat'?' selected':'')+'>Categoría</option><option value="esp"'+(o.agrupar==='esp'?' selected':'')+'>Espacio</option></select></div>'
+      +chk('img','Imágenes de los productos')+chk('link','Link para comprar (“Ver en tienda”)')+chk('specs','Especificaciones (medidas, color, material)')+chk('precios','Precios y total')
+      +chk('notas','Comentarios internos','Ojo: van tal cual al cliente (ej. “precio neto”, “anticipo 60%”). Actívalo solo si escribiste notas para el cliente.')
+      +'<div class="ebi-sec">Categorías incluidas</div><div class="ebi-cats">'
+      +cats().map(function(c){return '<label class="ebi-chk"><input type="checkbox" data-cat="'+e(c)+'"'+((o.excl||[]).indexOf(c)<0?' checked':'')+'> <span>'+e(c)+'</span></label>';}).join('')+'</div>'
+      +'<div class="ebi-sec">Además</div>'
+      +chk('contactos','Datos de contacto de proveedores')
+      +(o.tipo==='avance'?chk('novedades','Novedades (cambios de fecha de entrega)'):'')
+      +(falt.length&&o.contactos?'<div class="ebi-aviso"><b>'+falt.length+' proveedor'+(falt.length===1?'':'es')+' sin teléfono ni correo:</b> '+falt.map(e).join(', ')+'. <a href="#" onclick="ebInfCerrar();go(\'proveedores\');return false;">Completar en Proveedores</a></div>':'')
+      +'<div class="ebi-btns"><button class="fp-btn sec" style="width:auto;padding:9px 16px;" onclick="ebInfCerrar()">Cancelar</button><button class="fp-btn" style="width:auto;padding:9px 18px;" onclick="ebInfGenerar()">Generar PDF</button></div>';
+    box.innerHTML=h;
+    box.onchange=function(ev){
+      var t=ev.target, oo=cargar();
+      if(t.name==='ebiTipo')oo.tipo=t.value;
+      else if(t.dataset.k)oo[t.dataset.k]=(t.type==='checkbox')?t.checked:t.value;
+      else if(t.dataset.cat!=null){var ex=(oo.excl||[]).filter(function(x){return x!==t.dataset.cat;});if(!t.checked)ex.push(t.dataset.cat);oo.excl=ex;}
+      guardar(oo); pintarOpciones();
+    };
+  }
+  window.pdfResumenCliente=function(){
+    if(!currentProjId){alert('Primero abre un proyecto.');return;}
+    var ov=document.getElementById('ebInfOv');
+    if(!ov){ov=document.createElement('div');ov.id='ebInfOv';ov.innerHTML='<div id="ebInfBox"></div>';ov.onclick=function(ev){if(ev.target===ov)ebInfCerrar();};document.body.appendChild(ov);}
+    ov.style.display='flex'; pintarOpciones();
+    try{if(typeof window.cargarProveedoresNube==='function')window.cargarProveedoresNube(function(){pintarOpciones();});}catch(x){}
+  };
+  window.ebInfCerrar=function(){var ov=document.getElementById('ebInfOv');if(ov)ov.style.display='none';};
+  window.ebInfGenerar=function(){
+    var o=cargar(); ebInfCerrar();
+    if(o.tipo==='guia')generarGuia(o);
+    else{window.__ebInfOpts=o;try{_avance();}finally{window.__ebInfOpts=null;}}
+  };
+})();
+</script>
+<style>
+#ebInfOv{position:fixed;inset:0;background:rgba(42,40,37,.35);z-index:10050;display:none;align-items:center;justify-content:center;padding:16px;}
+#ebInfBox{background:var(--surface);border-radius:var(--r);max-width:520px;width:100%;max-height:90vh;overflow-y:auto;padding:20px 22px;box-shadow:var(--sh2);font-size:13px;}
+.ebi-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+.ebi-t{font-family:var(--serif);font-size:21px;}
+.ebi-sec{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--tx3);font-weight:600;margin:16px 0 6px;}
+.ebi-rad,.ebi-chk{display:flex;gap:8px;align-items:flex-start;padding:5px 0;cursor:pointer;line-height:1.35;}
+.ebi-rad input,.ebi-chk input{margin-top:2px;flex-shrink:0;}
+.ebi-rad small,.ebi-chk small{display:block;color:var(--tx3);font-size:11.5px;margin-top:1px;}
+.ebi-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0 6px;}
+.ebi-row select{height:30px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 8px;font-family:"DM Sans",sans-serif;background:var(--surface);}
+.ebi-cats{display:grid;grid-template-columns:1fr 1fr;gap:0 12px;}
+.ebi-aviso{margin-top:10px;padding:9px 11px;border-left:3px solid var(--wn);background:var(--s2);border-radius:var(--rs);font-size:12px;color:var(--tx2);line-height:1.45;}
+.ebi-btns{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;}
+@media (max-width:560px){.ebi-cats{grid-template-columns:1fr;}}
+</style>
 </body>
 </html>
