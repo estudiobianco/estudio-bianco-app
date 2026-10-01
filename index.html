@@ -756,6 +756,7 @@ body.col-resizing *{cursor:col-resize !important;}
       <div class="home-section-hdr">
         <h2>Mis proyectos</h2>
         <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn" onclick="abrirBotonTiendas()" style="height:36px;" title="Instalar el botón que copia productos desde las tiendas">🔖 Botón para tiendas</button>
           <button class="btn" id="btnRespaldo" onclick="descargarTodo()" style="height:36px;" title="Descarga un archivo con todos los proyectos y sus datos">⬇ Descargar todo</button>
           <button class="btn prim" onclick="openNewProj()" style="height:36px;">+ Nuevo proyecto</button>
         </div>
@@ -883,6 +884,8 @@ body.col-resizing *{cursor:col-resize !important;}
     <div class="ni" onclick="go('crm')" id="nav-crm"><span class="ic">👥</span>Clientes</div>
     <div class="nsl">Proyecto</div>
     <div class="ni" onclick="go('gestion')" id="nav-gestion"><span class="ic">📊</span>Gestión proyecto</div>
+    <div class="nsl">Herramientas</div>
+    <div class="ni" onclick="abrirBotonTiendas()" id="nav-boton"><span class="ic">🔖</span>Botón para tiendas</div>
   </div>
   <div class="nbot">
     <button class="pdfbtn" id="pdfBtn" onclick="pdfResumenCliente()">⬇ Descargar informe del proyecto</button>
@@ -5227,11 +5230,11 @@ window.pdfResumenCliente = function(){
     h+='<div class="fp-kpi" style="margin-bottom:12px;"><div class="l">Subtotal</div><div class="v">'+(subtotal>0?mF(subtotal):'Por cotizar')+'</div></div>';
     h+='<div class="fp-g"><label>Enlace del producto <span style="color:var(--tx3);">· al pegarlo se leen nombre, precio e imagen</span></label><div style="display:flex;gap:6px;"><input type="text" id="fpUrl" value="'+eF(r.productUrl||'')+'" placeholder="Pega aquí el link de la tienda" onpaste="var e=this;setTimeout(function(){fSave(\'productUrl\',e.value.trim());fLeerLink();},60)" onchange="fSave(\'productUrl\',this.value.trim());fLeerLink()" style="flex:1;min-width:0;">'
       +'<button class="fp-btn sec" style="width:auto;padding:0 10px;white-space:nowrap;" onclick="fLeerLink(true)" title="Leer nombre, precio e imagen desde la tienda">Leer datos</button>'
-      +(r.productUrl?'<a href="'+eF(r.productUrl)+'" target="_blank" rel="noopener" class="fp-btn sec" style="width:auto;padding:0 10px;display:flex;align-items:center;text-decoration:none;">Abrir</a>':'')+'</div><div id="fpLinkRes"></div></div>';
+      +(r.productUrl?'<a href="'+eF(r.productUrl)+'" target="_blank" rel="noopener" class="fp-btn sec" style="width:auto;padding:0 10px;display:flex;align-items:center;text-decoration:none;">Abrir</a>':'')+'</div><div id="fpLinkRes"></div><div style="font-size:10.5px;color:var(--tx3);margin-top:4px;">¿La tienda no deja leer el link? Usa el <a href="#" onclick="abrirBotonTiendas();return false;">botón para tiendas</a> y pega aquí con Ctrl+V.</div></div>';
     h+='<div class="fp-g"><label>Imagen del producto</label><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">'
       +'<label class="fp-btn sec" style="width:auto;padding:7px 12px;margin:0;display:inline-block;cursor:pointer;">'+(r.imageUrl?'Cambiar imagen':'Subir imagen')+'<input type="file" accept="image/*" style="display:none;" onchange="fSubirImg(this)"></label>'
       +(r.imageUrl?'<button class="fp-btn sec" style="width:auto;padding:7px 12px;" onclick="fQuitarImg()">Quitar</button>':'')
-      +'<span id="fpImgMsg" style="font-size:11px;color:var(--tx3);">JPG o PNG · max. 8 MB</span></div></div>';
+      +'<span id="fpImgMsg" style="font-size:11px;color:var(--tx3);">o copia una imagen y pega con Ctrl+V</span></div></div>';
     h+='<div class="fp-g"><label>Especificaciones (exportables al cliente)</label><textarea onchange="fSave(\'specs\',this.value)" placeholder="Materiales, dimensiones, color, terminaciones…">'+eF(r.specs||'')+'</textarea></div>';
     h+='<div class="fp-g"><label>Comentarios internos</label><textarea onchange="fSave(\'notes\',this.value)" placeholder="Observaciones del equipo (no van al informe)">'+eF(r.notes||'')+'</textarea></div>';
     h+='<button class="fp-btn sec" style="margin-top:4px;" onclick="fDuplicar()">Duplicar item</button>';
@@ -5253,10 +5256,16 @@ window.pdfResumenCliente = function(){
   // Imagen del producto: se sube al bucket (carpeta productos/) y se guarda la URL en el item (columna image_url)
   window.fSubirImg=function(input){
     var file=input.files&&input.files[0]; if(!file)return;
+    subirImagenArchivo(file,input);
+  };
+  function subirImagenArchivo(file,input){
     var id=fichaId, msg=document.getElementById('fpImgMsg');
+    if(input==null)input={value:''};
     if(!/^image\//.test(file.type)){if(msg){msg.style.color='var(--dn)';msg.textContent='Solo imagenes (JPG, PNG, WEBP).';}input.value='';return;}
     if(file.size>8*1024*1024){if(msg){msg.style.color='var(--dn)';msg.textContent='Imagen muy pesada (max. 8 MB).';}input.value='';return;}
     if(msg){msg.style.color='var(--tx3)';msg.textContent='Subiendo…';}
+    try{tst('Subiendo imagen…');}catch(e){}
+    if(!file.name)file=new File([file],'pegada.'+((file.type.split('/')[1]||'png').replace('jpeg','jpg')),{type:file.type});
     var ext=(file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'');
     var path='productos/'+(currentProjId||'x')+'_it'+id+'_'+Date.now()+'.'+ext;
     fetch(SBF_URL+'/storage/v1/object/'+encodeURIComponent(SBF_BUCKET)+'/'+path,{method:'POST',headers:{'apikey':SBF_KEY,'Authorization':'Bearer '+SBF_KEY,'Content-Type':file.type||'image/jpeg'},body:file})
@@ -5318,7 +5327,7 @@ window.pdfResumenCliente = function(){
       return;
     }
     var precioOk=d.price!=null&&(!d.currency||d.currency==='CLP');
-    _leido={name:d.name||'',price:precioOk?d.price:null,image:d.image||'',site:d.site||tiendaDesdeLink(url)};
+    _leido={name:d.name||'',price:precioOk?d.price:null,image:d.image||'',site:d.site||tiendaDesdeLink(url),url:url||'',reemplazaUrl:!!d.desdeBoton};
     var h='<div class="fp-linkres"><div style="display:flex;gap:10px;align-items:flex-start;">'
       +(d.image?'<img src="'+eF(d.image)+'" alt="" style="width:64px;height:64px;object-fit:contain;background:#fff;border:1px solid var(--bd);border-radius:4px;flex-shrink:0;">':'')
       +'<div style="flex:1;min-width:0;font-size:12px;line-height:1.5;">'
@@ -5328,14 +5337,34 @@ window.pdfResumenCliente = function(){
       +'<div><span style="color:var(--tx3);">Imagen:</span> '+(d.image?'sí':'<em>no publicada</em>')+'</div>'
       +'</div></div>'
       +'<div style="margin-top:8px;display:flex;gap:6px;"><button class="fp-btn" style="width:auto;padding:6px 12px;" id="fpUsarBtn" onclick="fUsarLeido()">Usar estos datos</button><button class="fp-btn sec" style="width:auto;padding:6px 12px;" onclick="document.getElementById(\'fpLinkRes\').innerHTML=\'\'">Descartar</button></div>'
-      +'<div style="font-size:10.5px;color:var(--tx3);margin-top:6px;">Revisa que el precio sea el normal y no uno con tarjeta de la tienda.</div></div>';
+      +'<div style="font-size:10.5px;color:var(--tx3);margin-top:6px;">'+(d.fuente==='pantalla'?'<strong style="color:var(--wn);">El precio se leyó del texto de la página: revísalo.</strong> ':'')+'Revisa que el precio sea el normal y no uno con tarjeta de la tienda.</div></div>';
     box.innerHTML=h;
   }
+  // Pegar (Ctrl+V) con la ficha abierta: una imagen copiada, o los datos del "Botón para tiendas"
+  document.addEventListener('paste',function(ev){
+    var p=document.getElementById('fichaPanel'); if(!p||!p.classList.contains('open')||fichaId==null)return;
+    var cd=ev.clipboardData||window.clipboardData; if(!cd)return;
+    var file=null;
+    if(cd.items)for(var i=0;i<cd.items.length;i++){var it=cd.items[i];if(it.kind==='file'&&/^image\//.test(it.type)){file=it.getAsFile();break;}}
+    if(!file&&cd.files&&cd.files.length&&/^image\//.test(cd.files[0].type))file=cd.files[0];
+    if(file){ev.preventDefault(); if(fichaT!=='det'){fichaT='det';renderFicha();} subirImagenArchivo(file,null); return;}
+    var txt=(cd.getData&&cd.getData('text/plain'))||'';
+    if(txt.indexOf('EBPROD:')===0){
+      ev.preventDefault();
+      var d; try{d=JSON.parse(txt.slice(7));}catch(e){try{tst('No se pudieron leer los datos copiados');}catch(x){}return;}
+      if(fichaT!=='det'){fichaT='det';renderFicha();}
+      d.ok=!!(d.name||d.price||d.image); d.desdeBoton=true;
+      var u=document.getElementById('fpUrl'); if(u&&d.url)u.value=d.url;
+      mostrarLeido(d.ok?d:{ok:false,error:'El botón no encontró datos en esa página.'},d.url||'',fichaId);
+      var box=document.getElementById('fpLinkRes'); if(box)try{box.scrollIntoView({block:'nearest'});}catch(e){}
+    }
+  });
   window.fUsarLeido=function(){
     var d=_leido, id=fichaId, r=itemDe(id); if(!d||!r)return;
     var b=document.getElementById('fpUsarBtn'); if(b){b.disabled=true;b.textContent='Aplicando…';}
     if(d.name)r.item=d.name;
     if(d.price!=null)r.unit=d.price;
+    if(d.url&&(d.reemplazaUrl||!(r.productUrl||'').trim()))r.productUrl=d.url;
     if(d.site&&!(r.supplier||'').trim()){r.supplier=d.site;try{upsertSupplier(d.site);}catch(e){}}
     try{sAll();}catch(e){}
     _leido=null;
@@ -6042,6 +6071,74 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
       else try{tst('✓ Respaldo descargado: '+resumen);}catch(e){}
       infoRespaldo();
     }).then(function(){bajando=false;if(btn){btn.disabled=false;btn.textContent=txt0;}},function(){bajando=false;if(btn){btn.disabled=false;btn.textContent=txt0;}});
+  };
+
+  // ── "Copiar para Bianco": marcador que corre en la pagina de la tienda (en el navegador de quien lo usa) ──
+  // Lee nombre, precio, imagen y link de la pagina abierta y los copia al portapapeles con el prefijo EBPROD:
+  // Debe ser autocontenida: se convierte en texto con toString().
+  function ebCopiar(){
+    try{
+      var d=document, out={v:1,url:location.href.split('#')[0],name:'',price:null,currency:'',image:'',site:'',fuente:''};
+      var meta=function(k){var e=d.querySelector('meta[property="'+k+'"],meta[name="'+k+'"],meta[itemprop="'+k+'"]');return e?(e.getAttribute('content')||'').trim():'';};
+      var num=function(v){if(v==null||v==='')return null;if(typeof v==='number')return v>0?Math.round(v):null;var s=String(v).replace(/[^\d.,]/g,'');if(!s)return null;if(/^\d+([.,]\d{1,2})?$/.test(s))s=s.replace(',','.');else s=s.replace(/[.,](?=\d{3}(\D|$))/g,'').replace(',','.');var n=parseFloat(s);return isFinite(n)&&n>0?Math.round(n):null;};
+      var prods=[];
+      var vis=function(n){if(!n||typeof n!=='object')return;if(Array.isArray(n)){n.forEach(vis);return;}var t=[].concat(n['@type']||[]).map(String);if(t.some(function(x){return /^(Product|ProductGroup|IndividualProduct)$/i.test(x);}))prods.push(n);if(n['@graph'])vis(n['@graph']);if(n.mainEntity)vis(n.mainEntity);};
+      var ss=d.querySelectorAll('script[type="application/ld+json"]');
+      for(var i=0;i<ss.length;i++){try{vis(JSON.parse(ss[i].textContent));}catch(e){}}
+      var p=prods[0]||{};
+      var h1=d.querySelector('h1');
+      out.name=String(p.name||meta('og:title')||(h1&&h1.textContent)||d.title||'').replace(/\s+/g,' ').trim().split(' | ')[0].slice(0,200);
+      var ofs=[].concat(p.offers||[]);
+      for(var j=0;j<ofs.length&&out.price==null;j++){var o=ofs[j]||{};var ps=[].concat(o.priceSpecification||[])[0]||{};var v=num(o.price!=null?o.price:(o.lowPrice!=null?o.lowPrice:ps.price));if(v!=null){out.price=v;out.currency=String(o.priceCurrency||ps.priceCurrency||'').toUpperCase();}}
+      if(out.price==null){var mp=num(meta('product:price:amount')||meta('og:price:amount')||meta('price'));if(mp!=null){out.price=mp;out.currency=(meta('product:price:currency')||meta('og:price:currency')||meta('priceCurrency')||'').toUpperCase();}}
+      if(out.price==null){var ip=d.querySelector('[itemprop="price"]');if(ip){var iv=num(ip.getAttribute('content')||ip.textContent);if(iv!=null)out.price=iv;}}
+      if(out.price==null){
+        var cs=d.querySelectorAll('[class*="price" i],[class*="precio" i],[data-testid*="price" i],[id*="price" i]');
+        for(var k=0;k<cs.length;k++){var el=cs[k];if(!el.offsetParent)continue;var m=/\$\s?(\d{1,3}(?:[.,]\d{3})+|\d{4,})/.exec(el.innerText||'');if(m){out.price=num(m[1]);out.fuente='pantalla';break;}}
+      }
+      if(out.price!=null&&!out.currency)out.currency='CLP';
+      var img=p.image;while(img&&typeof img==='object'){img=Array.isArray(img)?img[0]:(img.url||img.contentUrl||'');}
+      img=img||meta('og:image')||meta('og:image:secure_url')||meta('twitter:image');
+      if(!img){var best=null,ba=0;for(var q=0;q<d.images.length;q++){var im=d.images[q];var a=(im.naturalWidth||0)*(im.naturalHeight||0);if(im.offsetParent&&a>ba&&im.naturalWidth>=200){ba=a;best=im;}}if(best)img=best.currentSrc||best.src;}
+      if(img){try{out.image=new URL(img,location.href).href;}catch(e){}}
+      out.site=meta('og:site_name')||location.hostname.replace(/^www\./,'');
+      var texto='EBPROD:'+JSON.stringify(out);
+      var aviso=function(ok){
+        var b=d.createElement('div');
+        b.style.cssText='position:fixed;top:16px;right:16px;z-index:2147483647;max-width:320px;background:#2A2825;color:#fff;font:13px/1.45 Arial,sans-serif;padding:12px 14px;border-radius:6px;box-shadow:0 4px 18px rgba(0,0,0,.25);';
+        b.textContent=ok?('Copiado para Estudio Bianco: '+(out.name||'(sin nombre)')+(out.price!=null?' · $'+out.price.toLocaleString('es-CL'):' · sin precio')+'. Ahora pega con Ctrl+V en la ficha del producto.'):'No se pudo copiar. Intenta de nuevo.';
+        d.body.appendChild(b);setTimeout(function(){b.remove();},5000);
+      };
+      var respaldo=function(){var t=d.createElement('textarea');t.value=texto;t.style.cssText='position:fixed;top:-1000px;';d.body.appendChild(t);t.select();var ok=false;try{ok=d.execCommand('copy');}catch(e){}t.remove();aviso(ok);};
+      if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(texto).then(function(){aviso(true);},respaldo);else respaldo();
+    }catch(e){alert('No se pudo leer esta página: '+e.message);}
+  }
+
+  window.abrirBotonTiendas=function(){
+    var ov=document.getElementById('ebBotonOv');
+    if(!ov){
+      ov=document.createElement('div'); ov.id='ebBotonOv';
+      ov.style.cssText='position:fixed;inset:0;background:rgba(42,40,37,.35);z-index:10050;display:flex;align-items:center;justify-content:center;padding:16px;';
+      ov.onclick=function(e){if(e.target===ov)ov.style.display='none';};
+      ov.innerHTML='<div style="background:var(--surface);border-radius:var(--r);max-width:560px;width:100%;max-height:90vh;overflow-y:auto;overflow-x:hidden;padding:22px 24px;box-shadow:var(--sh2);">'
+        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;"><h2 style="font-family:var(--serif);font-weight:400;font-size:22px;margin:0 0 6px;">Botón para tiendas</h2><button class="fp-close" onclick="document.getElementById(\'ebBotonOv\').style.display=\'none\'">✕</button></div>'
+        +'<p style="font-size:13px;color:var(--tx2);margin:0 0 16px;">Copia el nombre, precio, imagen y link de un producto desde cualquier tienda, incluso las que bloquean la lectura automática. Se instala una vez en cada computador.</p>'
+        +'<div style="font-size:13px;line-height:1.6;">'
+        +'<p style="margin:0 0 6px;"><strong>1.</strong> Muestra la barra de favoritos de tu navegador: aprieta <strong>Ctrl + Shift + B</strong>.</p>'
+        +'<p style="margin:0 0 8px;"><strong>2.</strong> Arrastra este botón hasta esa barra y suéltalo ahí:</p>'
+        +'<div style="text-align:center;margin:10px 0 14px;"><a id="ebBotonLink" href="#" draggable="true" style="display:inline-block;padding:9px 16px;background:var(--btn);color:#fff;border-radius:99px;text-decoration:none;font-weight:500;cursor:grab;">Copiar para Bianco</a></div>'
+        +'<div style="border:1px solid var(--bd);border-radius:6px;background:var(--s2);padding:6px 10px;font-size:11.5px;color:var(--tx2);margin:0 0 14px;display:flex;gap:10px;align-items:center;"><span style="opacity:.6;">★ Favoritos</span><span style="background:var(--surface);border:1px solid var(--bd2);border-radius:99px;padding:2px 10px;color:var(--tx);">Copiar para Bianco</span><span style="opacity:.5;">… así se verá en la barra</span></div>'
+        +'<p style="margin:0 0 6px;"><strong>3.</strong> Para usarlo: abre el producto en la tienda y aprieta <strong>Copiar para Bianco</strong> en la barra. Aparece un aviso "Copiado".</p>'
+        +'<p style="margin:0 0 6px;"><strong>4.</strong> Vuelve a la app, abre la ficha del producto (›) y aprieta <strong>Ctrl + V</strong>. Revisa los datos y aprieta "Usar estos datos".</p>'
+        +'</div>'
+        +'<div style="font-size:11.5px;color:var(--tx3);margin-top:14px;border-top:1px solid var(--bd);padding-top:10px;">Funciona en Chrome, Edge y otros navegadores de computador; no en el celular. Si la tienda muestra varios precios (normal, oferta, con tarjeta), revisa cuál quedó antes de aplicarlo. Para la imagen sola: clic derecho sobre la foto → "Copiar imagen" y Ctrl + V en la ficha.</div>'
+        +'</div>';
+      document.body.appendChild(ov);
+      var a=document.getElementById('ebBotonLink');
+      a.href='javascript:'+encodeURIComponent('('+ebCopiar.toString()+')();void 0');
+      a.onclick=function(e){e.preventDefault();alert('Este botón no se aprieta aquí: arrástralo a tu barra de favoritos (paso 2).');};
+    }
+    ov.style.display='flex';
   };
 
   // Mostrar/ocultar segun perfil y refrescar el aviso al volver al inicio
