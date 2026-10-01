@@ -6251,7 +6251,15 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   function e(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   function m(n){return '$'+Math.round(+n||0).toLocaleString('es-CL');}
   function proy(){try{return (projects||[]).find(function(p){return p.id===currentProjId;})||{};}catch(x){return {};}}
-  function supDe(nombre){var k=(nombre||'').trim().toUpperCase();if(!k)return null;try{return (ldSup()||[]).find(function(s){return (s.name||'').trim().toUpperCase()===k;})||null;}catch(x){return null;}}
+  // "Lup Chile" = "Lupchile" = "LUP CHILE"; "Falabella (Antonia Paz)" = "Falabella". Si hay varios, gana el que tiene datos de contacto.
+  function normSup(s){return String(s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\(.*?\)/g,'').replace(/[^A-Z0-9]/g,'');}
+  function supDe(nombre){
+    var k=normSup(nombre); if(!k)return null;
+    var c=[]; try{c=(ldSup()||[]).filter(function(s){return normSup(s.name)===k;});}catch(x){}
+    if(!c.length)return null;
+    c.sort(function(a,b){function pts(s){return ((s.phone||'').trim()?2:0)+((s.email||'').trim()?2:0)+((s.web||'').trim()?1:0)+((s.contact||'').trim()?1:0);}return pts(b)-pts(a);});
+    return c[0];
+  }
   function dominio(u){try{return new URL(u).hostname.replace(/^www\./,'');}catch(x){return '';}}
   function urlOk(u){return /^https?:\/\//i.test(String(u||'').trim());}
   function totalIt(it){return (+it.qty||1)*(+it.unit||0);}
