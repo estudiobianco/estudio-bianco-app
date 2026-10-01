@@ -117,6 +117,64 @@ function precioOferta(offers) {
   return null;
 }
 
+// ── Especificaciones basicas: medidas, color, material (no todo) ──
+function quitarTags(s) { return decodificar(String(s || '').replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, ' ')); }
+var SPEC_CLAVES = [
+  ['Medidas', /^(medidas?|dimensi[oó]n(es)?|tama[nñ]o)(\s|$|\()/i],
+  ['Ancho', /^ancho/i],
+  ['Alto', /^(alto|altura)/i],
+  ['Largo', /^largo/i],
+  ['Profundidad', /^(profundidad|fondo)/i],
+  ['Diámetro', /^di[aá]metro/i],
+  ['Color', /^colou?r(es)?(\s|$|\()/i],
+  ['Material', /^materia(l|les)(\s|$|\()/i],
+  ['Terminación', /^(terminaci[oó]n|acabado)/i],
+  ['Tela', /^(tela|tapiz|tapicer[ií]a|tejido)/i],
+  ['Estructura', /^estructura/i]
+];
+var SPEC_FUERA = /empaque|embalaje|caja|garant|env[ií]o|despacho|sku|c[oó]digo|modelo|marca|peso|cantidad|origen|instalaci|armado|ampolleta|bater/i;
+function leerSpecs(html, ld) {
+  var pares = [];
+  function add(k, v) {
+    k = quitarTags(k).replace(/[:：]\s*$/, '').trim();
+    v = quitarTags(v).replace(/^[:：]\s*/, '').trim();
+    if (!k || !v || k.length > 40 || v.length > 80 || SPEC_FUERA.test(k)) return;
+    for (var i = 0; i < SPEC_CLAVES.length; i++) { if (SPEC_CLAVES[i][1].test(k)) { pares.push([k, v, i]); return; } }
+  }
+  var m, re;
+  if (ld) {
+    if (ld.color) add('Color', [].concat(ld.color).join(', '));
+    if (ld.material) add('Material', [].concat(ld.material).join(', '));
+    ['width', 'height', 'depth'].forEach(function (p, i) {
+      var q = ld[p];
+      if (q) { var v = typeof q === 'object' ? ((q.value != null ? q.value : '') + ' ' + (q.unitText || q.unitCode || '')) : q; add(['Ancho', 'Alto', 'Profundidad'][i], String(v).replace(/\bCMT\b/, 'cm').replace(/\bMMT\b/, 'mm')); }
+    });
+    [].concat(ld.additionalProperty || []).forEach(function (p) { if (p && p.name) add(p.name, [].concat(p.value != null ? p.value : '').join(', ')); });
+  }
+  // Algunas tiendas guardan la ficha como HTML escapado dentro de un JSON (ej. Amoble)
+  if (/<\\\//.test(html)) html = html + ' ' + html.replace(/\\\//g, '/').replace(/\\"/g, '"');
+  // "<strong>Largo:</strong> 240 cm"
+  re = /<(strong|b)[^>]*>\s*([^<]{2,40}?)\s*:?\s*<\/\1>\s*:?\s*([^<]{1,80})/gi; while ((m = re.exec(html))) add(m[2], m[3]);
+  re = /<tr[^>]*>\s*<t[hd][^>]*>([\s\S]{1,200}?)<\/t[hd]>\s*<td[^>]*>([\s\S]{1,300}?)<\/td>/gi; while ((m = re.exec(html))) add(m[1], m[2]);
+  re = /<dt[^>]*>([\s\S]{1,200}?)<\/dt>\s*<dd[^>]*>([\s\S]{1,300}?)<\/dd>/gi; while ((m = re.exec(html))) add(m[1], m[2]);
+  re = /"name"\s*:\s*"([^"]{2,40})"\s*,\s*"values?"\s*:\s*\[?\s*"([^"]{1,80})"/gi; while ((m = re.exec(html))) add(m[1], m[2]);
+  var textos = [];
+  re = /<li[^>]*>([\s\S]{1,300}?)<\/li>/gi; while ((m = re.exec(html))) textos.push(quitarTags(m[1]));
+  if (ld && ld.description) textos = textos.concat(quitarTags(String(ld.description).replace(/<br\s*\/?>|<\/p>|<\/li>|\r?\n/gi, ' • ')).split(/•|·|;|\s-\s/));
+  textos.forEach(function (t) { var mm = /^\s*([A-Za-zÁÉÍÓÚáéíóúÑñ ()]{3,30})\s*[:：]\s*(.{1,80})$/.exec(String(t).trim()); if (mm) add(mm[1], mm[2]); });
+  var vistos = {}, out = [];
+  pares.sort(function (a, b) { return a[2] - b[2]; }).forEach(function (p) {
+    var c = SPEC_CLAVES[p[2]][0]; if (vistos[c]) return; vistos[c] = 1;
+    var k = p[0], v = p[1];
+    var u = /\((cm|mm|mts?|m)\)/i.exec(k);
+    if (u && /^[\d.,\s]+$/.test(v)) v = v.trim() + ' ' + u[1].toLowerCase();
+    k = k.replace(/\s*\([^)]*\)\s*$/, '').trim();
+    k = k.charAt(0).toUpperCase() + k.slice(1).toLowerCase();
+    out.push(k + ': ' + v);
+  });
+  return out.slice(0, 7).join(' · ');
+}
+
 function leerProducto(html, urlFinal) {
   const meta = metas(html);
   const lds = productosLD(html);
@@ -142,7 +200,8 @@ function leerProducto(html, urlFinal) {
     price: precio ? precio.price : null,
     currency: precio ? (String(precio.currency || '').toUpperCase() || 'CLP') : '',
     image,
-    site
+    site,
+    specs: leerSpecs(html, lds[0] || null)
   };
 }
 
