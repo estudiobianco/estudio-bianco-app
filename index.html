@@ -5327,7 +5327,7 @@ window.pdfResumenCliente = function(){
       return;
     }
     var precioOk=d.price!=null&&(!d.currency||d.currency==='CLP');
-    _leido={name:d.name||'',price:precioOk?d.price:null,image:d.image||'',site:d.site||tiendaDesdeLink(url),url:url||'',reemplazaUrl:!!d.desdeBoton};
+    _leido={name:d.name||'',price:precioOk?d.price:null,image:d.image||'',site:d.site||tiendaDesdeLink(url),url:url||'',reemplazaUrl:!!d.desdeBoton,specs:String(d.specs||'').slice(0,500)};
     var h='<div class="fp-linkres"><div style="display:flex;gap:10px;align-items:flex-start;">'
       +(d.image?'<img src="'+eF(d.image)+'" alt="" style="width:64px;height:64px;object-fit:contain;background:#fff;border:1px solid var(--bd);border-radius:4px;flex-shrink:0;">':'')
       +'<div style="flex:1;min-width:0;font-size:12px;line-height:1.5;">'
@@ -5335,6 +5335,7 @@ window.pdfResumenCliente = function(){
       +'<div><span style="color:var(--tx3);">Precio:</span> '+(precioOk?'<strong>'+mF(d.price)+'</strong>'+(r.unit>0&&r.unit!==d.price?' <span style="color:var(--tx3);">(hoy: '+mF(r.unit)+')</span>':''):(d.price!=null?'<em>en '+eF(d.currency)+', no se aplica</em>':'<em>no publicado</em>'))+'</div>'
       +'<div><span style="color:var(--tx3);">Tienda:</span> '+eF(_leido.site||'—')+'</div>'
       +'<div><span style="color:var(--tx3);">Imagen:</span> '+(d.image?'sí':'<em>no publicada</em>')+'</div>'
+      +'<div><span style="color:var(--tx3);">Especificaciones:</span> '+(_leido.specs?eF(_leido.specs):'<em>no publicadas</em>')+'</div>'
       +'</div></div>'
       +'<div style="margin-top:8px;display:flex;gap:6px;"><button class="fp-btn" style="width:auto;padding:6px 12px;" id="fpUsarBtn" onclick="fUsarLeido()">Usar estos datos</button><button class="fp-btn sec" style="width:auto;padding:6px 12px;" onclick="document.getElementById(\'fpLinkRes\').innerHTML=\'\'">Descartar</button></div>'
       +'<div style="font-size:10.5px;color:var(--tx3);margin-top:6px;">'+(d.fuente==='pantalla'?'<strong style="color:var(--wn);">El precio se leyó del texto de la página: revísalo.</strong> ':'')+'Revisa que el precio sea el normal y no uno con tarjeta de la tienda.</div></div>';
@@ -5365,6 +5366,8 @@ window.pdfResumenCliente = function(){
     if(d.name)r.item=d.name;
     if(d.price!=null)r.unit=d.price;
     if(d.url&&(d.reemplazaUrl||!(r.productUrl||'').trim()))r.productUrl=d.url;
+    // Especificaciones basicas: si el campo esta vacio se llena; si ya tiene texto, se agregan al final (sin borrar nada)
+    if(d.specs){var sp=(r.specs||'').trim(); if(!sp)r.specs=d.specs; else if(sp.indexOf(d.specs)<0)r.specs=sp+'\n'+d.specs;}
     if(d.site&&!(r.supplier||'').trim()){r.supplier=d.site;try{upsertSupplier(d.site);}catch(e){}}
     try{sAll();}catch(e){}
     _leido=null;
@@ -6102,6 +6105,27 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
       if(!img){var best=null,ba=0;for(var q=0;q<d.images.length;q++){var im=d.images[q];var a=(im.naturalWidth||0)*(im.naturalHeight||0);if(im.offsetParent&&a>ba&&im.naturalWidth>=200){ba=a;best=im;}}if(best)img=best.currentSrc||best.src;}
       if(img){try{out.image=new URL(img,location.href).href;}catch(e){}}
       out.site=meta('og:site_name')||location.hostname.replace(/^www\./,'');
+      // Especificaciones basicas (misma regla que api/producto.js: medidas, color, material; no todo)
+      try{
+        var ta=d.createElement('textarea');
+        var txt=function(s){ta.innerHTML=String(s||'').replace(/<br\s*\/?>/gi,' ').replace(/<[^>]+>/g,' ');return ta.value.replace(/\s+/g,' ').trim();};
+        var CL=[['Medidas',/^(medidas?|dimensi[oó]n(es)?|tama[nñ]o)(\s|$|\()/i],['Ancho',/^ancho/i],['Alto',/^(alto|altura)/i],['Largo',/^largo/i],['Profundidad',/^(profundidad|fondo)/i],['Diámetro',/^di[aá]metro/i],['Color',/^colou?r(es)?(\s|$|\()/i],['Material',/^materia(l|les)(\s|$|\()/i],['Terminación',/^(terminaci[oó]n|acabado)/i],['Tela',/^(tela|tapiz|tapicer[ií]a|tejido)/i],['Estructura',/^estructura/i]];
+        var FU=/empaque|embalaje|caja|garant|env[ií]o|despacho|sku|c[oó]digo|modelo|marca|peso|cantidad|origen|instalaci|armado|ampolleta|bater/i;
+        var pares=[];
+        var add=function(k,v){k=txt(k).replace(/[:：]\s*$/,'').trim();v=txt(v).replace(/^[:：]\s*/,'').trim();if(!k||!v||k.length>40||v.length>80||FU.test(k))return;for(var c=0;c<CL.length;c++){if(CL[c][1].test(k)){pares.push([k,v,c]);return;}}};
+        if(p.color)add('Color',[].concat(p.color).join(', '));
+        if(p.material)add('Material',[].concat(p.material).join(', '));
+        [].concat(p.additionalProperty||[]).forEach(function(ap){if(ap&&ap.name)add(ap.name,[].concat(ap.value!=null?ap.value:'').join(', '));});
+        var h=d.documentElement.outerHTML, mm, rx;
+        if(/<\\\//.test(h))h=h+' '+h.replace(/\\\//g,'/').replace(/\\"/g,'"');
+        rx=/<(strong|b)[^>]*>\s*([^<]{2,40}?)\s*:?\s*<\/\1>\s*:?\s*([^<]{1,80})/gi;while((mm=rx.exec(h)))add(mm[2],mm[3]);
+        rx=/<tr[^>]*>\s*<t[hd][^>]*>([\s\S]{1,200}?)<\/t[hd]>\s*<td[^>]*>([\s\S]{1,300}?)<\/td>/gi;while((mm=rx.exec(h)))add(mm[1],mm[2]);
+        rx=/<dt[^>]*>([\s\S]{1,200}?)<\/dt>\s*<dd[^>]*>([\s\S]{1,300}?)<\/dd>/gi;while((mm=rx.exec(h)))add(mm[1],mm[2]);
+        rx=/<li[^>]*>([\s\S]{1,300}?)<\/li>/gi;while((mm=rx.exec(h))){var lt=/^\s*([A-Za-zÁÉÍÓÚáéíóúÑñ ()]{3,30})\s*[:：]\s*(.{1,80})$/.exec(txt(mm[1]));if(lt)add(lt[1],lt[2]);}
+        var vis2={},sal=[];
+        pares.sort(function(a,b){return a[2]-b[2];}).forEach(function(pp){var cn=CL[pp[2]][0];if(vis2[cn])return;vis2[cn]=1;var k=pp[0],v=pp[1];var un=/\((cm|mm|mts?|m)\)/i.exec(k);if(un&&/^[\d.,\s]+$/.test(v))v=v.trim()+' '+un[1].toLowerCase();k=k.replace(/\s*\([^)]*\)\s*$/,'').trim();k=k.charAt(0).toUpperCase()+k.slice(1).toLowerCase();sal.push(k+': '+v);});
+        out.specs=sal.slice(0,7).join(' · ');
+      }catch(e){}
       var texto='EBPROD:'+JSON.stringify(out);
       var aviso=function(ok){
         var b=d.createElement('div');
