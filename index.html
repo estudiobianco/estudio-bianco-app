@@ -3537,7 +3537,7 @@ function upsertSupplier(name,extra){
   if(!name||!name.trim())return;
   var sups=ldSup();
   var key=name.trim().toUpperCase();
-  var ex=sups.find(function(s){return (s.name||'').trim().toUpperCase()===key;});
+  var ex=sups.find(function(s){return supNombres(s).indexOf(key)>=0;});
   if(ex){
     if(extra)Object.keys(extra).forEach(function(k){if(extra[k])ex[k]=extra[k];});
   }else{
@@ -3546,6 +3546,8 @@ function upsertSupplier(name,extra){
   svSup(sups);
   try{updateSupplierDatalist();}catch(e){}
 }
+// Nombre del proveedor + nombres antiguos de proveedores unidos ("También escrito: X" en notas), en mayusculas
+function supNombres(s){var a=[(s.name||'').trim().toUpperCase()];(String(s.notes||'').match(/También escrito: [^·]+/g)||[]).forEach(function(x){a.push(x.replace('También escrito: ','').trim().toUpperCase());});return a;}
 function updateSupplierDatalist(){
   var dl=document.getElementById('supplierList');
   if(!dl)return;
@@ -3560,7 +3562,7 @@ function syncSuppliersFromItems(){
     if(typeof items!=='undefined')all=all.concat(items);
     var sups=ldSup();
     var seen={};
-    sups.forEach(function(s){seen[(s.name||'').trim().toUpperCase()]=true;});
+    sups.forEach(function(s){supNombres(s).forEach(function(k){seen[k]=true;});});
     var added=0;
     all.forEach(function(r){
       var n=(r.supplier||'').trim();
@@ -3659,7 +3661,7 @@ function deleteSupplier(id){
 }
 function importSuppliersFromItems(){
   const existing=ldSup();
-  const existingNames=existing.map(s=>s.name.toUpperCase());
+  const existingNames=[].concat(...existing.map(supNombres));
   const itemSuppliers=[...new Set(items.map(r=>r.supplier).filter(s=>s&&s.trim()&&s!=='-'))];
   const toAdd=itemSuppliers.filter(name=>!existingNames.includes(name.toUpperCase()));
   if(!toAdd.length){tst('Todos los proveedores del listado ya están en la base de datos.');return;}
@@ -6175,15 +6177,20 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   // ── Proveedores en la nube (tabla suppliers): antes vivian solo en cada computador ──
   // Se sube cada cambio (upsert por id) y al abrir la app se fusiona con lo que haya en la nube.
   // Al fusionar, lo escrito en este computador gana; la nube solo completa campos vacios.
-  var SUP_CAMPOS=['id','name','phone','email','addr','web','notes','contact'];
-  var _svSupLocal=window.svSup, _supT=null, _supCargando=false;
+  var SUP_CAMPOS=['id','name','phone','email','addr','web','notes','contact','category','specialty','city','favorite'];
+  var SUP_NUEVOS=['category','specialty','city','favorite']; // si la tabla aun no tiene estas columnas, se sube sin ellas
+  var _svSupLocal=window.svSup, _supT=null, _supCargando=false, _supSinNuevos=false;
   function supDel(){try{return JSON.parse(localStorage.getItem('ar6_sup_del')||'[]');}catch(e){return [];}}
   function supDelSave(a){try{localStorage.setItem('ar6_sup_del',JSON.stringify(a.slice(-300)));}catch(e){}}
   function subirSups(lista){
-    var filas=(lista||[]).filter(function(s){return s&&s.id&&(s.name||'').trim();}).map(function(s){var r={};SUP_CAMPOS.forEach(function(k){r[k]=s[k]==null?'':String(s[k]);});return r;});
+    var campos=SUP_CAMPOS.filter(function(k){return !_supSinNuevos||SUP_NUEVOS.indexOf(k)<0;});
+    var filas=(lista||[]).filter(function(s){return s&&s.id&&(s.name||'').trim();}).map(function(s){var r={};campos.forEach(function(k){r[k]=s[k]==null?'':String(s[k]);});return r;});
     if(!filas.length)return;
     fetch(SBR_URL+'/rest/v1/suppliers?on_conflict=id',{method:'POST',headers:{'apikey':SBR_KEY,'Authorization':'Bearer '+SBR_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'},body:JSON.stringify(filas)})
-    .then(function(r){if(!r.ok)r.text().then(function(t){try{console.warn('[EB] Proveedores: no se pudieron subir',r.status,t);}catch(e){}});}).catch(function(){});
+    .then(function(r){if(!r.ok)r.text().then(function(t){
+      if(!_supSinNuevos&&/PGRST204|column/i.test(t)){_supSinNuevos=true;subirSups(lista);return;}
+      try{console.warn('[EB] Proveedores: no se pudieron subir',r.status,t);}catch(e){}
+    });}).catch(function(){});
   }
   if(typeof _svSupLocal==='function'){
     window.svSup=function(s){
@@ -6207,11 +6214,19 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
       if(!nube){if(cb)cb();return;}
       var local=[]; try{local=ldSup()||[];}catch(e){}
       var del=supDel(), cambio=false;
+      // Borrados o unidos desde otro computador: estaban en la nube la vez anterior y ya no estan -> se quitan aqui
+      var enNube={}; nube.forEach(function(c){enNube[c.id]=1;});
+      var antes={}; try{antes=JSON.parse(localStorage.getItem('ar6_sup_vistos')||'{}');}catch(e){}
+      // proteccion: si la nube trae menos de la mitad que la vez anterior (falla o tabla vacia), no se quita nada
+      var nAntes=Object.keys(antes).length, n0=local.length;
+      if(nube.length&&nube.length>=nAntes*0.5)local=local.filter(function(l){return !(antes[l.id]&&!enNube[l.id]);});
+      if(local.length!==n0)cambio=true;
+      if(nube.length){try{localStorage.setItem('ar6_sup_vistos',JSON.stringify(enNube));}catch(e){}}
       nube.forEach(function(c){
         if(del.indexOf(c.id)>=0)return;
         var k=(c.name||'').trim().toUpperCase();
         var l=local.find(function(x){return x.id===c.id;})||local.find(function(x){return (x.name||'').trim().toUpperCase()===k;});
-        if(!l){local.push({id:c.id,name:c.name||'',phone:c.phone||'',email:c.email||'',addr:c.addr||'',web:c.web||'',notes:c.notes||'',contact:c.contact||''});cambio=true;return;}
+        if(!l){var n={};SUP_CAMPOS.forEach(function(f){n[f]=c[f]==null?'':String(c[f]);});local.push(n);cambio=true;return;}
         SUP_CAMPOS.forEach(function(f){if(f!=='id'&&!(l[f]||'').trim()&&(c[f]||'').trim()){l[f]=c[f];cambio=true;}});
       });
       _supCargando=true; try{ if(cambio)_svSupLocal(local); }finally{_supCargando=false;}
@@ -6251,6 +6266,8 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   function supDe(nombre){
     var k=normSup(nombre); if(!k)return null;
     var c=[]; try{c=(ldSup()||[]).filter(function(s){return normSup(s.name)===k;});}catch(x){}
+    // Proveedores unidos: el nombre antiguo queda en las notas como "También escrito: X"
+    if(!c.length){try{c=(ldSup()||[]).filter(function(s){var m=String(s.notes||'').match(/También escrito: [^·]+/g)||[];return m.some(function(a){return normSup(a.replace('También escrito: ',''))===k;});});}catch(x){}}
     if(!c.length)return null;
     c.sort(function(a,b){function pts(s){return ((s.phone||'').trim()?2:0)+((s.email||'').trim()?2:0)+((s.web||'').trim()?1:0)+((s.contact||'').trim()?1:0);}return pts(b)-pts(a);});
     return c[0];
@@ -7274,6 +7291,392 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
     var _opS=window.openProject;
     window.openProject=function(pid){dirty=false;try{sgCerrar(true);}catch(x){}st.ref=hoy();st.q='';st.resp='';st.esp='';st.bq='';st.btipo='';st.bmes='';return _opS.apply(this,arguments);};
   }
+})();
+</script>
+
+<style>
+/* ══ PROVEEDORES v2 (directorio del estudio) ══ */
+#page-proveedores .pv-eyebrow{font-size:11px;letter-spacing:.14em;font-weight:700;color:var(--ac);text-transform:uppercase;margin-bottom:6px;}
+#page-proveedores .pv-h1{font-family:'Fraunces',serif;font-weight:400;font-size:34px;line-height:1.1;margin:0 0 6px;color:var(--tx);}
+#page-proveedores .pv-sub{font-size:13px;color:var(--tx2);margin:0;}
+.pv-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:18px;}
+.pv-head .btn{height:36px;border-radius:8px;}
+.pv-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px;}
+.pv-kpi{background:var(--surface);border:1px solid var(--bd);border-radius:12px;padding:14px 16px;cursor:pointer;transition:border-color .12s;}
+.pv-kpi:hover{border-color:var(--bd2);}
+.pv-kpi .l{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);margin-bottom:8px;}
+.pv-kpi .v{font-family:'Fraunces',serif;font-size:26px;line-height:1;color:var(--tx);}
+.pv-kpi .s{font-size:11.5px;color:var(--tx2);margin-top:4px;}
+.pv-tb{display:flex;gap:8px;align-items:center;margin-bottom:18px;flex-wrap:wrap;}
+.pv-search{flex:1;min-width:200px;position:relative;}
+.pv-search input{width:100%;height:38px;border:1px solid var(--bd);border-radius:10px;background:var(--surface);padding:0 12px 0 34px;font-size:13px;color:var(--tx);font-family:inherit;}
+.pv-search input:focus{outline:none;border-color:var(--ac);}
+.pv-search span{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--tx3);font-size:13px;}
+.pv-tb select{height:38px;border:1px solid var(--bd);border-radius:10px;background:var(--surface);padding:0 10px;font-size:13px;color:var(--tx);font-family:inherit;}
+.pv-vt{display:flex;border:1px solid var(--bd);border-radius:10px;overflow:hidden;background:var(--surface);}
+.pv-vt button{width:38px;height:36px;border:0;background:transparent;cursor:pointer;color:var(--tx2);font-size:14px;}
+.pv-vt button.on{background:var(--s2);color:var(--tx);}
+.pv-sec{display:flex;justify-content:space-between;align-items:baseline;margin:4px 0 10px;gap:10px;flex-wrap:wrap;}
+.pv-sec h2{font-family:'Fraunces',serif;font-weight:400;font-size:21px;margin:0;color:var(--tx);}
+.pv-sec .r{font-size:12px;color:var(--tx3);}
+.pv-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:22px;}
+.pv-chip{border:1px solid var(--bd);background:var(--surface);border-radius:99px;padding:6px 13px;font-size:12.5px;cursor:pointer;color:var(--tx);font-family:inherit;}
+.pv-chip i{font-style:normal;color:var(--tx3);margin-left:5px;font-size:11.5px;}
+.pv-chip.on{background:var(--ac);border-color:var(--ac);color:#fff;}
+.pv-chip.on i{color:rgba(255,255,255,.75);}
+.pv-thead{display:grid;grid-template-columns:minmax(0,2.3fr) minmax(0,1.3fr) minmax(0,1.4fr) minmax(0,1.3fr) 84px;gap:12px;padding:0 16px 8px;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);}
+.pv-row{display:grid;grid-template-columns:minmax(0,2.3fr) minmax(0,1.3fr) minmax(0,1.4fr) minmax(0,1.3fr) 84px;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--bd);border-radius:12px;padding:12px 16px;margin-bottom:8px;cursor:pointer;transition:box-shadow .12s,border-color .12s;}
+.pv-row:hover{box-shadow:var(--sh2);border-color:var(--bd2);}
+.pv-who{display:flex;gap:12px;align-items:center;min-width:0;}
+.pv-av{width:40px;height:40px;border-radius:10px;background:var(--s2);color:var(--ac);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;letter-spacing:.02em;}
+.pv-nm{font-weight:600;font-size:13.5px;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pv-sp{font-size:11.5px;color:var(--tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+.pv-cat{display:inline-block;background:var(--s2);border-radius:99px;padding:4px 11px;font-size:11.5px;color:var(--tx2);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
+.pv-cat.none{background:transparent;border:1px dashed var(--bd2);color:var(--tx3);}
+.pv-ct,.pv-loc{font-size:12px;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pv-ct a{color:var(--tx2);text-decoration:none;}
+.pv-ct a:hover{color:var(--ac);text-decoration:underline;}
+.pv-mute{color:var(--tx3);font-style:italic;}
+.pv-act{display:flex;gap:6px;justify-content:flex-end;position:relative;}
+.pv-ib{width:34px;height:34px;border:1px solid var(--bd);border-radius:9px;background:var(--surface);cursor:pointer;color:var(--tx3);font-size:14px;line-height:1;}
+.pv-ib:hover{border-color:var(--bd2);color:var(--tx);}
+.pv-ib.fav{color:#c9922e;border-color:#e8cf9c;background:#fdf6e7;}
+.pv-menu{position:absolute;right:0;top:38px;background:var(--surface);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh2);z-index:30;min-width:150px;padding:4px;display:none;}
+.pv-menu.open{display:block;}
+.pv-menu button{display:block;width:100%;text-align:left;border:0;background:transparent;padding:8px 10px;font-size:12.5px;border-radius:7px;cursor:pointer;color:var(--tx);font-family:inherit;}
+.pv-menu button:hover{background:var(--s2);}
+.pv-menu button.del{color:#b4483c;}
+.pv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;}
+.pv-card{background:var(--surface);border:1px solid var(--bd);border-radius:12px;padding:14px;cursor:pointer;display:flex;flex-direction:column;gap:10px;transition:box-shadow .12s;}
+.pv-card:hover{box-shadow:var(--sh2);}
+.pv-card .pv-ct,.pv-card .pv-loc{white-space:normal;}
+.pv-empty{text-align:center;padding:40px 16px;color:var(--tx3);background:var(--surface);border:1px dashed var(--bd2);border-radius:12px;}
+.pv-dup{background:#fdf6e7;border:1px solid #ecd9ac;border-radius:10px;padding:10px 14px;font-size:12.5px;color:#7a5a1c;margin-bottom:14px;display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;}
+.pv-dup button{border:1px solid #d9bd7a;background:#fff;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;color:#7a5a1c;font-family:inherit;}
+#pvPanel{position:fixed;top:0;right:0;width:460px;max-width:100vw;height:100vh;background:var(--surface);border-left:1px solid var(--bd);box-shadow:var(--sh2);z-index:950;transform:translateX(105%);transition:transform .22s ease;display:flex;flex-direction:column;}
+#pvPanel.open{transform:translateX(0);}
+#pvPBody .pv-fg{margin-bottom:11px;}
+#pvPBody .pv-fg label{display:block;font-size:11px;color:var(--tx3);margin-bottom:4px;letter-spacing:.03em;}
+#pvPBody .pv-fg input,#pvPBody .pv-fg select,#pvPBody .pv-fg textarea{width:100%;border:1px solid var(--bd2);border-radius:8px;background:var(--surface);color:var(--tx);padding:7px 10px;font-size:13px;font-family:inherit;box-sizing:border-box;}
+#pvPBody .pv-fg textarea{min-height:70px;resize:vertical;}
+#pvPBody .pv-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.pv-quick{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px;}
+.pv-quick a{border:1px solid var(--bd);border-radius:99px;padding:6px 12px;font-size:12px;text-decoration:none;color:var(--tx);background:var(--s2);}
+.pv-quick a:hover{border-color:var(--ac);}
+.pv-used{border-top:1px solid var(--bd);margin-top:14px;padding-top:12px;font-size:12.5px;}
+.pv-used h4{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);margin:0 0 8px;font-weight:600;}
+.pv-used li{margin-bottom:4px;color:var(--tx2);}
+.pv-dg{border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin-bottom:10px;}
+.pv-dg label{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;padding:4px 0;cursor:pointer;}
+.pv-dg .meta{color:var(--tx3);font-size:11.5px;}
+@media (max-width:900px){
+  .pv-kpis{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .pv-thead{display:none;}
+  .pv-row{grid-template-columns:minmax(0,1fr) 84px;}
+  .pv-row .pv-c2,.pv-row .pv-c3,.pv-row .pv-c4{display:none;}
+  #pvPanel{width:100vw;}
+}
+</style>
+<div id="pvPanel"><div class="fp-head"><div class="fp-lbl"><span id="pvPLbl">Proveedor</span><button class="fp-close" onclick="pvCerrar()">✕</button></div><div class="fp-title" id="pvPTitle"></div></div><div class="fp-body" id="pvPBody"></div></div>
+<script>
+// ══════════════════════════════════════════════════
+// PROVEEDORES v2: directorio con rubros, favoritos, ficha lateral y union de duplicados.
+// Campos nuevos por proveedor: category (rubro), specialty, city, favorite ('1' o '').
+// ══════════════════════════════════════════════════
+(function(){
+  if(typeof ldSup!=='function')return;
+  var SBR_URL='https://iucjhzsnlotojvpyjcfo.supabase.co';
+  var SBR_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1Y2poenNubG90b2p2cHlqY2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMTIzMTYsImV4cCI6MjA5NDY4ODMxNn0.PKLG4LS1EjgfHE0GXAnyxWuEUhlZy5s7TWxe8luvuik';
+  var RUBROS=['Muebles y carpintería','Terminaciones','Iluminación','Construcción y obra','Textiles y decoración','Equipamiento','Otros'];
+  var st={q:'',cat:'',est:'',vista:'lista',menu:null};
+  try{st.vista=localStorage.getItem('eb_prov_vista')||'lista';}catch(x){}
+  var usos={}; // nombre normalizado -> [{pid,proj,item}]
+  var panelId=null, dirty=false;
+
+  function e(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function norm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');}
+  function iniciales(n){var p=String(n||'').replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ0-9 ]/g,' ').trim().split(/\s+/).filter(Boolean);if(!p.length)return '?';if(p.length===1)return p[0].substring(0,p[0].length>2?1:2).toUpperCase();return (p[0][0]+p[1][0]).toUpperCase();}
+  function esFav(s){return s.favorite==='1'||s.favorite===true||s.favorite==='true';}
+  function sinContacto(s){return !((s.phone||'').trim()||(s.email||'').trim()||(s.web||'').trim());}
+  function telLimpio(t){return String(t||'').replace(/[^\d+]/g,'');}
+  function webUrl(w){w=String(w||'').trim();if(!w)return '';return /^https?:\/\//i.test(w)?w:'https://'+w;}
+  function webCorta(w){return String(w||'').replace(/^https?:\/\//i,'').replace(/^www\./i,'').replace(/\/$/,'');}
+  function ubic(s){var c=(s.city||'').trim(), a=(s.addr||'').trim();if(c&&a&&a.toLowerCase().indexOf(c.toLowerCase())<0)return c+' · '+a;return a||c;}
+
+  // ── Uso en proyectos (de la tabla items en la nube, para ver todos los proyectos) ──
+  function nombreProyecto(pid){try{var p=(projects||[]).find(function(x){return x.id===pid;});return p?p.name:pid;}catch(x){return pid;}}
+  function cargarUsos(cb){
+    fetch(SBR_URL+'/rest/v1/items?select=project_id,supplier,item&supplier=neq.',{headers:{'apikey':SBR_KEY,'Authorization':'Bearer '+SBR_KEY}})
+    .then(function(r){return r.ok?r.json():[];})
+    .then(function(rows){
+      var u={};
+      (rows||[]).forEach(function(r){var k=norm(r.supplier);if(!k)return;(u[k]=u[k]||[]).push({pid:r.project_id,item:r.item||''});});
+      usos=u; if(cb)cb();
+    }).catch(function(){if(cb)cb();});
+  }
+  function usosDe(s){
+    var ks=[norm(s.name)].concat((String(s.notes||'').match(/También escrito: [^·]+/g)||[]).map(function(a){return norm(a.replace('También escrito: ',''));}));
+    var r=[]; ks.forEach(function(k){r=r.concat(usos[k]||[]);});
+    try{(items||[]).forEach(function(it){if(ks.indexOf(norm(it.supplier))>=0&&!r.some(function(x){return x.pid===currentProjId&&x.item===it.item;}))r.push({pid:currentProjId,item:it.item||''});});}catch(x){}
+    return r;
+  }
+
+  // ── Posibles duplicados: mismo nombre sin tildes/espacios, o uno contiene al otro, o 1-2 letras de diferencia ──
+  function lev(a,b){if(Math.abs(a.length-b.length)>2)return 9;var d=[],i,j;for(i=0;i<=a.length;i++){d[i]=[i];}for(j=0;j<=b.length;j++)d[0][j]=j;for(i=1;i<=a.length;i++)for(j=1;j<=b.length;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return d[a.length][b.length];}
+  function claveBase(n){var s=String(n||'').split(/\s[-–·|]\s/)[0];return norm(s.replace(/^(constructora|constructura|empresas?|tienda)\s+/i,''));}
+  // Primera palabra distintiva (ej. "Mk" y "MK Revestimientos"); se ignoran palabras comunes
+  var COMUNES=['la','el','los','las','de','del','the','casa','estudio','tienda','empresa','empresas','constructora','constructura','instalador','muebles','deco','home','diseno'];
+  function primera(n){var w=norm(String(n||'').trim().split(/[\s\-–·|]+/)[0]);return (w.length>=2&&COMUNES.indexOf(w)<0)?w:'';}
+  function gruposDuplicados(){
+    var sups=ldSup(), padre={};
+    function raiz(i){while(padre[i]!==undefined&&padre[i]!==i)i=padre[i];return i;}
+    sups.forEach(function(s,i){padre[i]=i;});
+    var ign={}; try{ign=JSON.parse(localStorage.getItem('eb_prov_nodup')||'{}');}catch(x){}
+    for(var i=0;i<sups.length;i++)for(var j=i+1;j<sups.length;j++){
+      var a=claveBase(sups[i].name), b=claveBase(sups[j].name); if(!a||!b)continue;
+      var par=[sups[i].id,sups[j].id].sort().join('|'); if(ign[par])continue;
+      var corto=a.length<b.length?a:b, largo=a.length<b.length?b:a;
+      var pa=primera(sups[i].name), pb=primera(sups[j].name);
+      var igual=a===b||(corto.length>=4&&largo.indexOf(corto)===0)||(corto.length>=6&&lev(a,b)<=2)||(pa&&pa===pb);
+      if(igual){var ri=raiz(i),rj=raiz(j);if(ri!==rj)padre[rj]=ri;}
+    }
+    var g={}; sups.forEach(function(s,i){var r=raiz(i);(g[r]=g[r]||[]).push(s);});
+    return Object.keys(g).map(function(k){return g[k];}).filter(function(x){return x.length>1;});
+  }
+
+  // ── Pagina ──
+  function asegurarPagina(){
+    var pg=document.getElementById('page-proveedores'); if(!pg||pg.getAttribute('data-v2'))return pg;
+    pg.setAttribute('data-v2','1');
+    pg.innerHTML='<div class="pv-head"><div><div class="pv-eyebrow">Directorio del estudio</div><h1 class="pv-h1">Proveedores</h1><p class="pv-sub">Tu red de confianza, organizada por rubro.</p></div>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn" onclick="importSuppliersFromItems()" title="Agrega los proveedores que aparecen en el listado del proyecto abierto">↥ Importar del listado</button><button class="btn prim" onclick="addSupplier()">+ Agregar proveedor</button></div></div>'
+      +'<div class="pv-kpis" id="pvKpis"></div>'
+      +'<div id="pvDup"></div>'
+      +'<div class="pv-tb"><div class="pv-search"><span>⌕</span><input type="text" id="pvQ" placeholder="Buscar por nombre, especialidad, ubicación o contacto…" oninput="pvBuscar(this.value)"></div>'
+      +'<select id="pvEst" onchange="pvFiltro(\'est\',this.value)"><option value="">Todos los estados</option><option value="fav">★ Favoritos</option><option value="uso">Usados en proyectos</option><option value="sin">Sin datos de contacto</option><option value="norubro">Sin rubro</option></select>'
+      +'<div class="pv-vt"><button id="pvVL" title="Lista" onclick="pvVista(\'lista\')">☰</button><button id="pvVG" title="Tarjetas" onclick="pvVista(\'grid\')">▦</button></div></div>'
+      +'<div class="pv-sec"><h2>Explorar por rubro</h2><span class="r">Selecciona un rubro para filtrar</span></div>'
+      +'<div class="pv-chips" id="pvChips"></div>'
+      +'<div class="pv-sec"><h2 id="pvTit">Todos los proveedores</h2><span class="r" id="pvCount"></span></div>'
+      +'<div id="pvList"></div>';
+    // compatibilidad con codigo antiguo que busca estos elementos
+    ['supKPI','supList','fSupQ'].forEach(function(id){var d=document.createElement(id==='fSupQ'?'input':'div');d.id=id;d.style.display='none';pg.appendChild(d);});
+    return pg;
+  }
+
+  function filtrar(sups){
+    var q=norm(st.q);
+    return sups.filter(function(s){
+      if(st.cat){if(st.cat==='__sin'){if((s.category||'').trim())return false;}else if((s.category||'')!==st.cat)return false;}
+      if(st.est==='fav'&&!esFav(s))return false;
+      if(st.est==='uso'&&!usosDe(s).length)return false;
+      if(st.est==='sin'&&!sinContacto(s))return false;
+      if(st.est==='norubro'&&(s.category||'').trim())return false;
+      if(q){var h=norm([s.name,s.specialty,s.category,s.city,s.addr,s.contact,s.email,s.phone,s.web,s.notes].join(' '));if(h.indexOf(q)<0)return false;}
+      return true;
+    }).sort(function(a,b){var fa=esFav(a)?0:1, fb=esFav(b)?0:1;if(fa!==fb)return fa-fb;return String(a.name||'').localeCompare(String(b.name||''),'es',{sensitivity:'base'});});
+  }
+
+  function contactoHTML(s,completo){
+    var out=[];
+    if((s.phone||'').trim())out.push('<a href="tel:'+e(telLimpio(s.phone))+'" onclick="event.stopPropagation()">☎ '+e(s.phone)+'</a>');
+    if((s.email||'').trim()&&(completo||!out.length))out.push('<a href="mailto:'+e(s.email)+'" onclick="event.stopPropagation()">✉ '+e(s.email)+'</a>');
+    if((s.web||'').trim()&&(completo||!out.length))out.push('<a href="'+e(webUrl(s.web))+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">↗ '+e(webCorta(s.web))+'</a>');
+    return out.length?out.join(completo?'<br>':''):'<span class="pv-mute">Sin contacto</span>';
+  }
+  function acciones(s){
+    return '<div class="pv-act" onclick="event.stopPropagation()"><button class="pv-ib'+(esFav(s)?' fav':'')+'" title="'+(esFav(s)?'Quitar de favoritos':'Marcar como favorito')+'" onclick="pvFav(\''+e(s.id)+'\')">'+(esFav(s)?'★':'☆')+'</button>'
+      +'<button class="pv-ib" title="Más opciones" onclick="pvMenu(\''+e(s.id)+'\',this)">···</button>'
+      +'<div class="pv-menu'+(st.menu===s.id?' open':'')+'"><button onclick="pvAbrir(\''+e(s.id)+'\',true)">✏ Editar</button><button onclick="pvFav(\''+e(s.id)+'\')">'+(esFav(s)?'☆ Quitar favorito':'★ Favorito')+'</button><button class="del" onclick="pvEliminar(\''+e(s.id)+'\')">🗑 Eliminar</button></div></div>';
+  }
+  function catHTML(s){return (s.category||'').trim()?'<span class="pv-cat">'+e(s.category)+'</span>':'<span class="pv-cat none">Sin rubro</span>';}
+
+  function pintar(){
+    asegurarPagina();
+    var todos=ldSup();
+    var rub={}; todos.forEach(function(s){var c=(s.category||'').trim();if(c)rub[c]=(rub[c]||0)+1;});
+    var nUso=todos.filter(function(s){return usosDe(s).length;}).length;
+    var nFav=todos.filter(esFav).length, nSin=todos.filter(sinContacto).length;
+    document.getElementById('pvKpis').innerHTML=
+       kpi('Proveedores',todos.length,'en tu directorio','')
+      +kpi('Rubros activos',Object.keys(rub).length,'rubros con contactos','')
+      +kpi('En tus proyectos',nUso,'proveedores usados en listados','uso')
+      +kpi('Favoritos',nFav,nSin?nSin+' sin datos de contacto':'contactos frecuentes','fav');
+    // chips
+    var nSinR=todos.filter(function(s){return !(s.category||'').trim();}).length;
+    var chips='<button class="pv-chip'+(!st.cat?' on':'')+'" onclick="pvFiltro(\'cat\',\'\')">Todos<i>'+todos.length+'</i></button>';
+    RUBROS.concat(Object.keys(rub).filter(function(c){return RUBROS.indexOf(c)<0;})).forEach(function(c){
+      if(!rub[c])return;
+      chips+='<button class="pv-chip'+(st.cat===c?' on':'')+'" onclick="pvFiltro(\'cat\',\''+e(c).replace(/'/g,"\\'")+'\')">'+e(c)+'<i>'+(rub[c]||0)+'</i></button>';
+    });
+    if(nSinR)chips+='<button class="pv-chip'+(st.cat==='__sin'?' on':'')+'" onclick="pvFiltro(\'cat\',\'__sin\')">Sin rubro<i>'+nSinR+'</i></button>';
+    document.getElementById('pvChips').innerHTML=chips;
+    // duplicados
+    var dups=gruposDuplicados();
+    document.getElementById('pvDup').innerHTML=dups.length?'<div class="pv-dup"><span>Hay <b>'+dups.length+'</b> proveedor'+(dups.length===1?'':'es')+' que parece'+(dups.length===1?'':'n')+' estar repetido'+(dups.length===1?'':'s')+' con otro nombre (por ejemplo "'+e(dups[0][0].name)+'" y "'+e(dups[0][1].name)+'").</span><button onclick="pvDuplicados()">Revisar y unir</button></div>':'';
+    // lista
+    var lista=filtrar(todos);
+    var est=document.getElementById('pvEst'); if(est)est.value=st.est;
+    document.getElementById('pvTit').textContent=st.cat?(st.cat==='__sin'?'Sin rubro':st.cat):(st.est==='fav'?'Favoritos':'Todos los proveedores');
+    document.getElementById('pvCount').innerHTML='Mostrando <b>'+lista.length+'</b> de '+todos.length;
+    document.getElementById('pvVL').className=st.vista==='lista'?'on':''; document.getElementById('pvVG').className=st.vista==='grid'?'on':'';
+    var box=document.getElementById('pvList');
+    if(!todos.length){box.innerHTML='<div class="pv-empty"><div style="font-size:26px;margin-bottom:8px;">🏪</div>Aún no hay proveedores. Agrégalos o impórtalos desde el listado.</div>';return;}
+    if(!lista.length){box.innerHTML='<div class="pv-empty">Ningún proveedor coincide con el filtro. <a href="#" onclick="pvLimpiar();return false;">Ver todos</a></div>';return;}
+    if(st.vista==='grid'){
+      box.innerHTML='<div class="pv-grid">'+lista.map(function(s){
+        return '<div class="pv-card" onclick="pvAbrir(\''+e(s.id)+'\')"><div style="display:flex;gap:10px;align-items:center;justify-content:space-between;"><div class="pv-who"><div class="pv-av">'+e(iniciales(s.name))+'</div><div style="min-width:0;"><div class="pv-nm">'+e(s.name)+'</div><div class="pv-sp">'+e(s.specialty||'')+'</div></div></div>'+acciones(s)+'</div>'
+          +'<div>'+catHTML(s)+'</div><div class="pv-ct">'+contactoHTML(s,false)+'</div>'+(ubic(s)?'<div class="pv-loc">⌖ '+e(ubic(s))+'</div>':'')+'</div>';
+      }).join('')+'</div>';
+    }else{
+      box.innerHTML='<div class="pv-thead"><div>Proveedor</div><div>Rubro</div><div>Contacto</div><div>Ubicación</div><div></div></div>'+lista.map(function(s){
+        var u=usosDe(s).length;
+        return '<div class="pv-row" onclick="pvAbrir(\''+e(s.id)+'\')"><div class="pv-who"><div class="pv-av">'+e(iniciales(s.name))+'</div><div style="min-width:0;"><div class="pv-nm">'+e(s.name)+'</div><div class="pv-sp">'+[e(s.specialty||(s.contact?'Contacto: '+s.contact:'')),u?u+' producto'+(u===1?'':'s')+' en listados':''].filter(Boolean).join(' · ')+'</div></div></div>'
+          +'<div class="pv-c2">'+catHTML(s)+'</div><div class="pv-ct pv-c3">'+contactoHTML(s,false)+'</div><div class="pv-loc pv-c4">'+(ubic(s)?'⌖ '+e(ubic(s)):'<span class="pv-mute">—</span>')+'</div>'+acciones(s)+'</div>';
+      }).join('');
+    }
+  }
+  function kpi(l,v,s,est){return '<div class="pv-kpi"'+(est?' onclick="pvFiltro(\'est\',\''+est+'\')" title="Filtrar"':'')+'><div class="l">'+l+'</div><div class="v">'+v+'</div><div class="s">'+s+'</div></div>';}
+
+  window.rSup=function(){try{pintar();}catch(err){try{console.error('[EB] Proveedores',err);}catch(x){}}};
+  var _qt=null;
+  window.pvBuscar=function(v){st.q=v;clearTimeout(_qt);_qt=setTimeout(pintar,200);};
+  window.pvFiltro=function(k,v){st[k]=(st[k]===v&&k==='cat'&&v)?'':v;st.menu=null;pintar();};
+  window.pvLimpiar=function(){st.q='';st.cat='';st.est='';var q=document.getElementById('pvQ');if(q)q.value='';pintar();};
+  window.pvVista=function(v){st.vista=v;try{localStorage.setItem('eb_prov_vista',v);}catch(x){}pintar();};
+  window.pvMenu=function(id){st.menu=st.menu===id?null:id;pintar();};
+  document.addEventListener('click',function(ev){if(st.menu&&!(ev.target.closest&&ev.target.closest('.pv-act'))){st.menu=null;var m=document.querySelector('.pv-menu.open');if(m)m.classList.remove('open');}});
+  function guardarUno(id,cambios){var sups=ldSup(),s=sups.find(function(x){return x.id===id;});if(!s)return null;Object.keys(cambios).forEach(function(k){s[k]=cambios[k];});svSup(sups);try{updateSupplierDatalist();}catch(x){}return s;}
+  window.pvFav=function(id){var s=ldSup().find(function(x){return x.id===id;});if(!s)return;st.menu=null;guardarUno(id,{favorite:esFav(s)?'':'1'});pintar();if(panelId===id&&!dirty)pvAbrir(id);};
+  window.pvEliminar=function(id){
+    var s=ldSup().find(function(x){return x.id===id;}); if(!s)return; st.menu=null;
+    var u=usosDe(s).length;
+    if(!confirm('¿Eliminar a "'+s.name+'" del directorio?'+(u?'\n\nAparece en '+u+' producto'+(u===1?'':'s')+' de tus listados; esos productos no cambian, solo se borra su ficha de contacto.':'')))return;
+    svSup(ldSup().filter(function(x){return x.id!==id;}));
+    if(panelId===id)pvCerrar(true);
+    pintar(); tst('Proveedor eliminado');
+  };
+  // Agregar: abre la ficha en blanco en el panel
+  window.addSupplier=function(){
+    var sups=ldSup(), s={id:'s'+Date.now(),name:'',phone:'',email:'',addr:'',web:'',notes:'',contact:'',category:st.cat&&st.cat!=='__sin'?st.cat:'',specialty:'',city:'',favorite:''};
+    pvAbrir(s.id,true,s);
+  };
+
+  // ── Panel lateral ──
+  function snap(){return [].map.call(document.querySelectorAll('#pvPBody [data-f]'),function(el){return el.value;}).join('|');}
+  var _snap='';
+  window.pvAbrir=function(id,editar,nuevo){
+    if(panelId&&panelId!==id&&dirty&&!confirm('Tienes cambios sin guardar. ¿Descartarlos?'))return;
+    st.menu=null;
+    var s=nuevo||ldSup().find(function(x){return x.id===id;}); if(!s)return;
+    panelId=id; dirty=false;
+    document.getElementById('pvPLbl').textContent=nuevo?'Nuevo proveedor':(editar?'Editar proveedor':'Proveedor');
+    document.getElementById('pvPTitle').textContent=nuevo?'Agregar al directorio':s.name;
+    var h='';
+    if(!editar){
+      var q=[];
+      if((s.phone||'').trim()){q.push('<a href="tel:'+e(telLimpio(s.phone))+'">☎ Llamar</a>');var w=telLimpio(s.phone).replace(/^\+/,'');if(/^569\d{8}$/.test(w)||/^9\d{8}$/.test(w))q.push('<a href="https://wa.me/'+(w.length===9?'56'+w:w)+'" target="_blank" rel="noopener">WhatsApp</a>');}
+      if((s.email||'').trim())q.push('<a href="mailto:'+e(s.email)+'">✉ Correo</a>');
+      if((s.web||'').trim())q.push('<a href="'+e(webUrl(s.web))+'" target="_blank" rel="noopener">↗ Sitio web</a>');
+      h+='<div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;"><div class="pv-av" style="width:48px;height:48px;font-size:15px;">'+e(iniciales(s.name))+'</div><div><div>'+catHTML(s)+(esFav(s)?' <span style="color:#c9922e;">★ Favorito</span>':'')+'</div><div class="pv-sp" style="margin-top:4px;white-space:normal;">'+e(s.specialty||'')+'</div></div></div>';
+      if(q.length)h+='<div class="pv-quick">'+q.join('')+'</div>';
+      function fila(l,v){return v?'<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--bd);font-size:12.5px;"><div style="width:96px;color:var(--tx3);flex-shrink:0;">'+l+'</div><div style="flex:1;min-width:0;word-break:break-word;">'+v+'</div></div>':'';}
+      h+=fila('Contacto',e(s.contact))+fila('Teléfono',e(s.phone))+fila('Correo',e(s.email))+fila('Sitio web',s.web?'<a href="'+e(webUrl(s.web))+'" target="_blank" rel="noopener">'+e(webCorta(s.web))+'</a>':'')+fila('Ciudad',e(s.city))+fila('Dirección',e(s.addr))+fila('Notas',e(s.notes).replace(/\n/g,'<br>'));
+      if(sinContacto(s))h+='<div style="font-size:12px;color:var(--tx3);margin-top:10px;">Este proveedor no tiene teléfono, correo ni sitio web.</div>';
+      var u=usosDe(s);
+      if(u.length){
+        var porP={}; u.forEach(function(x){(porP[x.pid]=porP[x.pid]||[]).push(x.item);});
+        h+='<div class="pv-used"><h4>En tus proyectos</h4>'+Object.keys(porP).map(function(pid){return '<div style="margin-bottom:8px;"><b>'+e(nombreProyecto(pid))+'</b><ul style="margin:4px 0 0 18px;padding:0;">'+porP[pid].slice(0,8).map(function(i){return '<li>'+e(i)+'</li>';}).join('')+(porP[pid].length>8?'<li>y '+(porP[pid].length-8)+' más…</li>':'')+'</ul></div>';}).join('')+'</div>';
+      }
+      h+='<div style="display:flex;gap:8px;margin-top:16px;"><button class="btn prim" onclick="pvAbrir(\''+e(s.id)+'\',true)">✏ Editar</button><button class="btn" onclick="pvFav(\''+e(s.id)+'\')">'+(esFav(s)?'☆ Quitar favorito':'★ Favorito')+'</button><button class="btn" style="margin-left:auto;color:#b4483c;" onclick="pvEliminar(\''+e(s.id)+'\')">🗑</button></div>';
+    }else{
+      var opts='<option value="">— Sin rubro —</option>'+RUBROS.map(function(r){return '<option'+(s.category===r?' selected':'')+'>'+e(r)+'</option>';}).join('')+((s.category&&RUBROS.indexOf(s.category)<0)?'<option selected>'+e(s.category)+'</option>':'');
+      function f(l,k,ph,tipo){return '<div class="pv-fg"><label>'+l+'</label><input data-f="'+k+'" type="'+(tipo||'text')+'" value="'+e(s[k]||'')+'" placeholder="'+e(ph||'')+'"></div>';}
+      h+=f('Nombre *','name','Ej: MK Revestimientos')
+        +'<div class="pv-2"><div class="pv-fg"><label>Rubro</label><select data-f="category">'+opts+'</select></div>'+f('Especialidad','specialty','Ej: Pisos · Muros')+'</div>'
+        +f('Persona de contacto / vendedor','contact','Nombre')
+        +'<div class="pv-2">'+f('Teléfono','phone','+56 9 …','tel')+f('Correo','email','contacto@…','email')+'</div>'
+        +'<div class="pv-2">'+f('Ciudad','city','Ej: Talca')+f('Sitio web o Instagram','web','www… o instagram.com/…')+'</div>'
+        +f('Dirección','addr','Calle, número, comuna')
+        +'<div class="pv-fg"><label>Notas</label><textarea data-f="notes" placeholder="Condiciones, plazos, descuentos, horarios…">'+e(s.notes||'')+'</textarea></div>'
+        +'<div style="display:flex;gap:8px;margin-top:6px;"><button class="btn prim" onclick="pvGuardar()">Guardar</button><button class="btn" onclick="'+(nuevo?'pvCerrar()':'pvAbrir(\''+e(s.id)+'\')')+'">Cancelar</button></div>';
+    }
+    var b=document.getElementById('pvPBody'); b.innerHTML=h; b.setAttribute('data-nuevo',nuevo?'1':'');
+    _snap=snap(); b.oninput=b.onchange=function(){dirty=(snap()!==_snap);};
+    document.getElementById('pvPanel').classList.add('open');
+    if(editar){var n=b.querySelector('[data-f=name]');if(n&&!n.value)setTimeout(function(){n.focus();},250);}
+  };
+  window.pvGuardar=function(){
+    var b=document.getElementById('pvPBody'), datos={};
+    [].forEach.call(b.querySelectorAll('[data-f]'),function(el){datos[el.getAttribute('data-f')]=el.value.trim();});
+    if(!datos.name){alert('Escribe el nombre del proveedor.');return;}
+    var sups=ldSup(), clave=datos.name.toUpperCase();
+    var otro=sups.find(function(x){return x.id!==panelId&&(x.name||'').trim().toUpperCase()===clave;});
+    if(otro&&!confirm('Ya existe un proveedor llamado "'+otro.name+'". ¿Guardar igual?'))return;
+    if(b.getAttribute('data-nuevo')){
+      sups.unshift(Object.assign({id:panelId,phone:'',email:'',addr:'',web:'',notes:'',contact:'',category:'',specialty:'',city:'',favorite:''},datos));
+      svSup(sups);
+    }else guardarUno(panelId,datos);
+    try{updateSupplierDatalist();}catch(x){}
+    dirty=false; tst('✓ Proveedor guardado'); pintar(); pvAbrir(panelId);
+  };
+  window.pvCerrar=function(forzar){
+    var p=document.getElementById('pvPanel'); if(!p||!p.classList.contains('open'))return;
+    if(!forzar&&dirty&&!confirm('Tienes cambios sin guardar. ¿Descartarlos y cerrar?'))return;
+    p.classList.remove('open'); panelId=null; dirty=false;
+  };
+  document.addEventListener('keydown',function(ev){if(ev.key==='Escape'){var p=document.getElementById('pvPanel');if(p&&p.classList.contains('open'))pvCerrar();}});
+
+  // ── Unir duplicados ──
+  window.pvDuplicados=function(){
+    var g=gruposDuplicados(); if(!g.length){tst('No hay duplicados');return;}
+    panelId='__dup'; dirty=false;
+    document.getElementById('pvPLbl').textContent='Proveedores repetidos';
+    document.getElementById('pvPTitle').textContent=g.length+' grupo'+(g.length===1?'':'s')+' para revisar';
+    var h='<p style="font-size:12.5px;color:var(--tx2);margin:0 0 12px;">Elige con qué nombre se queda cada uno. Los datos de contacto de los demás se suman al elegido (no se pierde nada) y los repetidos se quitan del directorio. Los productos de tus listados no cambian.</p>';
+    g.forEach(function(gr,gi){
+      // por defecto se queda el nombre mas usado en los listados; si empatan, el con mas datos
+      var mejor=gr.slice().sort(function(a,b){return (usosDe(b).length-usosDe(a).length)||(llenos(b)-llenos(a));})[0];
+      h+='<div class="pv-dg" data-g="'+gi+'">'+gr.map(function(s){return '<label><input type="radio" name="pvdg'+gi+'" value="'+e(s.id)+'"'+(s===mejor?' checked':'')+'><span><b>'+e(s.name)+'</b><br><span class="meta">'+e([s.specialty||s.notes,s.phone,s.email,webCorta(s.web)].filter(Boolean).join(' · ')||'Sin datos')+'</span></span></label>';}).join('')
+        +'<div style="display:flex;gap:6px;margin-top:6px;"><button class="btn prim" style="height:28px;font-size:12px;" onclick="pvUnir('+gi+')">Unir</button><button class="btn" style="height:28px;font-size:12px;" onclick="pvNoDup('+gi+')">No son el mismo</button></div></div>';
+    });
+    document.getElementById('pvPBody').innerHTML=h; document.getElementById('pvPanel').classList.add('open');
+    window.__pvGrupos=g;
+  };
+  function llenos(s){return ['phone','email','web','addr','contact','notes','category','specialty','city'].filter(function(k){return (s[k]||'').trim();}).length;}
+  window.pvUnir=function(gi){
+    var gr=(window.__pvGrupos||[])[gi]; if(!gr)return;
+    var sel=document.querySelector('input[name=pvdg'+gi+']:checked'); if(!sel)return;
+    var sups=ldSup(), keep=sups.find(function(x){return x.id===sel.value;}); if(!keep)return;
+    var otros=gr.filter(function(s){return s.id!==keep.id;}).map(function(s){return sups.find(function(x){return x.id===s.id;});}).filter(Boolean);
+    otros.forEach(function(o){
+      ['phone','email','web','addr','contact','category','specialty','city'].forEach(function(k){
+        var a=(keep[k]||'').trim(), b=(o[k]||'').trim();
+        if(!a&&b)keep[k]=b; else if(a&&b&&norm(a)!==norm(b)&&['phone','email','contact'].indexOf(k)>=0&&a.indexOf(b)<0)keep[k]=a+' / '+b;
+      });
+      var na=(keep.notes||'').trim(), nb=(o.notes||'').trim(); if(nb&&na.indexOf(nb)<0)keep.notes=na?na+' · '+nb:nb;
+      if(esFav(o))keep.favorite='1';
+      var alias=(o.name||'').trim(); if(alias&&norm(alias)!==norm(keep.name)){keep.notes=(keep.notes?keep.notes+' · ':'')+'También escrito: '+alias;}
+    });
+    var ids=otros.map(function(o){return o.id;});
+    svSup(sups.filter(function(x){return ids.indexOf(x.id)<0;}));
+    tst('✓ Unidos en "'+keep.name+'"');
+    pintar(); if(gruposDuplicados().length)pvDuplicados(); else pvCerrar(true);
+  };
+  window.pvNoDup=function(gi){
+    var gr=(window.__pvGrupos||[])[gi]; if(!gr)return;
+    var ign={}; try{ign=JSON.parse(localStorage.getItem('eb_prov_nodup')||'{}');}catch(x){}
+    for(var i=0;i<gr.length;i++)for(var j=i+1;j<gr.length;j++)ign[[gr[i].id,gr[j].id].sort().join('|')]=1;
+    try{localStorage.setItem('eb_prov_nodup',JSON.stringify(ign));}catch(x){}
+    pintar(); if(gruposDuplicados().length)pvDuplicados(); else pvCerrar(true);
+  };
+
+  // Al entrar a la pagina: pintar y refrescar el uso en proyectos
+  if(typeof window.go==='function'){
+    var _go=window.go;
+    window.go=function(p){var r=_go.apply(this,arguments);if(p==='proveedores'){try{pintar();}catch(x){}cargarUsos(function(){var pg=document.getElementById('page-proveedores');if(pg&&pg.classList.contains('active'))pintar();});}else{try{pvCerrar(true);}catch(x){}}return r;};
+  }
+  setTimeout(function(){cargarUsos();},2500);
 })();
 </script>
 
