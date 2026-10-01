@@ -6737,7 +6737,7 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
     var ac=document.getElementById('sgAcciones'), body=document.getElementById('sgBody');
     if(st.tab==='pend'){ac.innerHTML='<button class="btn prim" onclick="sgAbrirTarea(null)">+ Nueva tarea</button>';body.innerHTML=htmlPend();}
     else if(st.tab==='cal'){ac.innerHTML='<button class="btn prim" onclick="sgAbrirEvento(null)">+ Agregar evento</button>';body.innerHTML=htmlCal();}
-    else{ac.innerHTML='<button class="btn prim" onclick="sgAbrirRegistro(null)">+ Agregar registro</button>';body.innerHTML=htmlBit();}
+    else{ac.innerHTML='<button class="btn" onclick="sgAbrirResumen()" title="Pega el resumen que te hizo Claude y se crean el registro y sus acuerdos">📋 Pegar resumen de reunión</button><button class="btn prim" onclick="sgAbrirRegistro(null)">+ Agregar registro</button>';body.innerHTML=htmlBit();}
   }
 
   // ═══ PENDIENTES ═══
@@ -7041,8 +7041,15 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
       +'<div class="fp-g"><label>Ubicación</label><input type="text" data-f="loc" value="'+e(x.loc||'')+'" placeholder="Dirección o lugar"></div>'
       +'<div class="fp-g"><label>Notas</label><textarea data-f="desc">'+e(d.desc)+'</textarea></div>'
       +'<div class="fp-g"><label>Recordatorio</label><select data-f="rec">'+REC.map(function(t){return '<option'+(t===(x.rec||'Sin recordatorio')?' selected':'')+'>'+t+'</option>';}).join('')+'</select><div class="sg-aviso">Se guarda tu preferencia; la app todavía no envía avisos.</div></div>'
-      +(l?htmlComentarios(l):'')
-      +'<div style="margin-top:14px;"><button class="fp-btn" onclick="sgGuardarEvento()">'+(l?'Guardar cambios':'Agregar evento')+'</button>'
+      +(l?htmlComentarios(l):'');
+    var deGoogle=l&&(l.category==='gcal'||(+l.id>=8e14&&x.gcalId));
+    if(deGoogle){
+      h='<div class="ing-aviso info" style="margin-bottom:12px;">Este evento viene de tu <b>Google Calendar</b>. Para cambiarlo, edítalo allá'+(x.gcalLink?' (<a href="'+e(x.gcalLink)+'" target="_blank" rel="noopener">abrir en Google Calendar</a>)':'')+'; la app se actualiza sola en la siguiente sincronización.</div>'+h;
+      abrirPanel('Evento de Google Calendar',l.title||'Evento',h);
+      [].forEach.call(document.querySelectorAll('#sgPBody [data-f]'),function(el){el.disabled=true;});
+      return;
+    }
+    h+='<div style="margin-top:14px;"><button class="fp-btn" onclick="sgGuardarEvento()">'+(l?'Guardar cambios':'Agregar evento')+'</button>'
       +(l?'<div style="text-align:right;margin-top:10px;"><a href="#" style="font-size:12px;color:var(--dn);" onclick="sgEliminar('+l.id+');return false;">Eliminar evento</a></div>':'')+'</div>';
     abrirPanel(l?'Editar evento':'Agregar evento',l?(l.title||'Evento'):'Nuevo evento',h);
   };
@@ -7168,6 +7175,99 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
     var f=document.getElementById('sgAcFecha'); if(f&&l.dueDate)f.value=l.dueDate;
     var r=document.getElementById('sgAcResp'); if(r&&l.responsible)r.value=l.responsible;
   };
+
+  // ═══ PEGAR RESUMEN DE REUNIÓN (resumen hecho por Claude a partir de la transcripción) ═══
+  var PLANTILLA='Resume esta reunión para la app de Estudio Bianco usando EXACTAMENTE este formato (sin agregar nada antes ni después):\n\n'
+    +'PROYECTO: <nombre del proyecto>\nFECHA: <dd/mm/aaaa>\nTIPO: <Reunión con cliente | Visita de obra | Reunión con proveedor | Observación>\nTÍTULO: <título corto>\nPARTICIPANTES: <nombres>\nRESUMEN:\n<entre 3 y 8 líneas con lo conversado y lo decidido>\nACUERDOS:\n- <acuerdo concreto> | <responsable> | <fecha límite dd/mm/aaaa, o vacío si no se dijo>\n\n'
+    +'Reglas: un acuerdo por línea; solo compromisos concretos (no ideas sueltas); no inventes responsables ni fechas que no se mencionaron. Transcripción:\n';
+  var _resPrev=null;
+  function fechaTexto(s){
+    s=String(s||'').trim(); var m;
+    if((m=/^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s)))return m[1]+'-'+p2(m[2])+'-'+p2(m[3]);
+    if((m=/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/.exec(s))){var a=+m[3];if(a<100)a+=2000;return a+'-'+p2(m[2])+'-'+p2(m[1]);}
+    if((m=/^(\d{1,2})\s+(?:de\s+)?([a-záéíóú]+)(?:\s+(?:de\s+)?(\d{4}))?/i.exec(s))){var mi=MES.indexOf(m[2].slice(0,3).toLowerCase().replace('á','a'));if(mi>=0)return (m[3]||new Date().getFullYear())+'-'+p2(mi+1)+'-'+p2(m[1]);}
+    return '';
+  }
+  function parsearResumen(txt){
+    var r={proyecto:'',fecha:'',tipo:'',titulo:'',part:'',resumen:'',acuerdos:[],formato:false};
+    var lineas=String(txt||'').replace(/\r/g,'').split('\n'), modo='';
+    var res=[];
+    lineas.forEach(function(l){
+      var t=l.replace(/^\s*[*_#>]+\s*/,'').replace(/\*\*/g,'').trim(); var m;
+      if((m=/^proyecto\s*:\s*(.*)$/i.exec(t))){r.proyecto=m[1].trim();r.formato=true;modo='';return;}
+      if((m=/^fecha\s*:\s*(.*)$/i.exec(t))){r.fecha=fechaTexto(m[1]);r.formato=true;modo='';return;}
+      if((m=/^tipo\s*:\s*(.*)$/i.exec(t))){r.tipo=m[1].trim();modo='';return;}
+      if((m=/^t[ií]tulo\s*:\s*(.*)$/i.exec(t))){r.titulo=m[1].trim();r.formato=true;modo='';return;}
+      if((m=/^participantes\s*:\s*(.*)$/i.exec(t))){r.part=m[1].trim();modo='';return;}
+      if(/^resumen\s*:?\s*$/i.test(t)){modo='res';return;}
+      if((m=/^resumen\s*:\s*(.+)$/i.exec(t))){modo='res';res.push(m[1]);return;}
+      if(/^acuerdos\s*:?\s*$/i.test(t)){modo='acu';return;}
+      if(modo==='acu'){
+        var a=t.replace(/^[-•·*]\s*/,'').replace(/^\d+[.)]\s*/,''); if(!a)return;
+        var pz=a.split('|').map(function(x){return x.trim();});
+        if(pz[0])r.acuerdos.push({texto:pz[0],resp:pz[1]||'',fecha:fechaTexto(pz[2]||'')});
+        return;
+      }
+      if(modo==='res'){res.push(l.trim());return;}
+    });
+    r.resumen=res.join('\n').replace(/\n{3,}/g,'\n\n').trim();
+    if(!r.formato){ // texto libre: primera linea como titulo, todo como resumen
+      var primera=lineas.map(function(x){return x.trim();}).filter(Boolean)[0]||'Reunión';
+      r.titulo=primera.replace(/^[#*\s]+/,'').slice(0,90); r.resumen=String(txt||'').trim();
+    }
+    if(TIPOS_BIT.indexOf(r.tipo)<0){var n=r.tipo.toLowerCase();r.tipo=/obra|visita/.test(n)?'Visita de obra':(/proveedor/.test(n)?'Reunión con proveedor':(/observ/.test(n)?'Observación':'Reunión con cliente'));}
+    if(!r.fecha)r.fecha=hoy();
+    return r;
+  }
+  window.sgAbrirResumen=function(){
+    if(!okPanelCambio())return;
+    panelId=null; panelTipo='resumen'; _resPrev=null;
+    var h='<div class="sg-aviso" style="color:var(--tx2);">1. Copia la instrucción y pégala en Claude junto con la transcripción de tu reunión.<br>2. Copia la respuesta de Claude y pégala abajo.</div>'
+      +'<button class="fp-btn sec" style="width:auto;padding:7px 12px;margin-bottom:12px;" onclick="sgCopiarPlantilla(this)">Copiar instrucción para Claude</button>'
+      +'<div class="fp-g"><label>Resumen de la reunión</label><textarea id="sgResTxt" data-f="txt" style="height:220px;" placeholder="Pega aquí el resumen…"></textarea></div>'
+      +'<button class="fp-btn" onclick="sgRevisarResumen()">Revisar</button><div id="sgResPrev"></div>';
+    abrirPanel('Pegar resumen de reunión','Resumen de reunión',h);
+    setTimeout(function(){var t=document.getElementById('sgResTxt');if(t)t.focus();},230);
+  };
+  window.sgCopiarPlantilla=function(b){
+    var ok=function(){b.textContent='✓ Copiada';setTimeout(function(){b.textContent='Copiar instrucción para Claude';},2500);};
+    if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(PLANTILLA).then(ok,function(){prompt('Copia esta instrucción:',PLANTILLA);});
+    else prompt('Copia esta instrucción:',PLANTILLA);
+  };
+  window.sgRevisarResumen=function(){
+    var txt=(document.getElementById('sgResTxt')||{}).value||''; if(!txt.trim()){alert('Pega primero el resumen.');return;}
+    var r=parsearResumen(txt); _resPrev=r;
+    var p={};try{p=(projects||[]).find(function(x){return x.id===currentProjId;})||{};}catch(x){}
+    var norm=function(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');};
+    var otro=r.proyecto&&norm(p.name).indexOf(norm(r.proyecto))<0&&norm(r.proyecto).indexOf(norm(p.name))<0&&norm(p.client).indexOf(norm(r.proyecto))<0;
+    var h='<div class="fp-sec">Así quedará</div>'
+      +(otro?'<div class="ing-aviso" style="margin-bottom:8px;">Ojo: el resumen dice proyecto <b>'+e(r.proyecto)+'</b> y estás en <b>'+e(p.name||'')+'</b>. Revisa que sea el proyecto correcto.</div>':'')
+      +(!r.formato?'<div class="ing-aviso info" style="margin-bottom:8px;">El texto no viene en el formato de la instrucción: se guardará completo como resumen, sin acuerdos separados.</div>':'')
+      +'<div class="fp-row2"><div class="fp-g"><label>Fecha</label><input type="date" id="sgResF" value="'+e(r.fecha)+'"></div><div class="fp-g"><label>Tipo</label><select id="sgResT">'+TIPOS_BIT.map(function(t){return '<option'+(t===r.tipo?' selected':'')+'>'+t+'</option>';}).join('')+'</select></div></div>'
+      +'<div class="fp-g"><label>Título</label><input type="text" id="sgResTi" value="'+e(r.titulo)+'"></div>'
+      +'<div class="fp-g"><label>Participantes</label><input type="text" id="sgResP" value="'+e(r.part)+'"></div>'
+      +'<div class="fp-g"><label>Resumen</label><textarea id="sgResR" style="height:110px;">'+e(r.resumen)+'</textarea></div>'
+      +'<div class="fp-sec">Acuerdos → tareas ('+r.acuerdos.length+')</div>'
+      +(r.acuerdos.length?r.acuerdos.map(function(a,i){return '<div class="sg-ac"><input type="checkbox" checked id="sgResA'+i+'" style="margin-top:3px;"><div class="t">'+e(a.texto)+'<div class="m">'+e(a.resp||'Sin responsable')+(a.fecha?' · '+e(fCorta(a.fecha)):' · sin fecha')+'</div></div></div>';}).join(''):'<div class="sg-aviso">No se detectaron acuerdos.</div>')
+      +'<button class="fp-btn" style="margin-top:12px;" onclick="sgCrearDesdeResumen()">Crear registro'+(r.acuerdos.length?' y '+r.acuerdos.length+' tarea'+(r.acuerdos.length===1?'':'s'):'')+'</button>';
+    document.getElementById('sgResPrev').innerHTML=h;
+  };
+  window.sgCrearDesdeResumen=function(){
+    if(guardando||!_resPrev)return; guardando=true; setTimeout(function(){guardando=false;},1500);
+    var r=_resPrev, ti=(document.getElementById('sgResTi')||{}).value||r.titulo, f=(document.getElementById('sgResF')||{}).value||r.fecha;
+    if(!ti.trim()||!f){alert('Completa título y fecha.');guardando=false;return;}
+    var reg=mgL({id:nuevoId(),date:f,type:(document.getElementById('sgResT')||{}).value||r.tipo,title:ti.trim(),desc:(document.getElementById('sgResR')||{}).value||'',status:'Completado',extra:{autor:autor(),creado:new Date().toISOString(),part:((document.getElementById('sgResP')||{}).value||'').trim(),origen_resumen:true}});
+    persistir(reg);
+    var n=0;
+    r.acuerdos.forEach(function(a,i){
+      var c=document.getElementById('sgResA'+i); if(c&&!c.checked)return;
+      var t=mgL({id:nuevoId(),date:f,type:'Tarea',title:a.texto,responsible:a.resp,dueDate:a.fecha,status:'Pendiente',extra:{origen:reg.id,autor:autor(),creado:new Date().toISOString()}});
+      persistir(t); n++;
+    });
+    toast('✓ Registro creado'+(n?' con '+n+' tarea'+(n===1?'':'s'):''));
+    dirty=false; _resPrev=null; sgCerrar(true); st.tab='bit'; pintar();
+  };
+  window.__sgParsearResumen=parsearResumen;
 
   // Al cambiar de proyecto, cerrar el panel; al entrar, mostrar Pendientes
   if(typeof window.openProject==='function'){
