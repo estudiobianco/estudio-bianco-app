@@ -4231,7 +4231,7 @@ function renderGantt(){
       lead_unit:r.leadUnit||'semanas', date_history:JSON.stringify(r.dateHistory||[]),
       order_num:r.orderNum||'', delivery_resp:r.deliveryResp||'', ship_link:r.shipLink||'',
       image_url:r.imageUrl||'',
-      opt_group:r.optGroup||'', opt_sel:r.optSel?'1':''
+      opt_group:r.optGroup||'', opt_sel:r.optSel?'1':'', client_note:r.clientNote||''
     };
   }
   // snake_case (Supabase) -> camelCase (app)
@@ -4256,7 +4256,7 @@ function renderGantt(){
       leadUnit:x.lead_unit||'semanas', dateHistory:(function(){try{return JSON.parse(x.date_history||'[]');}catch(e){return [];}})(),
       orderNum:x.order_num||'', deliveryResp:x.delivery_resp||'', shipLink:x.ship_link||'',
       imageUrl:x.image_url||'',
-      optGroup:x.opt_group||'', optSel:x.opt_sel==='1'
+      optGroup:x.opt_group||'', optSel:x.opt_sel==='1', clientNote:x.client_note||''
     };
   }
 
@@ -4288,8 +4288,8 @@ function renderGantt(){
         if(r.ok){ setStatus('ok'); return; }
         // Si falla por columnas nuevas inexistentes (lead_unit/date_history), reintentar sin ellas
         return r.text().then(function(t){
-          if(/lead_unit|date_history|order_num|delivery_resp|ship_link|opt_group|opt_sel/.test(t)){
-            var strip=snapshot.map(function(x){ var y=Object.assign({},x); if(/lead_unit|date_history/.test(t)){delete y.lead_unit; delete y.date_history;} delete y.order_num; delete y.delivery_resp; delete y.ship_link; delete y.opt_group; delete y.opt_sel; return y; });
+          if(/lead_unit|date_history|order_num|delivery_resp|ship_link|opt_group|opt_sel|client_note/.test(t)){
+            var strip=snapshot.map(function(x){ var y=Object.assign({},x); if(/lead_unit|date_history/.test(t)){delete y.lead_unit; delete y.date_history;} delete y.order_num; delete y.delivery_resp; delete y.ship_link; delete y.opt_group; delete y.opt_sel; delete y.client_note; return y; });
             return doUpsert(strip).then(function(r2){ setStatus(r2.ok?'ok':'err'); });
           }
           setStatus('err');
@@ -5306,6 +5306,7 @@ window.pdfResumenCliente = function(){
       +(r.imageUrl?'<button class="fp-btn sec" style="width:auto;padding:7px 12px;" onclick="fQuitarImg()">Quitar</button>':'')
       +'<span id="fpImgMsg" style="font-size:11px;color:var(--tx3);">o copia una imagen y pega con Ctrl+V</span></div></div>';
     h+='<div class="fp-g"><label>Especificaciones (exportables al cliente)</label><textarea onchange="fSave(\'specs\',this.value)" placeholder="Materiales, dimensiones, color, terminaciones…">'+eF(r.specs||'')+'</textarea></div>';
+    h+='<div class="fp-g"><label>💬 Nota para el cliente <span style="color:var(--tx3);">· la ve en su portal</span></label><textarea onchange="fSave(\'clientNote\',this.value)" placeholder="Ej: En cotización con el proveedor · El proveedor vuelve de vacaciones el 15">'+eF(r.clientNote||'')+'</textarea></div>';
     h+='<div class="fp-g"><label>Comentarios internos</label><textarea onchange="fSave(\'notes\',this.value)" placeholder="Observaciones del equipo (no van al informe)">'+eF(r.notes||'')+'</textarea></div>';
     h+='<button class="fp-btn sec" style="margin-top:4px;" onclick="fDuplicar()">Duplicar item</button>';
     h+='<div style="font-size:11px;color:var(--tx3);margin-top:8px;">Los cambios se guardan automaticamente. La aprobacion del cliente se edita en la tabla del listado.</div>';
@@ -8005,9 +8006,15 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
     logs.forEach(function(l){
       if(aplicadas[l.id])return; aplicadas[l.id]=1;
       var ex={}; try{ex=l.extra?JSON.parse(l.extra):{};}catch(x){}
-      if(!ex.decision||!(Date.parse(ex.at||'')>desde))return; // lo anterior a la carga ya vino de la nube
+      if(!(ex.decision||ex.compra)||!(Date.parse(ex.at||'')>desde))return; // lo anterior a la carga ya vino de la nube
       var it=(items||[]).find(function(r){return r.id===+l.item_id;}); if(!it)return;
-      it.clientStatus=ex.decision; if(ex.decision==='Aprobado'){it.clientApprovalDate=l.date||it.clientApprovalDate;if(it.optGroup)items.forEach(function(r){if(r.optGroup===it.optGroup)r.optSel=(r===it);});}
+      if(ex.compra){ // el cliente registro que lo compro el
+        it.orderDate=ex.compra.fecha||it.orderDate; if(ex.compra.entrega)it.estDelivery=ex.compra.entrega; it.orderNum=ex.compra.orden||it.orderNum||''; it.deliveryResp='Cliente';
+        if(!it.deliveryStatus||it.deliveryStatus==='Por pedir')it.deliveryStatus='Pedido confirmado';
+        if(l.description&&String(it.trackNote||'').indexOf(l.description.split(' · entrega')[0])<0)it.trackNote=(it.trackNote?it.trackNote+'\n':'')+l.description.split(' · entrega')[0];
+        cambio=true; return;
+      }
+      it.clientStatus=ex.decision==='Por revisar'?'':ex.decision; if(ex.decision==='Aprobado'){it.clientApprovalDate=l.date||it.clientApprovalDate;if(it.optGroup)items.forEach(function(r){if(r.optGroup===it.optGroup)r.optSel=(r===it);});}
       cambio=true;
     });
     if(cambio){try{svP('items',items);}catch(x){}try{var pg=document.getElementById('page-compras');if(pg&&pg.classList.contains('active'))rC();}catch(x){}}
