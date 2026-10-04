@@ -77,6 +77,27 @@ async function compra(p, b, res) {
   return res.status(200).json({ ok: true });
 }
 
+// Respuesta del cliente a una lámina o render: queda en su status y en un registro de la bitácora
+async function respuestaDoc(p, b, res) {
+  const docId = +b.docId, decision = DECISIONES.indexOf(b.decision) >= 0 ? b.decision : null;
+  const comentario = limpio(b.comentario, 2000), nombre = limpio(b.nombre, 80) || 'Cliente';
+  if (!(docId > 0) || decision === null) return res.status(400).json({ ok: false, error: 'Respuesta no válida.' });
+  if (!decision && !comentario) return res.status(400).json({ ok: false, error: 'Escribe un comentario.' });
+  if (decision === 'Cambios solicitados' && !comentario) return res.status(400).json({ ok: false, error: 'Cuéntanos qué cambio quieres.' });
+  const d = await sb('logs?select=id,title,category,extra&project_id=eq.' + encodeURIComponent(p.id) + '&id=eq.' + docId + '&category=in.(lamina,render)&limit=1');
+  if (!d || !d[0]) return res.status(404).json({ ok: false, error: 'Documento no encontrado.' });
+  let x = {}; try { x = d[0].extra ? JSON.parse(d[0].extra) : {}; } catch (e) {}
+  if (x.oculto) return res.status(404).json({ ok: false, error: 'Documento no encontrado.' });
+  if (decision) await sb('logs?project_id=eq.' + encodeURIComponent(p.id) + '&id=eq.' + docId, { method: 'PATCH', headers: H({ Prefer: 'return=minimal' }), body: JSON.stringify({ status: decision === 'Por revisar' ? '' : decision }) });
+  const titulo = (decision === 'Por revisar' ? 'Cliente deshizo su respuesta' : decision ? 'Cliente: ' + decision : 'Comentario del cliente') + ' · ' + (d[0].title || (d[0].category === 'render' ? 'render' : 'lámina'));
+  await sb('logs', { method: 'POST', headers: H({ Prefer: 'return=minimal' }), body: JSON.stringify({
+    id: Date.now() * 10 + Math.floor(Math.random() * 10), project_id: p.id, date: hoySantiago(), type: 'Nota general', title: titulo.slice(0, 200),
+    description: comentario, commits: '', responsible: nombre, due_date: '', status: 'Completada', amount: 0, category: 'cliente', item_id: null,
+    extra: JSON.stringify({ cliente: true, decision: decision, docId: docId, version: (x.versiones || []).length + 1, autor: 'cliente', at: new Date().toISOString() })
+  }) });
+  return res.status(200).json({ ok: true });
+}
+
 // "Terminé de revisar": cuenta las respuestas actuales y deja un registro con el resumen
 async function terminar(p, nombre, res) {
   const its = (await sb('items?select=item,client_status,opt_group,opt_sel&project_id=eq.' + encodeURIComponent(p.id) + '&cat=neq.Honorarios')) || [];
@@ -106,6 +127,10 @@ module.exports = async function handler(req, res) {
       if (!p) return res.status(404).json({ ok: false, error: 'Este link no es válido o fue desactivado.' });
       const items = (await sb('items?select=' + CAMPOS_ITEM + '&project_id=eq.' + encodeURIComponent(p.id) + '&cat=neq.Honorarios&order=id')) || [];
       const provs = await proveedoresDe(items);
+      const docsRaw = (await sb('logs?select=id,date,title,description,status,category,extra&project_id=eq.' + encodeURIComponent(p.id) + '&category=in.(lamina,render)&order=id')) || [];
+      const docs = docsRaw.map(d => { let x = {}; try { x = d.extra ? JSON.parse(d.extra) : {}; } catch (e) {} return { d, x }; })
+        .filter(o => !o.x.oculto && o.x.url)
+        .map(o => ({ id: o.d.id, tipo: o.d.category, titulo: o.d.title || '', nota: o.d.description || '', estado: o.d.status || '', fecha: o.d.date || '', url: o.x.url, pdf: /pdf/i.test(o.x.mime || '') || /\.pdf($|\?)/i.test(o.x.url), espacio: o.x.espacio || '', version: (o.x.versiones || []).length + 1, anteriores: (o.x.versiones || []).map(v => ({ url: v.url, pdf: /pdf/i.test(v.mime || ''), fecha: v.fecha || '' })) }));
       const resp = (await sb('logs?select=id,date,title,description,responsible,item_id,extra&project_id=eq.' + encodeURIComponent(p.id) + '&category=eq.cliente&order=id.desc&limit=200')) || [];
       return res.status(200).json({
         ok: true,
@@ -117,9 +142,10 @@ module.exports = async function handler(req, res) {
           compra: x.order_date ? { fecha: x.order_date, entrega: x.est_delivery || '', orden: x.order_num || '', por: x.delivery_resp === 'Cliente' ? 'cliente' : 'estudio' } : null, grupo: x.opt_group || '', elegida: x.opt_sel === '1', nota: x.client_note || ''
         })),
         proveedores: provs,
+        documentos: docs,
         respuestas: resp.map(l => {
           let ex = {}; try { ex = l.extra ? JSON.parse(l.extra) : {}; } catch (e) {}
-          return { id: l.id, fecha: l.date, itemId: l.item_id || 0, decision: ex.decision || '', comentario: l.description || '', nombre: l.responsible || '', autor: ex.autor || 'cliente' };
+          return { id: l.id, fecha: l.date, itemId: l.item_id || 0, docId: ex.docId || 0, decision: ex.decision || '', comentario: l.description || '', nombre: l.responsible || '', autor: ex.autor || 'cliente' };
         })
       });
     }
@@ -131,6 +157,7 @@ module.exports = async function handler(req, res) {
       if (!p) return res.status(404).json({ ok: false, error: 'Este link no es válido o fue desactivado.' });
       if (b.accion === 'fin') return await terminar(p, limpio(b.nombre, 80) || 'Cliente', res);
       if (b.accion === 'compra') return await compra(p, b, res);
+      if (b.docId) return await respuestaDoc(p, b, res);
       const decision = DECISIONES.indexOf(b.decision) >= 0 ? b.decision : null;
       if (decision === null) return res.status(400).json({ ok: false, error: 'Respuesta no válida.' });
       const comentario = limpio(b.comentario, 2000), nombre = limpio(b.nombre, 80) || 'Cliente';
