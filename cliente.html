@@ -116,6 +116,45 @@ a.tienda:hover{text-decoration:underline;}
 .card.prov .pc{display:flex;flex-direction:column;gap:4px;font-size:13px;margin-top:6px;}
 .card.prov .pc a{color:var(--az);text-decoration:none;}
 .card.prov .pc a:hover{text-decoration:underline;}
+/* Exclusividad */
+.priv{display:flex;justify-content:space-between;font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--tx3);border-bottom:1px solid var(--bd);padding-bottom:10px;margin-bottom:22px;}
+footer b{color:var(--tx2);font-weight:700;}
+/* Barra flotante */
+#flot{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);width:min(680px,calc(100vw - 24px));background:#fff;border:1px solid var(--bd);border-radius:16px;box-shadow:0 10px 30px rgba(20,30,40,.14);padding:10px 12px 10px 18px;display:none;align-items:center;gap:14px;z-index:40;}
+#flot.on{display:flex;}
+#flot .fl-av{flex:1;min-width:0;font-size:13px;color:var(--tx2);}
+#flot .fl-av .prog{margin-top:6px;}
+#flot button{background:var(--az);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit;white-space:nowrap;}
+.wrap{padding-bottom:120px;}
+/* Pestañas en celular */
+.tabs{overflow-x:auto;scrollbar-width:none;}.tabs button{white-space:nowrap;}
+/* Láminas y renders */
+.dgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;}
+.dph{height:300px;background:#fff;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:center;position:relative;cursor:zoom-in;}
+.dph img{width:100%;height:100%;object-fit:contain;padding:10px;}
+.dph .zoom{position:absolute;right:10px;bottom:10px;font-size:11.5px;background:rgba(255,255,255,.92);border:1px solid var(--bd);border-radius:99px;padding:3px 10px;color:var(--tx2);}
+.pdfi{text-align:center;color:var(--tx2);font-size:13px;}.pdfi b{display:block;font-size:34px;color:#B4483C;letter-spacing:.05em;}
+#visor{position:fixed;inset:0;background:rgba(15,18,22,.88);display:none;flex-direction:column;z-index:70;}
+#visor.open{display:flex;}
+#visor .vbar{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;color:#fff;font-size:14px;}
+#visor .vbar a{color:#BCDCEF;}
+#visor .vbar button{background:#fff;border:0;border-radius:99px;width:34px;height:34px;font-size:15px;cursor:pointer;}
+#visor .vc{flex:1;display:flex;align-items:center;justify-content:center;padding:0 16px 16px;min-height:0;}
+#visor img{max-width:100%;max-height:100%;background:#fff;border-radius:6px;}
+#visor iframe{width:100%;height:100%;border:0;background:#fff;border-radius:6px;}
+/* Proveedores en acordeón */
+.acc{border:1px solid var(--bd);border-radius:14px;overflow:hidden;background:#fff;}
+.acc-i+.acc-i{border-top:1px solid var(--bd);}
+.acc-h{width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;background:none;border:0;padding:14px 18px;cursor:pointer;font-family:inherit;text-align:left;color:var(--tx);}
+.acc-h:hover{background:#FAFBFC;}
+.acc-h b{font-weight:700;font-size:14.5px;display:block;}
+.acc-h small{font-size:12px;color:var(--tx3);}
+.acc-h .chev{color:var(--tx3);font-size:18px;transition:transform .2s;}
+.acc-i.open .chev{transform:rotate(180deg);color:var(--az);}
+.acc-b{display:none;padding:0 18px 14px;flex-direction:column;gap:5px;font-size:13.5px;}
+.acc-i.open .acc-b{display:flex;}
+.acc-b a{color:var(--az);text-decoration:none;}.acc-b a:hover{text-decoration:underline;}
+@media (max-width:600px){.dgrid{grid-template-columns:1fr;}.dph{height:240px;}#flot{padding:10px 10px 10px 14px;}#flot button{padding:10px 12px;font-size:13px;}}
 footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
 @media (max-width:600px){h1{font-size:26px;}.tot .s{text-align:left;}.grid,.grp .grid{grid-template-columns:1fr;}}
 </style>
@@ -132,6 +171,8 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
 </div></div>
 <div class="modal" id="resOv"><div class="box"><div class="cuerpo"></div><div class="bt"><button onclick="ebCerrarRes()">Cerrar</button><button class="p" onclick="ebGuardarResumen()">Guardar o imprimir</button></div></div></div>
 <div class="modal" id="compOv"><div class="box cuerpo"></div></div>
+<div id="flot"></div>
+<div id="visor" onclick="if(event.target===this)ebCerrarVisor()"><div class="vbar"><span class="vt"></span><button onclick="ebCerrarVisor()">✕</button></div><div class="vc"></div></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -139,7 +180,7 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
   var K=new URLSearchParams(location.search).get('k')||'';
   var D=null, filtro='', agrupar='esp', pend=null;
   try{agrupar=localStorage.getItem('ebc_agrupar')||'esp';}catch(e){}
-  var vista='compras'; try{vista=localStorage.getItem('ebc_vista')==='prov'?'prov':'compras';}catch(e){}
+  var vista='compras'; try{var _v=localStorage.getItem('ebc_vista');if(['prov','lamina','render'].indexOf(_v)>=0)vista=_v;}catch(e){}
   function e(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   function m(n){return '$'+Math.round(n).toLocaleString('es-CL');}
   function fuera(it){return it.grupo&&!it.elegida;}
@@ -167,16 +208,20 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
     its.forEach(function(it){cuenta[est(it)]=(cuenta[est(it)]||0)+1;});
     var porCotizar=its.some(function(it){return !fuera(it)&&!(+it.precio>0);});
     document.title=(D.proyecto.nombre||'Tu proyecto')+' · Estudio Bianco';
-    var h='<header><div><img class="logo" src="/logo-estudio-bianco.png" alt="Estudio Bianco"><div class="eyebrow">Listado de compras</div><h1>'+e(D.proyecto.nombre)+'</h1>'
+    var docs=D.documentos||[], nLam=docs.filter(function(d){return d.tipo==='lamina';}).length, nRen=docs.filter(function(d){return d.tipo==='render';}).length, nProv=(D.proveedores||[]).length;
+    if((vista==='lamina'&&!nLam)||(vista==='render'&&!nRen)||(vista==='prov'&&!nProv))vista='compras';
+    var h='<div class="priv"><span>Plataforma privada</span><span>Estudio Bianco®</span></div>'
+      +'<header><div><img class="logo" src="/logo-estudio-bianco.png" alt="Estudio Bianco®"><h1>'+e(D.proyecto.nombre)+'</h1>'
       +'<p class="sub">Esta aplicación es de desarrollo exclusivo de Estudio Bianco, una herramienta para administrar tu proyecto. Aquí armamos tu listado de compras y revisamos contigo cada producto antes de pagarlo.</p></div></header>';
+    function tab(v,t,n){return '<button class="'+(vista===v?'on':'')+'" onclick="ebV(\''+v+'\')">'+t+(n!=null?' <i>'+n+'</i>':'')+'</button>';}
+    h+='<div class="tabs">'+tab('compras','Listado de compras')+(nLam?tab('lamina','Planos y láminas',nLam):'')+(nRen?tab('render','Looks y renders',nRen):'')+(nProv?tab('prov','Proveedores',nProv):'')+'</div>';
+    var pie='<footer><b>Estudio Bianco®</b> · Plataforma de gestión de proyectos de diseño y desarrollo exclusivo de Estudio Bianco.<br>Estudio Bianco es una marca registrada. Este contenido es confidencial y de uso exclusivo del cliente; prohibida su reproducción total o parcial.</footer>';
+    if(vista==='prov'){h+=htmlProveedores()+pie;document.getElementById('app').innerHTML=h;barra(false);return;}
+    if(vista==='lamina'||vista==='render'){h+=htmlDocs(vista)+pie;document.getElementById('app').innerHTML=h;barra(false);return;}
     h+='<div class="intro"><div class="imp"><b>Importante</b>Este listado puede estar incompleto: se va ajustando según nuestras reuniones. Aun así, es una aproximación fiel al presupuesto total.</div></div>';
-    var nProv=(D.proveedores||[]).length;
-    h+='<div class="tabs"><button class="'+(vista==='compras'?'on':'')+'" onclick="ebV(\'compras\')">Listado de compras</button>'+(nProv?'<button class="'+(vista==='prov'?'on':'')+'" onclick="ebV(\'prov\')">Proveedores <i>'+nProv+'</i></button>':'')+'</div>';
-    if(vista==='prov'){h+=htmlProveedores();h+='<footer>Estudio Bianco · Este link es solo para ti. Si tienes dudas, escríbenos.</footer>';document.getElementById('app').innerHTML=h;return;}
     var revisados=its.length-(cuenta['Por revisar']||0), pct=its.length?Math.round(revisados/its.length*100):0, nom=miNombre();
-    h+='<div class="tot"><div><div class="l">Total con lo elegido</div><div class="v">'+m(total)+'</div></div><div class="s">Has revisado <b>'+revisados+' de '+its.length+'</b> productos'+(porCotizar?'<br>Algunos productos están por cotizar':'')
-      +(nom?'<br><span style="color:var(--tx3);">Respondiendo como '+e(nom)+' · <a href="#" onclick="ebCambiarNombre();return false;" style="color:var(--az);">cambiar</a></span>':'')+'</div>'
-      +'<div class="prog"><div style="width:'+pct+'%;"></div></div></div>';
+    h+='<div class="tot"><div><div class="l">Total con lo elegido</div><div class="v">'+m(total)+'</div></div><div class="s">'+cuenta['Aprobado']+' de '+its.length+' productos aprobados'+(porCotizar?'<br>Algunos productos están por cotizar':'')
+      +(nom?'<br><span style="color:var(--tx3);">Respondiendo como '+e(nom)+' · <a href="#" onclick="ebCambiarNombre();return false;" style="color:var(--az);">cambiar</a></span>':'')+'</div></div>';
     var F=[['','Todos'],['Por revisar','Por revisar'],['Aprobado','Aprobados'],['Cambios solicitados','Con cambios'],['Rechazado','Descartados']];
     h+='<div class="bar">'+F.map(function(f){return '<button class="chip'+(filtro===f[0]?' on':'')+'" onclick="ebF(\''+f[0]+'\')">'+f[1]+'<i>'+(cuenta[f[0]]||0)+'</i></button>';}).join('')
       +'<span class="sp"></span><select class="ag" onchange="ebA(this.value)"><option value="esp"'+(agrupar==='esp'?' selected':'')+'>Ver por espacio</option><option value="cat"'+(agrupar==='cat'?' selected':'')+'>Ver por categoría</option></select></div>';
@@ -205,10 +250,43 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
       });
       vaciar();
     });
-    h+='<div class="fin"><div><b>¿Terminaste de revisar?</b><br><span>Avísanos y te mostramos un resumen de tus respuestas para que lo guardes. Puedes seguir cambiando respuestas después.</span></div><button id="finBtn" onclick="ebFin()">Terminé de revisar</button></div>';
-    h+='<footer>Estudio Bianco · Este link es solo para ti. Si tienes dudas, escríbenos.</footer>';
+    h+=pie;
     document.getElementById('app').innerHTML=h;
+    barra(true,revisados,its.length,pct);
   }
+  // Barra flotante abajo: avance y "Terminé de revisar" (siempre a mano mientras revisa)
+  function barra(ver,rev,tot,pct){
+    var b=document.getElementById('flot'); if(!b)return;
+    if(!ver){b.classList.remove('on');return;}
+    b.innerHTML='<div class="fl-av"><span>Has revisado <b>'+rev+' de '+tot+'</b></span><div class="prog"><div style="width:'+pct+'%;"></div></div></div><button id="finBtn" onclick="ebFin()">Terminé de revisar</button>';
+    b.classList.add('on');
+  }
+  // Láminas o renders para aprobar
+  function htmlDocs(tipo){
+    var arr=(D.documentos||[]).filter(function(d){return d.tipo===tipo;});
+    var h='<p class="sub" style="margin:0 0 16px;">'+(tipo==='lamina'?'Planos y láminas de tu proyecto. Ábrelos en grande, revísalos y cuéntanos si los apruebas o qué cambiarías.':'Looks, conceptos y renders de tu proyecto. Ábrelos en grande y cuéntanos qué te parecen.')+'</p><div class="dgrid">';
+    arr.forEach(function(d){
+      var es_=est(d), cls=es_.split(' ')[0];
+      var r=(D.respuestas||[]).filter(function(x){return x.docId===d.id;}).slice(0,6).reverse();
+      h+='<div class="card doc"><div class="dph" onclick="ebVerDoc('+d.id+')">'+(d.pdf?'<div class="pdfi"><b>PDF</b>Abrir documento</div>':'<img src="'+e(d.url)+'" alt="" loading="lazy">')
+        +'<span class="badge b-'+e(cls)+'">'+(es_==='Aprobado'?'✓ Aprobado':es_==='Cambios solicitados'?'Cambios pedidos':'Por revisar')+'</span><span class="zoom">⤢ Ver en grande</span></div><div class="bd">'
+        +'<div class="nm">'+e(d.titulo)+'</div><div class="meta">'+[d.espacio,d.version>1?'Versión '+d.version:'',d.fecha?fechaCorta(d.fecha):''].filter(Boolean).map(e).join(' · ')+'</div>'
+        +(d.nota?'<button class="notab" onclick="ebNota(this)">💬 Nota del estudio</button><div class="nota">'+e(d.nota)+'</div>':'')
+        +(d.anteriores&&d.anteriores.length?'<div class="meta">Versiones anteriores: '+d.anteriores.map(function(v,i){return '<a href="'+e(v.url)+'" target="_blank" rel="noopener" class="tienda">v'+(i+1)+'</a>';}).join(' · ')+'</div>':'')
+        +'<div class="acts"><button class="ap'+(es_==='Aprobado'?' on':'')+'" onclick="ebR('+d.id+',\'Aprobado\',1)">✓ Apruebo</button><button class="ca'+(es_==='Cambios solicitados'?' on':'')+'" onclick="ebR('+d.id+',\'Cambios solicitados\',1)">✎ Pedir cambios</button></div></div>'
+        +'<div class="coms">'+r.map(function(c){return '<div class="com"><b>'+e(c.nombre)+'</b>'+(c.decision?' · '+e(c.decision):'')+'<span class="f">'+e(c.fecha)+'</span>'+(c.comentario?'<div>'+e(c.comentario)+'</div>':'')+'</div>';}).join('')
+        +'<button class="addc" onclick="ebR('+d.id+',\'\',1)">Dejar un comentario</button></div></div>';
+    });
+    return h+'</div>';
+  }
+  window.ebVerDoc=function(id){
+    var d=(D.documentos||[]).find(function(x){return x.id===id;}); if(!d)return;
+    var v=document.getElementById('visor');
+    v.querySelector('.vc').innerHTML=d.pdf?'<iframe src="'+e(d.url)+'"></iframe>':'<img src="'+e(d.url)+'" alt="">';
+    v.querySelector('.vt').innerHTML=e(d.titulo)+(d.pdf?' · <a href="'+e(d.url)+'" target="_blank" rel="noopener">abrir PDF en otra pestaña ↗</a>':'');
+    v.classList.add('open');
+  };
+  window.ebCerrarVisor=function(){var v=document.getElementById('visor');v.classList.remove('open');v.querySelector('.vc').innerHTML='';};
   function tarjeta(it,nOp){
     var es_=est(it), cls=es_.split(' ')[0];
     var r=(D.respuestas||[]).filter(function(x){return x.itemId===it.id;}).slice(0,6).reverse();
@@ -228,17 +306,17 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
     return h;
   }
   window.ebV=function(v){vista=v;try{localStorage.setItem('ebc_vista',v);}catch(x){}pintar();window.scrollTo(0,0);};
+  // Proveedores en lista tipo acordeón: el nombre y al abrir, sus datos
   function htmlProveedores(){
     var ps=D.proveedores||[];
-    return '<p class="sub" style="margin:0 0 14px;">Las tiendas y proveedores de los productos de tu proyecto, con sus datos de contacto.</p><div class="grid">'+ps.map(function(p){
+    return '<p class="sub" style="margin:0 0 14px;">Las tiendas y proveedores de los productos de tu proyecto. Toca uno para ver sus datos de contacto.</p><div class="acc">'+ps.map(function(p){
       var web=(p.web||'').trim(), wurl=web?(/^https?:\/\//i.test(web)?web:'https://'+web):'';
-      return '<div class="card prov"><div class="bd"><div class="nm">'+e(p.nombre)+'</div><div class="meta">'+[p.rubro,p.especialidad].filter(Boolean).map(e).join(' · ')+'</div>'
-        +'<div class="meta">'+p.productos+' producto'+(p.productos===1?'':'s')+' en tu proyecto</div><div class="pc">'
-        +(p.telefono?'<a href="tel:'+e(p.telefono.replace(/[^\d+]/g,''))+'">☎ '+e(p.telefono)+'</a>':'')
+      var datos=(p.telefono?'<a href="tel:'+e(p.telefono.replace(/[^\d+]/g,''))+'">☎ '+e(p.telefono)+'</a>':'')
         +(p.correo?'<a href="mailto:'+e(p.correo)+'">✉ '+e(p.correo)+'</a>':'')
         +(wurl?'<a href="'+e(wurl)+'" target="_blank" rel="noopener">↗ '+e(web.replace(/^https?:\/\/(www\.)?/i,'').replace(/\/$/,''))+'</a>':'')
-        +((p.direccion||p.ciudad)?'<span>⌖ '+e(p.direccion||p.ciudad)+'</span>':'')
-        +(!p.telefono&&!p.correo&&!wurl&&!p.direccion&&!p.ciudad?'<span style="color:var(--tx3);">Sin datos de contacto</span>':'')+'</div></div></div>';
+        +((p.direccion||p.ciudad)?'<span>⌖ '+e(p.direccion||p.ciudad)+'</span>':'');
+      return '<div class="acc-i"><button class="acc-h" onclick="this.parentNode.classList.toggle(\'open\')"><span><b>'+e(p.nombre)+'</b><small>'+[p.rubro,p.productos+' producto'+(p.productos===1?'':'s')].filter(Boolean).map(e).join(' · ')+'</small></span><span class="chev">⌄</span></button>'
+        +'<div class="acc-b">'+(p.especialidad?'<div class="meta">'+e(p.especialidad)+'</div>':'')+(datos||'<span style="color:var(--tx3);">Sin datos de contacto</span>')+'</div></div>';
     }).join('')+'</div>';
   }
   window.ebF=function(f){filtro=f;pintar();};
@@ -252,8 +330,10 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
     if(dec==='Aprobado'&&it.grupo)D.items.forEach(function(x){if(x.grupo===it.grupo)x.elegida=(x===it);});
   }
   // Aprobar y descartar: un clic. Apretar de nuevo el mismo boton deja el producto "Por revisar".
-  window.ebR=function(id,dec){
-    var it=D.items.find(function(x){return x.id===id;}); if(!it)return;
+  function nombreObj(o){return o.item||o.titulo||'';}
+  function ref(o){return o.tipo?{docId:o.id}:{itemId:o.id};}
+  window.ebR=function(id,dec,esDoc){
+    var it=(esDoc?(D.documentos||[]):D.items).find(function(x){return x.id===id;}); if(!it)return;
     if(dec==='Cambios solicitados'||dec===''){abrirModal(dec,it);return;}
     if(est(it)===dec)dec='Por revisar';
     nombrePara(function(nom){rapido(it,dec,nom);});
@@ -261,16 +341,16 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
   function rapido(it,dec,nom){
     var antes={estado:it.estado,eleg:D.items.filter(function(x){return it.grupo&&x.grupo===it.grupo;}).map(function(x){return [x,x.elegida];})};
     aplicarLocal(it,dec); pintar();
-    var txt=dec==='Aprobado'?'✓ Aprobaste '+it.item:dec==='Rechazado'?'Descartaste '+it.item:'Volvió a "Por revisar": '+it.item;
+    var txt=dec==='Aprobado'?'✓ Aprobaste '+nombreObj(it):dec==='Rechazado'?'Descartaste '+nombreObj(it):'Volvió a "Por revisar": '+nombreObj(it);
     toast(txt,function(){deshacer(it,antes,nom);});
-    post({itemId:it.id,decision:dec,comentario:'',nombre:nom}).then(function(j){if(!j.ok){restaurar(it,antes);toast(j.error||'No se pudo guardar. Intenta de nuevo.');}else refrescar();})
+    post(Object.assign({decision:dec,comentario:'',nombre:nom},ref(it))).then(function(j){if(!j.ok){restaurar(it,antes);toast(j.error||'No se pudo guardar. Intenta de nuevo.');}else refrescar();})
     .catch(function(){restaurar(it,antes);toast('Sin conexión: tu respuesta no se guardó.');});
   }
   function restaurar(it,antes){it.estado=antes.estado;antes.eleg.forEach(function(p){p[0].elegida=p[1];});pintar();}
   function deshacer(it,antes,nom){
     var prev=antes.estado||'Por revisar';
     restaurar(it,antes);
-    post({itemId:it.id,decision:prev,comentario:'',nombre:nom}).then(function(){refrescar();});
+    post(Object.assign({decision:prev,comentario:'',nombre:nom},ref(it))).then(function(){refrescar();});
     toast('Respuesta deshecha');
   }
   var _rt=null; function refrescar(){clearTimeout(_rt);_rt=setTimeout(function(){fetch('/api/cliente?k='+encodeURIComponent(K)).then(function(r){return r.json();}).then(function(j){if(j.ok){D=j;pintar();}}).catch(function(){});},1500);}
@@ -278,9 +358,9 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
   // Ventana: nombre (una sola vez), pedir cambios o comentar
   var modo=null, alListo=null;
   function abrirModal(m,it,_,listo){
-    modo=m; pend=it?{id:it.id,dec:m}:null; alListo=listo||null;
+    modo=m; pend=it?{obj:it,dec:m}:null; alListo=listo||null;
     var n=miNombre(), T={'nombre':['¿Cómo te llamas?','Lo pedimos una sola vez, para que el estudio sepa quién responde.'],'Cambios solicitados':['Pedir un cambio','Cuéntanos qué te gustaría cambiar (color, medida, otra opción…).'],'':['Dejar un comentario','Tu comentario le llega al estudio.']}[m];
-    document.getElementById('mT').textContent=T[0]; document.getElementById('mP').textContent=(it?it.item+' · ':'')+T[1];
+    document.getElementById('mT').textContent=T[0]; document.getElementById('mP').textContent=(it?nombreObj(it)+' · ':'')+T[1];
     var conNom=(m==='nombre'||!n);
     document.getElementById('mNom').style.display=document.getElementById('mNL').style.display=conNom?'':'none';
     document.getElementById('mCom').style.display=document.getElementById('mCL').style.display=(m==='nombre')?'none':'';
@@ -299,10 +379,10 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
     if(!com)return falla(modo===''?'Escribe tu comentario.':'Cuéntanos qué cambio quieres.');
     var b=document.getElementById('mOk'); b.disabled=true; b.textContent='Enviando…';
     var p=pend;
-    post({itemId:p.id,decision:p.dec,comentario:com,nombre:nom}).then(function(j){
+    post(Object.assign({decision:p.dec,comentario:com,nombre:nom},ref(p.obj))).then(function(j){
       b.disabled=false; b.textContent='Enviar';
       if(!j.ok)return falla(j.error||'No se pudo enviar.');
-      var it=D.items.find(function(x){return x.id===p.id;}); if(it&&p.dec)aplicarLocal(it,p.dec);
+      if(p.dec)aplicarLocal(p.obj,p.dec);
       cerrar(); toast('✓ Gracias, quedó registrado'); pintar(); refrescar();
     }).catch(function(){b.disabled=false;b.textContent='Enviar';falla('Sin conexión. Intenta de nuevo.');});
   };
@@ -366,7 +446,7 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
     }).catch(function(){b.disabled=false;b.textContent='Guardar';err.textContent='Sin conexión. Intenta de nuevo.';err.style.display='block';});
   };
   function fechaCorta(d){if(!d)return '';var p=String(d).split('-');return p.length===3?(+p[2])+'/'+(+p[1])+'/'+p[0]:d;}
-  document.addEventListener('keydown',function(ev){if(ev.key==='Escape')cerrar();});
+  document.addEventListener('keydown',function(ev){if(ev.key==='Escape'){cerrar();ebCerrarVisor();}});
   cargar();
 })();
 </script>

@@ -874,6 +874,7 @@ body.col-resizing *{cursor:col-resize !important;}
     
     <div class="ni" onclick="go('pendientes')" id="nav-pendientes" style="display:none;"><span class="ic">⏳</span>Pagos pendientes</div>
     <div class="ni" onclick="go('seguimiento')" id="nav-seguimiento"><span class="ic">📅</span>Seguimiento</div>
+    <div class="ni" onclick="go('laminas')" id="nav-laminas"><span class="ic">🖼</span>Láminas y renders</div>
     <div class="ni" onclick="go('cotizaciones')" id="nav-cotizaciones"><span class="ic">📄</span>Cotizaciones</div>
     <div class="ni" onclick="go('proveedores')" id="nav-proveedores"><span class="ic">🏪</span>Proveedores</div>
     <div class="ni" onclick="go('pagosprov')" id="nav-pagosprov"><span class="ic">💸</span>Pagos</div>
@@ -978,6 +979,7 @@ body.col-resizing *{cursor:col-resize !important;}
   </div></div>
 </div>
 
+<div class="page" id="page-laminas"><div id="lamBody"></div></div>
 <div class="page" id="page-seguimiento">
   <div class="ph">
     <div><h1>Seguimiento</h1><p id="sgSub">Pendientes, calendario y bitácora del proyecto</p></div>
@@ -4393,7 +4395,8 @@ function renderGantt(){
   window.sbLoadLogs=function(pid,cb){
     fetch(URL+'/rest/v1/logs?project_id=eq.'+encodeURIComponent(pid)+'&select=*&order=date.desc',{ headers:H })
       .then(function(r){ return r.ok?r.json():null; })
-      .then(function(data){ cb(data&&data.length?data.map(logFromRow):null); })
+      // Las láminas y renders del portal viven en logs pero tienen su propio módulo: no entran a la bitácora
+      .then(function(data){ if(data)data=data.filter(function(x){return x.category!=='lamina'&&x.category!=='render';}); cb(data&&data.length?data.map(logFromRow):null); })
       .catch(function(){ cb(null); });
   };
   window.sbDeleteLog=function(pid,logId){
@@ -6705,7 +6708,7 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   var RESP=['Estudio Bianco','Cliente','Proveedor','Contratista'];
   var TIPOS_EV=['Entrega','Instalación','Reunión','Visita de obra','Otro'];
   var TIPOS_BIT=['Visita de obra','Reunión con cliente','Reunión con proveedor','Observación'];
-  var NO_BIT=['Tarea','Compromiso','Evento','🏗 Partida de obra'];
+  var NO_BIT=['Tarea','Compromiso','Evento','🏗 Partida de obra','Lámina','Render'];
   var REC=['Sin recordatorio','El mismo día','1 día antes','2 días antes','1 semana antes'];
   var DIAS=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
   var DIASL=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
@@ -8054,6 +8057,147 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   setInterval(function(){var pg=document.getElementById('page-compras');if(currentProjId&&pg&&pg.classList.contains('active')&&!document.hidden)revisar();},60000);
   window.addEventListener('focus',function(){if(currentProjId)revisar();});
   setTimeout(function(){try{montar();}catch(x){}},1500);
+})();
+</script>
+
+<style>
+/* ══ LÁMINAS Y RENDERS (para aprobar en el portal del cliente) ══ */
+#page-laminas .lm-h1{font-family:'Fraunces',serif;font-weight:400;font-size:30px;margin:0 0 4px;}
+#page-laminas .lm-sub{font-size:13px;color:var(--tx2);margin:0 0 18px;}
+.lm-sec{display:flex;justify-content:space-between;align-items:baseline;margin:22px 0 10px;gap:10px;flex-wrap:wrap;}
+.lm-sec h2{font-family:'Fraunces',serif;font-weight:400;font-size:20px;margin:0;}
+.lm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;}
+.lm-card{background:var(--surface);border:1px solid var(--bd);border-radius:12px;overflow:hidden;display:flex;flex-direction:column;}
+.lm-card.oculto{opacity:.55;}
+.lm-th{height:180px;background:#fff;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;}
+.lm-th img{width:100%;height:100%;object-fit:contain;padding:8px;}
+.lm-th .pdf{font-size:13px;color:var(--tx2);text-align:center;}
+.lm-th .pdf b{display:block;font-size:30px;color:#B4483C;margin-bottom:4px;}
+.lm-st{position:absolute;top:8px;left:8px;font-size:10.5px;font-weight:700;border-radius:99px;padding:2px 9px;background:var(--surface);border:1px solid var(--bd);}
+.lm-st.Aprobado{background:#E4F2EA;color:#2F8663;border-color:#BFE0CC;}
+.lm-st.Cambios{background:#FBF1E1;color:#B8791F;border-color:#EBCF9F;}
+.lm-st.Rechazado{background:#F8E7E4;color:#B4483C;border-color:#EEC5BE;}
+.lm-bd{padding:10px 12px;display:flex;flex-direction:column;gap:4px;flex:1;}
+.lm-t{font-weight:600;font-size:13.5px;}
+.lm-m{font-size:11.5px;color:var(--tx3);}
+.lm-n{font-size:12px;color:var(--tx2);white-space:pre-line;}
+.lm-acts{display:flex;gap:5px;flex-wrap:wrap;margin-top:auto;padding-top:8px;}
+.lm-acts button,.lm-acts label{border:1px solid var(--bd2);background:var(--surface);border-radius:7px;padding:4px 9px;font-size:11.5px;cursor:pointer;color:var(--tx2);font-family:inherit;}
+.lm-acts button:hover,.lm-acts label:hover{border-color:var(--ac);color:var(--tx);}
+.lm-empty{border:1px dashed var(--bd2);border-radius:12px;padding:26px;text-align:center;color:var(--tx3);font-size:13px;}
+.lm-com{border-top:1px solid var(--bd);padding:8px 12px;background:#FAFAF9;font-size:11.5px;color:var(--tx2);}
+.lm-com b{color:var(--tx);}
+#lmOv{position:fixed;inset:0;background:rgba(20,20,20,.8);display:none;align-items:center;justify-content:center;z-index:10070;padding:20px;}
+#lmOv.open{display:flex;}
+#lmOv img,#lmOv iframe{max-width:95vw;max-height:90vh;background:#fff;border-radius:6px;}
+#lmOv iframe{width:90vw;height:88vh;border:0;}
+#lmOv button{position:absolute;top:14px;right:18px;background:#fff;border:0;border-radius:99px;width:34px;height:34px;font-size:16px;cursor:pointer;}
+</style>
+<div id="lmOv" onclick="if(event.target===this)lmCerrarVista()"><button onclick="lmCerrarVista()">✕</button><div id="lmOvC"></div></div>
+<script>
+// ══════════════════════════════════════════════════
+// LÁMINAS Y RENDERS: archivos (imagen o PDF) que el cliente aprueba en su portal.
+// Cada uno es una fila de logs con category 'lamina' o 'render'; status = respuesta del cliente; extra = {url,mime,version,versiones,espacio,oculto}
+// No pasan por el arreglo global de la bitácora (sbLoadLogs los filtra), se leen y guardan aquí fila por fila.
+// ══════════════════════════════════════════════════
+(function(){
+  var SB='https://iucjhzsnlotojvpyjcfo.supabase.co';
+  var KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1Y2poenNubG90b2p2cHlqY2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMTIzMTYsImV4cCI6MjA5NDY4ODMxNn0.PKLG4LS1EjgfHE0GXAnyxWuEUhlZy5s7TWxe8luvuik';
+  var BUCKET='Imagenes app estudio bianco';
+  var H={apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'};
+  var docs=[], coms=[], cargadoPid=null;
+  var TIPOS={lamina:'Planos y láminas',render:'Looks y renders'};
+  function e(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function hoy(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function ex(d){if(!d.extra||typeof d.extra!=='object'){try{d.extra=d.extra?JSON.parse(d.extra):{};}catch(x){d.extra={};}}return d.extra;}
+  function esPdf(d){return /pdf/i.test(ex(d).mime||'')||/\.pdf($|\?)/i.test(ex(d).url||'');}
+
+  function cargar(cb){
+    var pid=currentProjId; if(!pid)return;
+    Promise.all([
+      fetch(SB+'/rest/v1/logs?select=*&project_id=eq.'+encodeURIComponent(pid)+'&category=in.(lamina,render)&order=id',{headers:H}).then(function(r){return r.ok?r.json():[];}),
+      fetch(SB+'/rest/v1/logs?select=id,date,title,description,responsible,extra&project_id=eq.'+encodeURIComponent(pid)+'&category=eq.cliente&order=id.desc&limit=300',{headers:H}).then(function(r){return r.ok?r.json():[];})
+    ]).then(function(x){if(pid!==currentProjId)return;docs=x[0]||[];docs.forEach(ex);coms=(x[1]||[]).map(function(c){ex(c);return c;}).filter(function(c){return c.extra.docId;});cargadoPid=pid;if(cb)cb();})
+    .catch(function(){if(cb)cb();});
+  }
+  function guardar(d){
+    var row={id:d.id,project_id:currentProjId,date:d.date||hoy(),type:d.category==='render'?'Render':'Lámina',title:d.title||'',description:d.description||'',commits:'',responsible:'',due_date:'',status:d.status||'',amount:0,category:d.category,item_id:null,extra:JSON.stringify(ex(d))};
+    return fetch(SB+'/rest/v1/logs?on_conflict=project_id,id',{method:'POST',headers:Object.assign({},H,{Prefer:'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(row)}).then(function(r){if(!r.ok)throw r.status;});
+  }
+  function subir(file){
+    return new Promise(function(ok,mal){
+      if(!/^image\/|application\/pdf/.test(file.type)){mal('Solo imágenes (JPG, PNG) o PDF.');return;}
+      if(file.size>15*1024*1024){mal('El archivo pesa más de 15 MB. Exporta el PDF en menor calidad o como imagen.');return;}
+      var ext=((file.name||'').split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
+      var path='laminas/'+currentProjId+'_'+Date.now()+'_'+Math.floor(Math.random()*1000)+'.'+ext;
+      fetch(SB+'/storage/v1/object/'+encodeURIComponent(BUCKET)+'/'+path,{method:'POST',headers:{apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':file.type},body:file})
+      .then(function(r){if(!r.ok)throw 0;ok(SB+'/storage/v1/object/public/'+encodeURIComponent(BUCKET)+'/'+path);}).catch(function(){mal('No se pudo subir el archivo. Intenta de nuevo.');});
+    });
+  }
+
+  function pintar(){
+    var b=document.getElementById('lamBody'); if(!b)return;
+    var h='<h1 class="lm-h1">Láminas y renders</h1><p class="lm-sub">Lo que subas aquí lo ve tu cliente en su portal, en las pestañas "Planos y láminas" y "Looks y renders", y puede aprobarlo o pedir cambios. Acepta imágenes o PDF (hasta 15 MB).</p>';
+    ['lamina','render'].forEach(function(cat){
+      var arr=docs.filter(function(d){return d.category===cat;});
+      h+='<div class="lm-sec"><h2>'+TIPOS[cat]+'</h2><label class="btn prim" style="cursor:pointer;">+ Agregar '+(cat==='lamina'?'lámina':'render')+'<input type="file" accept="image/*,application/pdf" multiple style="display:none;" onchange="lmAgregar(\''+cat+'\',this)"></label></div>';
+      if(!arr.length){h+='<div class="lm-empty">Aún no hay '+(cat==='lamina'?'láminas':'renders')+'. Sube '+(cat==='lamina'?'plantas, elevaciones o detalles de muebles a medida':'imágenes de concepto, looks o renders')+'.</div>';return;}
+      h+='<div class="lm-grid">'+arr.map(tarjeta).join('')+'</div>';
+    });
+    b.innerHTML=h;
+  }
+  function tarjeta(d){
+    var x=ex(d), st=d.status||'', cls=st.split(' ')[0]||'Por', n=(x.versiones||[]).length+1;
+    var cs=coms.filter(function(c){return +c.extra.docId===+d.id;}).slice(0,3);
+    return '<div class="lm-card'+(x.oculto?' oculto':'')+'"><div class="lm-th" onclick="lmVer('+d.id+')">'+(esPdf(d)?'<div class="pdf"><b>PDF</b>Ver documento</div>':'<img src="'+e(x.url)+'" alt="" loading="lazy">')
+      +'<span class="lm-st '+e(cls)+'">'+(st==='Aprobado'?'✓ Aprobado':st==='Cambios solicitados'?'Cambios pedidos':st==='Rechazado'?'Descartado':'Por revisar')+'</span></div>'
+      +'<div class="lm-bd"><div class="lm-t">'+e(d.title||'Sin nombre')+'</div><div class="lm-m">'+[x.espacio,'Versión '+n,d.date].filter(Boolean).map(e).join(' · ')+(x.oculto?' · <b>oculto al cliente</b>':'')+'</div>'
+      +(d.description?'<div class="lm-n">'+e(d.description)+'</div>':'')
+      +'<div class="lm-acts"><button onclick="lmEditar('+d.id+')">Editar</button><label>Nueva versión<input type="file" accept="image/*,application/pdf" style="display:none;" onchange="lmVersion('+d.id+',this)"></label><button onclick="lmOcultar('+d.id+')">'+(x.oculto?'Mostrar al cliente':'Ocultar')+'</button><button onclick="lmBorrar('+d.id+')" style="color:var(--dn);">Borrar</button></div></div>'
+      +(cs.length?'<div class="lm-com">'+cs.map(function(c){return '<div><b>'+e(c.responsible||'Cliente')+'</b> · '+e(String(c.title||'').replace(/^Cliente: /,'').split(' · ')[0])+(c.description?': '+e(c.description):'')+' <span style="color:var(--tx3);">'+e(c.date||'')+'</span></div>';}).join('')+'</div>':'')+'</div>';
+  }
+  window.lmAgregar=function(cat,input){
+    var fs=[].slice.call(input.files||[]); input.value=''; if(!fs.length)return;
+    var i=0; tst('Subiendo '+fs.length+' archivo'+(fs.length===1?'':'s')+'…');
+    (function siguiente(){
+      if(i>=fs.length){pintar();tst('✓ Listo');return;}
+      var f=fs[i++], nombre=(f.name||'').replace(/\.[a-z0-9]+$/i,'').replace(/[_-]+/g,' ').trim();
+      subir(f).then(function(url){
+        var d={id:Date.now()*10+Math.floor(Math.random()*10),category:cat,date:hoy(),title:nombre||(cat==='lamina'?'Lámina':'Render'),description:'',status:'',extra:{url:url,mime:f.type,versiones:[],espacio:'',oculto:false}};
+        return guardar(d).then(function(){docs.push(d);siguiente();});
+      }).catch(function(m){alert(typeof m==='string'?m:'No se pudo guardar.');siguiente();});
+    })();
+  };
+  window.lmVersion=function(id,input){
+    var f=input.files&&input.files[0]; input.value=''; var d=docs.find(function(x){return x.id===id;}); if(!f||!d)return;
+    if(!confirm('¿Subir una nueva versión de "'+d.title+'"? La anterior queda guardada como historial y el cliente tendrá que revisarla de nuevo.'))return;
+    tst('Subiendo nueva versión…');
+    subir(f).then(function(url){var x=ex(d);x.versiones=(x.versiones||[]).concat([{url:x.url,mime:x.mime,fecha:d.date,estado:d.status||''}]);x.url=url;x.mime=f.type;d.date=hoy();d.status='';return guardar(d);})
+    .then(function(){pintar();tst('✓ Nueva versión publicada');}).catch(function(m){alert(typeof m==='string'?m:'No se pudo subir.');});
+  };
+  window.lmEditar=function(id){
+    var d=docs.find(function(x){return x.id===id;}); if(!d)return;
+    var t=prompt('Nombre de la lámina o render:',d.title||''); if(t==null)return;
+    var es_=prompt('Espacio (opcional, ej: Comedor):',ex(d).espacio||''); if(es_==null)es_=ex(d).espacio||'';
+    var n=prompt('Nota para el cliente (opcional):',d.description||''); if(n==null)n=d.description||'';
+    d.title=t.trim()||d.title; ex(d).espacio=es_.trim(); d.description=n.trim();
+    guardar(d).then(function(){pintar();tst('✓ Guardado');}).catch(function(){alert('No se pudo guardar.');});
+  };
+  window.lmOcultar=function(id){var d=docs.find(function(x){return x.id===id;});if(!d)return;ex(d).oculto=!ex(d).oculto;guardar(d).then(pintar);};
+  window.lmBorrar=function(id){
+    var d=docs.find(function(x){return x.id===id;}); if(!d)return;
+    if(!confirm('¿Borrar "'+d.title+'"? El cliente dejará de verla. (Si solo quieres que no la vea por ahora, usa "Ocultar".)'))return;
+    fetch(SB+'/rest/v1/logs?project_id=eq.'+encodeURIComponent(currentProjId)+'&id=eq.'+id,{method:'DELETE',headers:H}).then(function(){docs=docs.filter(function(x){return x.id!==id;});pintar();tst('Borrada');});
+  };
+  window.lmVer=function(id){
+    var d=docs.find(function(x){return x.id===id;}); if(!d)return; var u=ex(d).url;
+    document.getElementById('lmOvC').innerHTML=esPdf(d)?'<iframe src="'+e(u)+'"></iframe>':'<img src="'+e(u)+'" alt="">';
+    document.getElementById('lmOv').classList.add('open');
+  };
+  window.lmCerrarVista=function(){document.getElementById('lmOv').classList.remove('open');document.getElementById('lmOvC').innerHTML='';};
+
+  if(typeof window.go==='function'){var _g=window.go;window.go=function(p){var r=_g.apply(this,arguments);if(p==='laminas'){var b=document.getElementById('lamBody');if(b&&cargadoPid!==currentProjId)b.innerHTML='<p style="color:var(--tx3);">Cargando…</p>';cargar(pintar);}return r;};}
+  if(typeof window.openProject==='function'){var _o=window.openProject;window.openProject=function(){docs=[];coms=[];cargadoPid=null;return _o.apply(this,arguments);};}
 })();
 </script>
 
