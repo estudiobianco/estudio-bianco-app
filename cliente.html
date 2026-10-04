@@ -17,7 +17,8 @@ header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;
 .eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--az);font-weight:700;margin-bottom:6px;}
 h1{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:32px;line-height:1.1;}
 .sub{color:var(--tx2);margin-top:6px;max-width:560px;}
-.tot{background:var(--surface);border:1px solid var(--bd);border-radius:14px;padding:14px 18px;min-width:230px;}
+.tot{background:var(--surface);border:1px solid var(--bd);border-radius:14px;padding:14px 18px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+.tot .s{text-align:right;}
 .tot .l{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);}
 .tot .v{font-family:'Fraunces',Georgia,serif;font-size:26px;margin-top:2px;}
 .tot .s{font-size:12px;color:var(--tx2);}
@@ -87,15 +88,15 @@ a.tienda:hover{text-decoration:underline;}
 .box .bt .p{background:var(--az);border-color:var(--az);color:#fff;font-weight:500;}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#1f2a24;color:#fff;padding:10px 16px;border-radius:10px;font-size:13.5px;display:none;z-index:60;}
 /* Intro */
-.intro{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;margin-bottom:22px;}
-.ins{background:var(--azl);border:1px solid var(--azb);border-radius:14px;padding:16px 18px;font-size:13.5px;color:#1F4C6B;}
+.intro{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-bottom:12px;}
+.ins{background:var(--azl);border:1px solid var(--azb);border-radius:12px;padding:12px 16px;font-size:13px;color:#1F4C6B;}
 .ins b{font-weight:700;}
 .ins ol{margin:8px 0 0 18px;padding:0;}.ins li{margin-bottom:4px;}
-.imp{background:#FDECEA;border:1px solid #F1B8B0;border-radius:14px;padding:16px 18px;font-size:13.5px;color:#9B2C1F;}
+.imp{background:#FDECEA;border:1px solid #F1B8B0;border-radius:12px;padding:12px 16px;font-size:13px;color:#9B2C1F;}
 .imp b{display:block;font-size:12px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;}
 @media (max-width:760px){.intro{grid-template-columns:1fr;}}
 footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
-@media (max-width:600px){h1{font-size:26px;}.tot{width:100%;}.grid,.grp .grid{grid-template-columns:1fr;}}
+@media (max-width:600px){h1{font-size:26px;}.tot .s{text-align:left;}.grid,.grp .grid{grid-template-columns:1fr;}}
 </style>
 </head>
 <body>
@@ -138,10 +139,10 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
     var porCotizar=its.some(function(it){return !fuera(it)&&!(+it.precio>0);});
     document.title=(D.proyecto.nombre||'Tu proyecto')+' · Estudio Bianco';
     var h='<header><div><img class="logo" src="/logo-estudio-bianco.png" alt="Estudio Bianco"><div class="eyebrow">Listado de compras</div><h1>'+e(D.proyecto.nombre)+'</h1>'
-      +'<p class="sub">Este es un espacio que diseñamos especialmente para ti en Estudio Bianco, para acompañarte en la administración de tu proyecto. Aquí armamos tu listado de compras y lo compartimos contigo para que puedas revisar cada producto antes de pagarlo.</p></div>'
-      +'<div class="tot"><div class="l">Total con lo elegido</div><div class="v">'+m(total)+'</div><div class="s">'+cuenta['Aprobado']+' de '+its.length+' productos aprobados'+(porCotizar?' · algunos por cotizar':'')+'</div></div></header>';
-    h+='<div class="intro"><div class="ins"><b>Cómo usarlo</b><ol><li>Revisa producto por producto: foto, medidas, precio y dónde se compra.</li><li>En cada uno elige <b>✓ Apruebo</b>, <b>✎ Cambios</b> (cuéntanos qué cambiarías) o <b>✕ Descartar</b>.</li><li>Donde hay varias opciones, aprueba la que más te guste: el total se actualiza con tu elección.</li><li>Tus respuestas nos llegan al instante. Si tienes una duda, deja un comentario en el producto.</li></ol></div>'
-      +'<div class="imp"><b>Importante</b>Este listado puede estar incompleto. En esta etapa se va ajustando constantemente según nuestras reuniones y conversaciones contigo. Aun así, es una aproximación fiel al presupuesto total de tu proyecto.</div></div>';
+      +'<p class="sub">Esta aplicación es de desarrollo exclusivo de Estudio Bianco, una herramienta para administrar tu proyecto. Aquí armamos tu listado de compras y revisamos contigo cada producto antes de pagarlo.</p></div></header>';
+    h+='<div class="intro"><div class="ins"><b>Cómo usarlo:</b> en cada producto marca <b>✓ Apruebo</b>, <b>✎ Cambios</b> o <b>✕ Descartar</b>. Donde hay opciones, aprueba la que prefieras.</div>'
+      +'<div class="imp"><b>Importante</b>Este listado puede estar incompleto: se va ajustando según nuestras reuniones. Aun así, es una aproximación fiel al presupuesto total.</div></div>';
+    h+='<div class="tot"><div><div class="l">Total con lo elegido</div><div class="v">'+m(total)+'</div></div><div class="s">'+cuenta['Aprobado']+' de '+its.length+' productos aprobados'+(porCotizar?'<br>Algunos productos están por cotizar':'')+'</div></div>';
     var F=[['','Todos'],['Por revisar','Por revisar'],['Aprobado','Aprobados'],['Cambios solicitados','Con cambios'],['Rechazado','Descartados']];
     h+='<div class="bar">'+F.map(function(f){return '<button class="chip'+(filtro===f[0]?' on':'')+'" onclick="ebF(\''+f[0]+'\')">'+f[1]+'<i>'+(cuenta[f[0]]||0)+'</i></button>';}).join('')
       +'<span class="sp"></span><select class="ag" onchange="ebA(this.value)"><option value="esp"'+(agrupar==='esp'?' selected':'')+'>Ver por espacio</option><option value="cat"'+(agrupar==='cat'?' selected':'')+'>Ver por categoría</option></select></div>';
