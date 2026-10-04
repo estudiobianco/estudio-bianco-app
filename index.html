@@ -7929,5 +7929,126 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
 })();
 </script>
 
+<style>
+/* ══ PORTAL DEL CLIENTE ══ */
+#portalOv{position:fixed;inset:0;background:rgba(30,28,24,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:10060;}
+#portalOv.open{display:flex;}
+#portalOv .bx{background:var(--surface);border-radius:14px;max-width:520px;width:100%;padding:22px 24px;box-shadow:var(--sh2);}
+#portalOv h3{font-family:'Fraunces',serif;font-weight:400;font-size:22px;margin:0 0 6px;}
+#portalOv p{font-size:13px;color:var(--tx2);margin:0 0 12px;line-height:1.5;}
+#portalOv .lk{display:flex;gap:6px;margin:12px 0;}
+#portalOv .lk input{flex:1;min-width:0;border:1px solid var(--bd2);border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:'DM Mono',monospace;background:var(--s2);color:var(--tx);}
+#portalOv .bt{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:14px;}
+#portalOv .nota{font-size:12px;color:var(--tx3);border-top:1px solid var(--bd);padding-top:10px;margin-top:12px;}
+.portal-av{background:#EEF4F0;border:1px solid #CFE0D5;border-radius:10px;padding:10px 14px;margin:0 0 12px;font-size:12.5px;color:#24493A;}
+.portal-av b{font-weight:700;}
+.portal-av ul{margin:6px 0 0 18px;padding:0;}
+.portal-av li{margin-bottom:2px;}
+.portal-av button{border:1px solid #B9D2C2;background:#fff;border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;color:#24493A;font-family:inherit;float:right;margin-left:8px;}
+</style>
+<div id="portalOv"><div class="bx" id="portalBx"></div></div>
+<script>
+// ══════════════════════════════════════════════════
+// PORTAL DEL CLIENTE: link privado por proyecto (projects.portal_token) -> /cliente.html?k=...
+// El cliente responde por /api/cliente (servidor con llave privada). Sus respuestas quedan en logs (category 'cliente')
+// y aqui se aplican al listado abierto para que un guardado posterior no las pise.
+// ══════════════════════════════════════════════════
+(function(){
+  var SB='https://iucjhzsnlotojvpyjcfo.supabase.co';
+  var KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1Y2poenNubG90b2p2cHlqY2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMTIzMTYsImV4cCI6MjA5NDY4ODMxNn0.PKLG4LS1EjgfHE0GXAnyxWuEUhlZy5s7TWxe8luvuik';
+  var H={apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'};
+  function e(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function linkDe(t){return location.origin+'/cliente.html?k='+t;}
+  function nuevoToken(){var b=new Uint8Array(18);crypto.getRandomValues(b);return btoa(String.fromCharCode.apply(null,b)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+  function proyNombre(){try{var p=projects.find(function(x){return x.id===currentProjId;});return p?p.name:'';}catch(x){return '';}}
+
+  function leerToken(pid){return fetch(SB+'/rest/v1/projects?select=portal_token&id=eq.'+encodeURIComponent(pid),{headers:H}).then(function(r){return r.ok?r.json():Promise.reject(r.status);}).then(function(a){return a&&a[0]?a[0].portal_token||'':'';});}
+  function guardarToken(pid,t){return fetch(SB+'/rest/v1/projects?id=eq.'+encodeURIComponent(pid),{method:'PATCH',headers:Object.assign({},H,{Prefer:'return=minimal'}),body:JSON.stringify({portal_token:t||null})}).then(function(r){if(!r.ok)return Promise.reject(r.status);});}
+
+  window.portalAbrir=function(){
+    if(!currentProjId)return;
+    var pid=currentProjId, bx=document.getElementById('portalBx');
+    bx.innerHTML='<h3>Portal del cliente</h3><p>Cargando…</p>'; document.getElementById('portalOv').classList.add('open');
+    leerToken(pid).then(function(t){pintarModal(pid,t);}).catch(function(){bx.innerHTML='<h3>Portal del cliente</h3><p>No se pudo conectar. Revisa tu internet e intenta de nuevo.</p><div class="bt"><button class="btn" onclick="portalCerrar()">Cerrar</button></div>';});
+  };
+  function pintarModal(pid,t){
+    var bx=document.getElementById('portalBx'), nom=e(proyNombre());
+    if(!t){
+      bx.innerHTML='<h3>Portal del cliente</h3><p>Crea un link privado para que tu cliente vea el listado de <b>'+nom+'</b> con fotos y precios, y pueda aprobar, pedir cambios o descartar cada producto. No necesita cuenta ni contraseña.</p>'
+        +'<p>El cliente no ve honorarios, pagos, notas internas ni otros proyectos.</p>'
+        +'<div class="bt"><button class="btn" onclick="portalCerrar()">Cancelar</button><button class="btn prim" onclick="portalCrear()">Crear link</button></div>';
+      return;
+    }
+    var L=linkDe(t);
+    bx.innerHTML='<h3>Portal del cliente</h3><p>Este es el link privado de <b>'+nom+'</b>. Envíaselo a tu cliente por WhatsApp o correo. Cualquier persona que tenga el link puede ver el listado y responder.</p>'
+      +'<div class="lk"><input id="portalLink" readonly value="'+e(L)+'" onclick="this.select()"><button class="btn prim" onclick="portalCopiar()">Copiar</button></div>'
+      +'<div class="bt" style="justify-content:space-between;"><span><button class="btn" onclick="window.open(\''+e(L)+'\',\'_blank\')">Ver como cliente ↗</button></span><span><button class="btn" style="color:var(--dn);" onclick="portalDesactivar()">Desactivar link</button> <button class="btn" onclick="portalCerrar()">Listo</button></span></div>'
+      +'<div class="nota">Si desactivas el link, el anterior deja de funcionar. Puedes crear uno nuevo cuando quieras. Las respuestas del cliente aparecen en el listado y en la Bitácora.</div>';
+  }
+  window.portalCrear=function(){
+    var pid=currentProjId, t=nuevoToken();
+    guardarToken(pid,t).then(function(){pintarModal(pid,t);tst('✓ Link del cliente creado');}).catch(function(s){alert('No se pudo crear el link ('+s+'). Intenta de nuevo.');});
+  };
+  window.portalDesactivar=function(){
+    if(!confirm('¿Desactivar el link? Tu cliente ya no podrá abrir el portal con el link actual.'))return;
+    var pid=currentProjId; guardarToken(pid,'').then(function(){pintarModal(pid,'');tst('Link desactivado');}).catch(function(){alert('No se pudo desactivar. Intenta de nuevo.');});
+  };
+  window.portalCopiar=function(){var i=document.getElementById('portalLink');i.select();try{navigator.clipboard.writeText(i.value).then(function(){tst('✓ Link copiado');},function(){document.execCommand('copy');tst('✓ Link copiado');});}catch(x){document.execCommand('copy');tst('✓ Link copiado');}};
+  window.portalCerrar=function(){document.getElementById('portalOv').classList.remove('open');};
+  document.getElementById('portalOv').addEventListener('click',function(ev){if(ev.target.id==='portalOv')portalCerrar();});
+
+  // ── Respuestas del cliente: aplicar al listado abierto y avisar ──
+  var cargadoEn={}, aplicadas={}, ultimas=[];
+  function aplicar(pid,logs){
+    if(pid!==currentProjId)return false;
+    var desde=cargadoEn[pid]||0, cambio=false;
+    logs.forEach(function(l){
+      if(aplicadas[l.id])return; aplicadas[l.id]=1;
+      var ex={}; try{ex=l.extra?JSON.parse(l.extra):{};}catch(x){}
+      if(!ex.decision||!(Date.parse(ex.at||'')>desde))return; // lo anterior a la carga ya vino de la nube
+      var it=(items||[]).find(function(r){return r.id===+l.item_id;}); if(!it)return;
+      it.clientStatus=ex.decision; if(ex.decision==='Aprobado'){it.clientApprovalDate=l.date||it.clientApprovalDate;if(it.optGroup)items.forEach(function(r){if(r.optGroup===it.optGroup)r.optSel=(r===it);});}
+      cambio=true;
+    });
+    if(cambio){try{svP('items',items);}catch(x){}try{var pg=document.getElementById('page-compras');if(pg&&pg.classList.contains('active'))rC();}catch(x){}}
+    return cambio;
+  }
+  function revisar(){
+    var pid=currentProjId; if(!pid)return;
+    fetch(SB+'/rest/v1/logs?select=id,date,title,description,responsible,item_id,extra&project_id=eq.'+encodeURIComponent(pid)+'&category=eq.cliente&order=id.desc&limit=100',{headers:H})
+    .then(function(r){return r.ok?r.json():[];}).then(function(logs){
+      if(pid!==currentProjId)return;
+      aplicar(pid,logs.slice().reverse()); ultimas=logs; aviso();
+    }).catch(function(){});
+  }
+  function aviso(){
+    var box=document.getElementById('portalAviso'); if(!box)return;
+    var pid=currentProjId, visto=0; try{visto=+localStorage.getItem('eb_portal_visto_'+pid)||0;}catch(x){}
+    var nuevas=ultimas.filter(function(l){return l.id>visto;});
+    if(!nuevas.length){box.innerHTML='';return;}
+    box.innerHTML='<div class="portal-av"><button onclick="portalVisto()">Marcar como visto</button><b>💬 '+nuevas.length+' respuesta'+(nuevas.length===1?'':'s')+' nueva'+(nuevas.length===1?'':'s')+' del cliente</b> desde su portal:<ul>'
+      +nuevas.slice(0,8).map(function(l){return '<li><b>'+e(l.responsible||'Cliente')+'</b> · '+e(String(l.title||'').replace(/^Cliente: /,''))+(l.description?': <i>'+e(String(l.description).slice(0,160))+'</i>':'')+' <span style="color:#7A9585;">('+e(l.date||'')+')</span></li>';}).join('')
+      +(nuevas.length>8?'<li>y '+(nuevas.length-8)+' más (ver Bitácora)</li>':'')+'</ul></div>';
+  }
+  window.portalVisto=function(){var m=ultimas.reduce(function(a,l){return Math.max(a,l.id);},0);try{localStorage.setItem('eb_portal_visto_'+currentProjId,String(m));}catch(x){}aviso();};
+
+  // Boton y contenedor del aviso en el listado
+  function montar(){
+    var tb=document.querySelector('#page-compras > .tb'); if(!tb)return;
+    if(!document.getElementById('portalBtn')){
+      var b=document.createElement('button'); b.id='portalBtn'; b.className='btn'; b.textContent='🔗 Link para el cliente'; b.title='Portal donde tu cliente ve el listado y aprueba productos';
+      b.onclick=portalAbrir; var csv=tb.querySelector('[onclick="expCSV()"]'); tb.insertBefore(b,csv||null);
+    }
+    document.getElementById('portalBtn').style.display=appMode==='admin'?'':'none';
+    if(!document.getElementById('portalAviso')){var d=document.createElement('div');d.id='portalAviso';var tabs=document.getElementById('comprasTabs');tabs.parentNode.insertBefore(d,tabs);}
+  }
+  if(typeof window.openProject==='function'){var _o=window.openProject;window.openProject=function(pid){cargadoEn[pid]=Date.now();ultimas=[];var r=_o.apply(this,arguments);try{montar();aviso();}catch(x){}setTimeout(revisar,2500);return r;};}
+  if(typeof window.go==='function'){var _g=window.go;window.go=function(p){var r=_g.apply(this,arguments);if(p==='compras'){try{montar();aviso();}catch(x){}revisar();}return r;};}
+  setInterval(function(){var pg=document.getElementById('page-compras');if(currentProjId&&pg&&pg.classList.contains('active')&&!document.hidden)revisar();},60000);
+  window.addEventListener('focus',function(){if(currentProjId)revisar();});
+  setTimeout(function(){try{montar();}catch(x){}},1500);
+})();
+</script>
+
 </body>
 </html>

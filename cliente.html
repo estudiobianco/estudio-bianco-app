@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Tu proyecto · Estudio Bianco</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F7F5F0;--surface:#fff;--s2:#F1EEE7;--tx:#2A2824;--tx2:#6B665E;--tx3:#A8A29A;--bd:#E5E1D8;--bd2:#D6D0C4;--ac:#2A5C45;--acl:#E7EFE9;--ok:#2F8663;--okl:#E4F2EA;--wn:#B8791F;--wnl:#FBF1E1;--dn:#B4483C;--dnl:#F8E7E4;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--tx);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 20px 80px;}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--bd);padding-bottom:20px;margin-bottom:22px;}
+.logo{height:40px;display:block;margin-bottom:18px;}
+.eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ac);font-weight:700;margin-bottom:6px;}
+h1{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:32px;line-height:1.1;}
+.sub{color:var(--tx2);margin-top:6px;max-width:560px;}
+.tot{background:var(--surface);border:1px solid var(--bd);border-radius:14px;padding:14px 18px;min-width:230px;}
+.tot .l{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);}
+.tot .v{font-family:'Fraunces',Georgia,serif;font-size:26px;margin-top:2px;}
+.tot .s{font-size:12px;color:var(--tx2);}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:18px;}
+.chip{border:1px solid var(--bd);background:var(--surface);border-radius:99px;padding:7px 14px;font-size:13px;cursor:pointer;color:var(--tx);font-family:inherit;}
+.chip i{font-style:normal;color:var(--tx3);margin-left:5px;}
+.chip.on{background:var(--ac);border-color:var(--ac);color:#fff;}.chip.on i{color:rgba(255,255,255,.75);}
+.sp{flex:1;}
+select.ag{border:1px solid var(--bd);background:var(--surface);border-radius:10px;padding:7px 10px;font-family:inherit;font-size:13px;color:var(--tx);}
+h2{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:21px;margin:26px 0 12px;display:flex;gap:10px;align-items:baseline;}
+h2 small{font-family:'DM Sans',sans-serif;font-size:12px;color:var(--tx3);}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;}
+.card{background:var(--surface);border:1px solid var(--bd);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;}
+.card.alt{opacity:.92;}
+.ph{aspect-ratio:4/3;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--tx3);font-size:12px;position:relative;}
+.ph img{width:100%;height:100%;object-fit:contain;background:#fff;}
+.badge{position:absolute;top:10px;left:10px;font-size:11px;font-weight:700;border-radius:99px;padding:3px 10px;background:var(--surface);border:1px solid var(--bd);}
+.b-Aprobado{background:var(--okl);color:var(--ok);border-color:#BFE0CC;}
+.b-Cambios{background:var(--wnl);color:var(--wn);border-color:#EBCF9F;}
+.b-Rechazado{background:var(--dnl);color:var(--dn);border-color:#EEC5BE;}
+.b-Por{background:var(--surface);color:var(--tx2);}
+.bd{padding:14px 16px;display:flex;flex-direction:column;gap:6px;flex:1;}
+.opn{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ac);}
+.card.alt .opn{color:var(--tx3);}
+.nm{font-weight:700;font-size:15px;line-height:1.3;}
+.meta{font-size:12.5px;color:var(--tx2);}
+.pr{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:2px;}
+.pr .u{font-size:12.5px;color:var(--tx2);}
+.pr .t{font-weight:700;font-size:15px;}
+.card.alt .pr .t{color:var(--tx3);}
+.specs{font-size:12px;color:var(--tx2);white-space:pre-line;background:var(--s2);border-radius:8px;padding:8px 10px;max-height:7.5em;overflow:hidden;position:relative;cursor:pointer;}
+.specs.open{max-height:none;}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;}
+.ent{border-radius:99px;padding:2px 9px;background:var(--s2);color:var(--tx2);}
+.ent.ok{background:var(--okl);color:var(--ok);}
+a.tienda{color:var(--ac);font-weight:500;text-decoration:none;font-size:12.5px;}
+a.tienda:hover{text-decoration:underline;}
+.acts{display:flex;gap:6px;margin-top:auto;padding-top:10px;flex-wrap:wrap;}
+.acts button{flex:1;min-width:84px;border:1px solid var(--bd2);background:var(--surface);border-radius:10px;padding:9px 6px;font-size:13px;cursor:pointer;font-family:inherit;color:var(--tx);}
+.acts button:hover{border-color:var(--ac);}
+.acts .ap.on{background:var(--ok);border-color:var(--ok);color:#fff;}
+.acts .ca.on{background:var(--wn);border-color:var(--wn);color:#fff;}
+.acts .re.on{background:var(--dn);border-color:var(--dn);color:#fff;}
+.coms{border-top:1px solid var(--bd);padding:10px 16px;background:#FBFAF7;font-size:12.5px;}
+.com{margin-bottom:6px;}.com b{font-weight:700;}.com .f{color:var(--tx3);font-size:11px;margin-left:4px;}
+.addc{background:none;border:0;color:var(--tx2);font-size:12.5px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline;}
+.grp{background:var(--surface);border:1px solid var(--bd);border-radius:16px;padding:14px;margin-bottom:12px;}
+.grp .gh{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;margin:0 2px 12px;}
+.grp .gh b{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:18px;}
+.grp .gh span{font-size:12.5px;color:var(--tx2);}
+.grp .grid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr));}
+.grp .card{border-color:var(--bd);}
+.grp .card.sel{border:2px solid var(--ac);}
+.msg{text-align:center;padding:80px 20px;color:var(--tx2);}
+.msg h1{margin-bottom:10px;}
+.modal{position:fixed;inset:0;background:rgba(30,28,24,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:50;}
+.modal.open{display:flex;}
+.box{background:var(--surface);border-radius:16px;max-width:460px;width:100%;padding:22px;}
+.box h3{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:21px;margin-bottom:4px;}
+.box p{color:var(--tx2);font-size:13px;margin-bottom:12px;}
+.box label{display:block;font-size:12px;color:var(--tx2);margin:10px 0 4px;}
+.box input,.box textarea{width:100%;border:1px solid var(--bd2);border-radius:10px;padding:10px 12px;font-family:inherit;font-size:14px;color:var(--tx);}
+.box textarea{min-height:96px;resize:vertical;}
+.box .err{color:var(--dn);font-size:12.5px;margin-top:8px;display:none;}
+.box .bt{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
+.box .bt button{border:1px solid var(--bd2);background:var(--surface);border-radius:10px;padding:9px 16px;font-family:inherit;font-size:14px;cursor:pointer;}
+.box .bt .p{background:var(--ac);border-color:var(--ac);color:#fff;font-weight:500;}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#1f2a24;color:#fff;padding:10px 16px;border-radius:10px;font-size:13.5px;display:none;z-index:60;}
+footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
+@media (max-width:600px){h1{font-size:26px;}.tot{width:100%;}.grid,.grp .grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><div class="msg">Cargando tu proyecto…</div></div>
+
+<div class="modal" id="modal"><div class="box">
+  <h3 id="mT"></h3><p id="mP"></p>
+  <label for="mNom">Tu nombre</label><input id="mNom" maxlength="80" placeholder="Ej: Jorge">
+  <label for="mCom" id="mCL">Comentario</label><textarea id="mCom" maxlength="2000" placeholder="Escribe aquí…"></textarea>
+  <div class="err" id="mErr"></div>
+  <div class="bt"><button onclick="cerrar()">Cancelar</button><button class="p" id="mOk" onclick="enviar()">Enviar</button></div>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var K=new URLSearchParams(location.search).get('k')||'';
+  var D=null, filtro='', agrupar='esp', pend=null;
+  try{agrupar=localStorage.getItem('ebc_agrupar')||'esp';}catch(e){}
+  function e(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function m(n){return '$'+Math.round(n).toLocaleString('es-CL');}
+  function fuera(it){return it.grupo&&!it.elegida;}
+  function sub(it){return (+it.cant||1)*(+it.precio||0);}
+  function urlOk(u){return /^https?:\/\//i.test(String(u||'').trim());}
+  function est(it){return it.estado||'Por revisar';}
+  function toast(t){var x=document.getElementById('toast');x.textContent=t;x.style.display='block';clearTimeout(x._t);x._t=setTimeout(function(){x.style.display='none';},2600);}
+
+  function cargar(){
+    if(!/^[A-Za-z0-9_-]{20,64}$/.test(K)){mensaje('Link incompleto','Revisa que copiaste el link completo que te envió Estudio Bianco.');return;}
+    fetch('/api/cliente?k='+encodeURIComponent(K)).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
+    .then(function(x){if(!x.ok||!x.j.ok){mensaje('No pudimos abrir el proyecto',x.j.error||'Intenta de nuevo en un momento.');return;}D=x.j;pintar();})
+    .catch(function(){mensaje('Sin conexión','Revisa tu internet e intenta de nuevo.');});
+  }
+  function mensaje(t,p){document.getElementById('app').innerHTML='<div class="msg"><img class="logo" src="/logo-estudio-bianco.png" alt="Estudio Bianco" style="margin:0 auto 24px;"><h1>'+e(t)+'</h1><p>'+e(p)+'</p></div>';}
+
+  function pintar(){
+    var its=D.items, total=its.reduce(function(a,it){return a+(fuera(it)?0:sub(it));},0);
+    var cuenta={'':its.length,'Por revisar':0,'Aprobado':0,'Cambios solicitados':0,'Rechazado':0};
+    its.forEach(function(it){cuenta[est(it)]=(cuenta[est(it)]||0)+1;});
+    var porCotizar=its.some(function(it){return !fuera(it)&&!(+it.precio>0);});
+    document.title=(D.proyecto.nombre||'Tu proyecto')+' · Estudio Bianco';
+    var h='<header><div><img class="logo" src="/logo-estudio-bianco.png" alt="Estudio Bianco"><div class="eyebrow">Listado de compras</div><h1>'+e(D.proyecto.nombre)+'</h1>'
+      +'<p class="sub">Revisa cada producto y cuéntanos si lo apruebas, si quieres un cambio o si lo descartas. Donde hay varias opciones, aprueba la que más te guste. Tus respuestas le llegan directo al estudio.</p></div>'
+      +'<div class="tot"><div class="l">Total con lo elegido</div><div class="v">'+m(total)+'</div><div class="s">'+cuenta['Aprobado']+' de '+its.length+' productos aprobados'+(porCotizar?' · algunos por cotizar':'')+'</div></div></header>';
+    var F=[['','Todos'],['Por revisar','Por revisar'],['Aprobado','Aprobados'],['Cambios solicitados','Con cambios'],['Rechazado','Descartados']];
+    h+='<div class="bar">'+F.map(function(f){return '<button class="chip'+(filtro===f[0]?' on':'')+'" onclick="ebF(\''+f[0]+'\')">'+f[1]+'<i>'+(cuenta[f[0]]||0)+'</i></button>';}).join('')
+      +'<span class="sp"></span><select class="ag" onchange="ebA(this.value)"><option value="esp"'+(agrupar==='esp'?' selected':'')+'>Ver por espacio</option><option value="cat"'+(agrupar==='cat'?' selected':'')+'>Ver por categoría</option></select></div>';
+    var lista=its.filter(function(it){return !filtro||est(it)===filtro;});
+    if(!lista.length)h+='<div class="msg" style="padding:40px;">No hay productos en este filtro.</div>';
+    var secs={}, orden=[];
+    lista.forEach(function(it){var s=agrupar==='esp'?(it.espacio||'Otros'):(it.cat||'Otros');if(!secs[s]){secs[s]=[];orden.push(s);}secs[s].push(it);});
+    if(agrupar==='esp')orden.sort(function(a,b){return (a==='Otros')-(b==='Otros')||a.localeCompare(b,'es');});
+    orden.forEach(function(s){
+      var arr=secs[s];
+      h+='<h2>'+e(s)+'<small>'+arr.length+' producto'+(arr.length===1?'':'s')+'</small></h2>';
+      var sueltos=[], hechos={}, bloques=[];
+      arr.forEach(function(it){
+        if(!it.grupo){bloques.push({tipo:'s',it:it});return;}
+        if(hechos[it.grupo])return; hechos[it.grupo]=1;
+        bloques.push({tipo:'g',g:it.grupo,its:arr.filter(function(x){return x.grupo===it.grupo;})});
+      });
+      var buf=[];
+      function vaciar(){if(buf.length){h+='<div class="grid">'+buf.join('')+'</div>';buf=[];}}
+      bloques.forEach(function(b){
+        if(b.tipo==='s'){buf.push(tarjeta(b.it));return;}
+        vaciar();
+        var todos=its.filter(function(x){return x.grupo===b.g;});
+        h+='<div class="grp"><div class="gh"><b>'+e(b.g)+'</b><span>Elige una de '+todos.length+' opciones · el total incluye la que tiene el borde verde</span></div><div class="grid">'
+          +b.its.map(function(it){return tarjeta(it,todos.indexOf(it)+1);}).join('')+'</div></div>';
+      });
+      vaciar();
+    });
+    h+='<footer>Estudio Bianco · Este link es solo para ti. Si tienes dudas, escríbenos.</footer>';
+    document.getElementById('app').innerHTML=h;
+  }
+  function tarjeta(it,nOp){
+    var es_=est(it), cls=es_.split(' ')[0];
+    var r=(D.respuestas||[]).filter(function(x){return x.itemId===it.id;}).slice(0,6).reverse();
+    var h='<div class="card'+(it.grupo?(it.elegida?' sel':' alt'):'')+'"><div class="ph">'+(it.imagen?'<img src="'+e(it.imagen)+'" alt="" loading="lazy">':'Sin imagen')
+      +'<span class="badge b-'+e(cls)+'">'+(es_==='Aprobado'?'✓ Aprobado':es_==='Rechazado'?'Descartado':es_==='Cambios solicitados'?'Cambios pedidos':'Por revisar')+'</span></div><div class="bd">';
+    if(nOp)h+='<div class="opn">Opción '+nOp+(it.elegida?' · incluida en el total':' · alternativa')+'</div>';
+    h+='<div class="nm">'+e(it.item)+'</div><div class="meta">'+[it.proveedor,it.espacio].filter(Boolean).map(e).join(' · ')+'</div>';
+    h+='<div class="pr"><span class="u">'+(it.cant>1?it.cant+' × ':'')+(+it.precio>0?m(it.precio):'Por cotizar')+'</span><span class="t">'+(+it.precio>0?m(sub(it)):'')+'</span></div>';
+    if((it.specs||'').trim())h+='<div class="specs" onclick="this.classList.toggle(\'open\')" title="Ver más">'+e(it.specs)+'</div>';
+    h+='<div class="row"><span class="ent'+(it.entrega==='Entregado'?' ok':'')+'">'+e(it.entrega||'Por pedir')+'</span>'+(urlOk(it.link)?'<a class="tienda" href="'+e(it.link)+'" target="_blank" rel="noopener">Ver en tienda ↗</a>':'')+'</div>';
+    h+='<div class="acts"><button class="ap'+(es_==='Aprobado'?' on':'')+'" onclick="ebR('+it.id+',\'Aprobado\')">✓ Apruebo</button><button class="ca'+(es_==='Cambios solicitados'?' on':'')+'" onclick="ebR('+it.id+',\'Cambios solicitados\')">✎ Cambios</button><button class="re'+(es_==='Rechazado'?' on':'')+'" onclick="ebR('+it.id+',\'Rechazado\')">✕ Descartar</button></div></div>';
+    h+='<div class="coms">'+r.map(function(c){return '<div class="com"><b>'+e(c.nombre)+'</b>'+(c.decision?' · '+e(c.decision==='Rechazado'?'Descartado':c.decision):'')+'<span class="f">'+e(c.fecha)+'</span>'+(c.comentario?'<div>'+e(c.comentario)+'</div>':'')+'</div>';}).join('')
+      +'<button class="addc" onclick="ebR('+it.id+',\'\')">Dejar un comentario</button></div></div>';
+    return h;
+  }
+  window.ebF=function(f){filtro=f;pintar();};
+  window.ebA=function(a){agrupar=a;try{localStorage.setItem('ebc_agrupar',a);}catch(x){}pintar();};
+  window.ebR=function(id,dec){
+    var it=D.items.find(function(x){return x.id===id;}); if(!it)return;
+    pend={id:id,dec:dec};
+    var T={'Aprobado':['Aprobar producto','Confirmas que apruebas este producto. Puedes agregar un comentario si quieres.'],'Cambios solicitados':['Pedir un cambio','Cuéntanos qué te gustaría cambiar (color, medida, otra opción…).'],'Rechazado':['Descartar producto','Si quieres, cuéntanos por qué no te convence.'],'':['Dejar un comentario','Tu comentario le llega al estudio.']}[dec];
+    if(dec==='Aprobado'&&it.grupo)T[1]='Al aprobar esta opción, queda elegida en el grupo "'+it.grupo+'" y el total se actualiza.';
+    document.getElementById('mT').textContent=T[0]; document.getElementById('mP').textContent=it.item+' · '+T[1];
+    document.getElementById('mCL').textContent=(dec==='Cambios solicitados'||dec==='')?'Comentario':'Comentario (opcional)';
+    var n=''; try{n=localStorage.getItem('ebc_nombre')||'';}catch(x){} document.getElementById('mNom').value=n;
+    document.getElementById('mCom').value=''; document.getElementById('mErr').style.display='none';
+    document.getElementById('modal').classList.add('open'); setTimeout(function(){(n?document.getElementById('mCom'):document.getElementById('mNom')).focus();},50);
+  };
+  window.cerrar=function(){document.getElementById('modal').classList.remove('open');pend=null;};
+  window.enviar=function(){
+    if(!pend)return;
+    var nom=document.getElementById('mNom').value.trim(), com=document.getElementById('mCom').value.trim(), err=document.getElementById('mErr');
+    function falla(t){err.textContent=t;err.style.display='block';}
+    if(!nom)return falla('Escribe tu nombre para que sepamos quién responde.');
+    if((pend.dec==='Cambios solicitados'||pend.dec==='')&&!com)return falla(pend.dec===''?'Escribe tu comentario.':'Cuéntanos qué cambio quieres.');
+    try{localStorage.setItem('ebc_nombre',nom);}catch(x){}
+    var b=document.getElementById('mOk'); b.disabled=true; b.textContent='Enviando…';
+    fetch('/api/cliente',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({k:K,itemId:pend.id,decision:pend.dec,comentario:com,nombre:nom})})
+    .then(function(r){return r.json();}).then(function(j){
+      b.disabled=false; b.textContent='Enviar';
+      if(!j.ok)return falla(j.error||'No se pudo enviar.');
+      cerrar(); toast('✓ Gracias, tu respuesta quedó registrada'); cargar();
+    }).catch(function(){b.disabled=false;b.textContent='Enviar';falla('Sin conexión. Intenta de nuevo.');});
+  };
+  document.addEventListener('keydown',function(ev){if(ev.key==='Escape')cerrar();});
+  cargar();
+})();
+</script>
+</body>
+</html>
