@@ -28,7 +28,7 @@ nav{width:216px;min-width:216px;background:var(--surface);border-right:1px solid
 .pdfbtn:hover{background:var(--ac2);}
 .ntot .lbl{font-size:10px;color:var(--tx3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:2px;}
 .ntot .val{font-size:15px;font-weight:600;color:var(--ac);font-family:"DM Mono",monospace;}
-main{flex:1;padding:28px 36px;min-width:0;overflow-x:hidden;}
+main{flex:1;padding:28px 36px;min-width:0;overflow-x:hidden;overflow-x:clip;}
 .page{display:none;}.page.active{display:block;}
 .ph{margin-bottom:22px;display:flex;justify-content:space-between;align-items:flex-start;}
 .ph h1{font-family:var(--serif);font-size:26px;font-weight:400;letter-spacing:-.01em;margin-bottom:3px;}
@@ -1814,6 +1814,10 @@ function rC(){
     </div></td>`;
       tbody.appendChild(ep);
     });
+    // Fila final del grupo: agregar otro producto aqui mismo, sin volver arriba
+    const _add=document.createElement('tr');_add.className='acc-addrow';
+    _add.innerHTML='<td colspan="12"><button onclick="addItemEn(decodeURIComponent(\''+encodeURIComponent(cat).replace(/'/g,'%27')+'\'),this)">+ Agregar en '+es(cat)+'</button></td>';
+    tbody.appendChild(_add);
     tbl.appendChild(tbody);
     body.appendChild(tbl);
     acc.appendChild(body);
@@ -7751,6 +7755,10 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
 .opt-c0{display:flex;align-items:center;justify-content:center;gap:6px;}
 .acc-add{margin-left:10px;border:1px solid var(--bd2);background:var(--surface);border-radius:99px;padding:2px 10px;font-size:11px;color:var(--tx2);cursor:pointer;font-family:inherit;opacity:.75;}
 .acc-add:hover{opacity:1;border-color:var(--ac);color:var(--ac);}
+.acc-addrow td{padding:6px 10px !important;border-top:1px dashed var(--bd);}
+.acc-addrow button{border:0;background:transparent;color:var(--tx3);font-size:12px;cursor:pointer;font-family:inherit;padding:4px 8px;border-radius:6px;}
+.acc-addrow button:hover{color:var(--ac);background:var(--s2);}
+#page-compras > .tb{position:sticky;top:0;z-index:60;background:var(--bg);padding-top:8px;padding-bottom:8px;}
 .badge.b-esp{background:#EEF0EC;color:#3E4A42;}
 #addMenu{position:absolute;background:var(--surface);border:1px solid var(--bd);border-radius:10px;box-shadow:var(--sh2);padding:4px;z-index:960;min-width:220px;}
 #addMenu button{display:block;width:100%;text-align:left;border:0;background:transparent;padding:7px 10px;font-size:12.5px;border-radius:7px;cursor:pointer;color:var(--tx);font-family:inherit;}
