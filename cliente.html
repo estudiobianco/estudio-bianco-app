@@ -8,13 +8,13 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#F7F5F0;--surface:#fff;--s2:#F1EEE7;--tx:#2A2824;--tx2:#6B665E;--tx3:#A8A29A;--bd:#E5E1D8;--bd2:#D6D0C4;--ac:#2A5C45;--acl:#E7EFE9;--ok:#2F8663;--okl:#E4F2EA;--wn:#B8791F;--wnl:#FBF1E1;--dn:#B4483C;--dnl:#F8E7E4;}
+:root{--bg:#FFFFFF;--az:#2F78A8;--azl:#E6F2FA;--azb:#BCDCEF;--surface:#fff;--s2:#F1EEE7;--tx:#2A2824;--tx2:#6B665E;--tx3:#A8A29A;--bd:#E5E1D8;--bd2:#D6D0C4;--ac:#2A5C45;--acl:#E7EFE9;--ok:#2F8663;--okl:#E4F2EA;--wn:#B8791F;--wnl:#FBF1E1;--dn:#B4483C;--dnl:#F8E7E4;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--tx);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;}
 .wrap{max-width:1080px;margin:0 auto;padding:28px 20px 80px;}
 header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;border-bottom:1px solid var(--bd);padding-bottom:20px;margin-bottom:22px;}
 .logo{height:40px;display:block;margin-bottom:18px;}
-.eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ac);font-weight:700;margin-bottom:6px;}
+.eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--az);font-weight:700;margin-bottom:6px;}
 h1{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:32px;line-height:1.1;}
 .sub{color:var(--tx2);margin-top:6px;max-width:560px;}
 .tot{background:var(--surface);border:1px solid var(--bd);border-radius:14px;padding:14px 18px;min-width:230px;}
@@ -24,7 +24,7 @@ h1{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:32px;line-heig
 .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:18px;}
 .chip{border:1px solid var(--bd);background:var(--surface);border-radius:99px;padding:7px 14px;font-size:13px;cursor:pointer;color:var(--tx);font-family:inherit;}
 .chip i{font-style:normal;color:var(--tx3);margin-left:5px;}
-.chip.on{background:var(--ac);border-color:var(--ac);color:#fff;}.chip.on i{color:rgba(255,255,255,.75);}
+.chip.on{background:var(--az);border-color:var(--az);color:#fff;}.chip.on i{color:rgba(255,255,255,.75);}
 .sp{flex:1;}
 select.ag{border:1px solid var(--bd);background:var(--surface);border-radius:10px;padding:7px 10px;font-family:inherit;font-size:13px;color:var(--tx);}
 h2{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:21px;margin:26px 0 12px;display:flex;gap:10px;align-items:baseline;}
@@ -32,7 +32,7 @@ h2 small{font-family:'DM Sans',sans-serif;font-size:12px;color:var(--tx3);}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;}
 .card{background:var(--surface);border:1px solid var(--bd);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;}
 .card.alt{opacity:.92;}
-.ph{aspect-ratio:4/3;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--tx3);font-size:12px;position:relative;}
+.ph{aspect-ratio:4/3;background:#F3F4F5;display:flex;align-items:center;justify-content:center;color:var(--tx3);font-size:12px;position:relative;}
 .ph img{width:100%;height:100%;object-fit:contain;background:#fff;}
 .badge{position:absolute;top:10px;left:10px;font-size:11px;font-weight:700;border-radius:99px;padding:3px 10px;background:var(--surface);border:1px solid var(--bd);}
 .b-Aprobado{background:var(--okl);color:var(--ok);border-color:#BFE0CC;}
@@ -40,7 +40,7 @@ h2 small{font-family:'DM Sans',sans-serif;font-size:12px;color:var(--tx3);}
 .b-Rechazado{background:var(--dnl);color:var(--dn);border-color:#EEC5BE;}
 .b-Por{background:var(--surface);color:var(--tx2);}
 .bd{padding:14px 16px;display:flex;flex-direction:column;gap:6px;flex:1;}
-.opn{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ac);}
+.opn{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--az);}
 .card.alt .opn{color:var(--tx3);}
 .nm{font-weight:700;font-size:15px;line-height:1.3;}
 .meta{font-size:12.5px;color:var(--tx2);}
@@ -48,29 +48,29 @@ h2 small{font-family:'DM Sans',sans-serif;font-size:12px;color:var(--tx3);}
 .pr .u{font-size:12.5px;color:var(--tx2);}
 .pr .t{font-weight:700;font-size:15px;}
 .card.alt .pr .t{color:var(--tx3);}
-.specs{font-size:12px;color:var(--tx2);white-space:pre-line;background:var(--s2);border-radius:8px;padding:8px 10px;max-height:7.5em;overflow:hidden;position:relative;cursor:pointer;}
+.specs{font-size:12px;color:var(--tx2);white-space:pre-line;background:#F6F6F4;border-radius:8px;padding:8px 10px;max-height:7.5em;overflow:hidden;position:relative;cursor:pointer;}
 .specs.open{max-height:none;}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;}
 .ent{border-radius:99px;padding:2px 9px;background:var(--s2);color:var(--tx2);}
 .ent.ok{background:var(--okl);color:var(--ok);}
-a.tienda{color:var(--ac);font-weight:500;text-decoration:none;font-size:12.5px;}
+a.tienda{color:var(--az);font-weight:500;text-decoration:none;font-size:12.5px;}
 a.tienda:hover{text-decoration:underline;}
 .acts{display:flex;gap:6px;margin-top:auto;padding-top:10px;flex-wrap:wrap;}
 .acts button{flex:1;min-width:84px;border:1px solid var(--bd2);background:var(--surface);border-radius:10px;padding:9px 6px;font-size:13px;cursor:pointer;font-family:inherit;color:var(--tx);}
-.acts button:hover{border-color:var(--ac);}
+.acts button:hover{border-color:var(--az);}
 .acts .ap.on{background:var(--ok);border-color:var(--ok);color:#fff;}
 .acts .ca.on{background:var(--wn);border-color:var(--wn);color:#fff;}
 .acts .re.on{background:var(--dn);border-color:var(--dn);color:#fff;}
-.coms{border-top:1px solid var(--bd);padding:10px 16px;background:#FBFAF7;font-size:12.5px;}
+.coms{border-top:1px solid var(--bd);padding:10px 16px;background:#FAFAF9;font-size:12.5px;}
 .com{margin-bottom:6px;}.com b{font-weight:700;}.com .f{color:var(--tx3);font-size:11px;margin-left:4px;}
 .addc{background:none;border:0;color:var(--tx2);font-size:12.5px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline;}
-.grp{background:var(--surface);border:1px solid var(--bd);border-radius:16px;padding:14px;margin-bottom:12px;}
+.grp{background:#F7FBFE;border:1px solid var(--bd);border-radius:16px;padding:14px;margin-bottom:12px;}
 .grp .gh{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline;margin:0 2px 12px;}
 .grp .gh b{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:18px;}
 .grp .gh span{font-size:12.5px;color:var(--tx2);}
 .grp .grid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr));}
 .grp .card{border-color:var(--bd);}
-.grp .card.sel{border:2px solid var(--ac);}
+.grp .card.sel{border:2px solid var(--az);}
 .msg{text-align:center;padding:80px 20px;color:var(--tx2);}
 .msg h1{margin-bottom:10px;}
 .modal{position:fixed;inset:0;background:rgba(30,28,24,.45);display:none;align-items:center;justify-content:center;padding:16px;z-index:50;}
@@ -84,8 +84,16 @@ a.tienda:hover{text-decoration:underline;}
 .box .err{color:var(--dn);font-size:12.5px;margin-top:8px;display:none;}
 .box .bt{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
 .box .bt button{border:1px solid var(--bd2);background:var(--surface);border-radius:10px;padding:9px 16px;font-family:inherit;font-size:14px;cursor:pointer;}
-.box .bt .p{background:var(--ac);border-color:var(--ac);color:#fff;font-weight:500;}
+.box .bt .p{background:var(--az);border-color:var(--az);color:#fff;font-weight:500;}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#1f2a24;color:#fff;padding:10px 16px;border-radius:10px;font-size:13.5px;display:none;z-index:60;}
+/* Intro */
+.intro{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;margin-bottom:22px;}
+.ins{background:var(--azl);border:1px solid var(--azb);border-radius:14px;padding:16px 18px;font-size:13.5px;color:#1F4C6B;}
+.ins b{font-weight:700;}
+.ins ol{margin:8px 0 0 18px;padding:0;}.ins li{margin-bottom:4px;}
+.imp{background:#FDECEA;border:1px solid #F1B8B0;border-radius:14px;padding:16px 18px;font-size:13.5px;color:#9B2C1F;}
+.imp b{display:block;font-size:12px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px;}
+@media (max-width:760px){.intro{grid-template-columns:1fr;}}
 footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
 @media (max-width:600px){h1{font-size:26px;}.tot{width:100%;}.grid,.grp .grid{grid-template-columns:1fr;}}
 </style>
@@ -130,8 +138,10 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
     var porCotizar=its.some(function(it){return !fuera(it)&&!(+it.precio>0);});
     document.title=(D.proyecto.nombre||'Tu proyecto')+' · Estudio Bianco';
     var h='<header><div><img class="logo" src="/logo-estudio-bianco.png" alt="Estudio Bianco"><div class="eyebrow">Listado de compras</div><h1>'+e(D.proyecto.nombre)+'</h1>'
-      +'<p class="sub">Revisa cada producto y cuéntanos si lo apruebas, si quieres un cambio o si lo descartas. Donde hay varias opciones, aprueba la que más te guste. Tus respuestas le llegan directo al estudio.</p></div>'
+      +'<p class="sub">Este es un espacio que diseñamos especialmente para ti en Estudio Bianco, para acompañarte en la administración de tu proyecto. Aquí armamos tu listado de compras y lo compartimos contigo para que puedas revisar cada producto antes de pagarlo.</p></div>'
       +'<div class="tot"><div class="l">Total con lo elegido</div><div class="v">'+m(total)+'</div><div class="s">'+cuenta['Aprobado']+' de '+its.length+' productos aprobados'+(porCotizar?' · algunos por cotizar':'')+'</div></div></header>';
+    h+='<div class="intro"><div class="ins"><b>Cómo usarlo</b><ol><li>Revisa producto por producto: foto, medidas, precio y dónde se compra.</li><li>En cada uno elige <b>✓ Apruebo</b>, <b>✎ Cambios</b> (cuéntanos qué cambiarías) o <b>✕ Descartar</b>.</li><li>Donde hay varias opciones, aprueba la que más te guste: el total se actualiza con tu elección.</li><li>Tus respuestas nos llegan al instante. Si tienes una duda, deja un comentario en el producto.</li></ol></div>'
+      +'<div class="imp"><b>Importante</b>Este listado puede estar incompleto. En esta etapa se va ajustando constantemente según nuestras reuniones y conversaciones contigo. Aun así, es una aproximación fiel al presupuesto total de tu proyecto.</div></div>';
     var F=[['','Todos'],['Por revisar','Por revisar'],['Aprobado','Aprobados'],['Cambios solicitados','Con cambios'],['Rechazado','Descartados']];
     h+='<div class="bar">'+F.map(function(f){return '<button class="chip'+(filtro===f[0]?' on':'')+'" onclick="ebF(\''+f[0]+'\')">'+f[1]+'<i>'+(cuenta[f[0]]||0)+'</i></button>';}).join('')
       +'<span class="sp"></span><select class="ag" onchange="ebA(this.value)"><option value="esp"'+(agrupar==='esp'?' selected':'')+'>Ver por espacio</option><option value="cat"'+(agrupar==='cat'?' selected':'')+'>Ver por categoría</option></select></div>';
