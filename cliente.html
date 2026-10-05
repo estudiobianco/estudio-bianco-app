@@ -155,6 +155,14 @@ footer b{color:var(--tx2);font-weight:700;}
 .acc-i.open .acc-b{display:flex;}
 .acc-b a{color:var(--az);text-decoration:none;}.acc-b a:hover{text-decoration:underline;}
 @media (max-width:600px){.dgrid{grid-template-columns:1fr;}.dph{height:240px;}#flot{padding:10px 10px 10px 14px;}#flot button{padding:10px 12px;font-size:13px;}}
+/* Grupos de opciones y recomendada */
+.grp{border:1px solid var(--azb);box-shadow:inset 4px 0 0 var(--az);}
+.grp .gh>div{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.ng{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--az);border-radius:99px;padding:3px 10px;}
+.grec{color:#8A6410;font-weight:700;}
+.grp .gh .ng{color:#fff;font-size:10.5px;}.grp .gh .grec{color:#8A6410;font-size:12.5px;}
+.recb{position:absolute;top:10px;right:10px;font-size:11px;font-weight:700;border-radius:99px;padding:4px 10px;background:#FCF1D2;color:#8A6410;border:1px solid #EBD38C;}
+.card.rec{box-shadow:0 0 0 1px #EBD38C;}
 footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
 @media (max-width:600px){h1{font-size:26px;}.tot .s{text-align:left;}.grid,.grp .grid{grid-template-columns:1fr;}}
 </style>
@@ -245,7 +253,8 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
         if(b.tipo==='s'){buf.push(tarjeta(b.it));return;}
         vaciar();
         var todos=its.filter(function(x){return x.grupo===b.g;});
-        h+='<div class="grp"><div class="gh"><b>'+e(b.g)+'</b><span>Elige una de '+todos.length+' opciones · el total incluye la que tiene el borde celeste</span></div><div class="grid">'
+        var rec=todos.find(function(x){return x.recomendada;});
+        h+='<div class="grp"><div class="gh"><div><span class="ng">'+todos.length+' opciones</span><b>'+e(b.g)+'</b></div><span>Elige una'+(rec?' · <span class="grec">★ Te recomendamos la Opción '+(todos.indexOf(rec)+1)+'</span>':'')+' · el total incluye la que tiene el borde celeste</span></div><div class="grid">'
           +b.its.map(function(it){return tarjeta(it,todos.indexOf(it)+1);}).join('')+'</div></div>';
       });
       vaciar();
@@ -290,9 +299,11 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
   function tarjeta(it,nOp){
     var es_=est(it), cls=es_.split(' ')[0];
     var r=(D.respuestas||[]).filter(function(x){return x.itemId===it.id;}).slice(0,6).reverse();
-    var h='<div class="card'+(it.grupo?(it.elegida?' sel':' alt'):'')+'"><div class="ph">'+(it.imagen?'<img src="'+e(it.imagen)+'" alt="" loading="lazy">':'Sin imagen')
+    var nTot=it.grupo?D.items.filter(function(x){return x.grupo===it.grupo;}).length:0;
+    var h='<div class="card'+(it.grupo?(it.elegida?' sel':' alt'):'')+(it.recomendada?' rec':'')+'"><div class="ph">'+(it.imagen?'<img src="'+e(it.imagen)+'" alt="" loading="lazy">':'Sin imagen')
+      +(it.recomendada?'<span class="recb">★ Opción recomendada</span>':'')
       +'<span class="badge b-'+e(cls)+'">'+(es_==='Aprobado'?'✓ Aprobado':es_==='Rechazado'?'Descartado':es_==='Cambios solicitados'?'Cambios pedidos':'Por revisar')+'</span></div><div class="bd">';
-    if(nOp)h+='<div class="opn">Opción '+nOp+(it.elegida?' · incluida en el total':' · alternativa')+'</div>';
+    if(nOp)h+='<div class="opn">Opción '+nOp+' de '+nTot+(it.elegida?' · incluida en el total':' · alternativa')+'</div>';
     h+='<div class="nm">'+e(it.item)+'</div><div class="meta">'+[it.proveedor,it.espacio].filter(Boolean).map(e).join(' · ')+'</div>';
     h+='<div class="pr"><span class="u">'+(it.cant>1?it.cant+' × ':'')+(+it.precio>0?m(it.precio):'Por cotizar')+'</span><span class="t">'+(+it.precio>0?m(sub(it)):'')+'</span></div>';
     if((it.specs||'').trim())h+='<div class="specs" onclick="this.classList.toggle(\'open\')" title="Ver más">'+e(it.specs)+'</div>';
