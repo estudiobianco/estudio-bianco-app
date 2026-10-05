@@ -163,6 +163,14 @@ footer b{color:var(--tx2);font-weight:700;}
 .grp .gh .ng{color:#fff;font-size:10.5px;}.grp .gh .grec{color:#8A6410;font-size:12.5px;}
 .recb{position:absolute;top:10px;right:10px;font-size:11px;font-weight:700;border-radius:99px;padding:4px 10px;background:#FCF1D2;color:#8A6410;border:1px solid #EBD38C;}
 .card.rec{box-shadow:0 0 0 1px #EBD38C;}
+/* Bienvenida */
+.bienv{max-width:420px;margin:8vh auto 0;display:flex;flex-direction:column;}
+.bienv label{font-size:13px;color:var(--tx2);margin-bottom:6px;}
+.bienv input{border:1px solid var(--bd2);border-radius:12px;padding:13px 14px;font-size:16px;font-family:inherit;color:var(--tx);}
+.bienv input:focus{outline:none;border-color:var(--az);}
+.bienv button{margin-top:12px;background:var(--az);color:#fff;border:0;border-radius:12px;padding:13px;font-size:15px;font-weight:500;cursor:pointer;font-family:inherit;}
+.bienv p{font-size:12px;color:var(--tx3);text-align:center;margin-top:14px;}
+.bienv .err{color:var(--dn);font-size:12.5px;margin-top:6px;display:none;}
 footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
 @media (max-width:600px){h1{font-size:26px;}.tot .s{text-align:left;}.grid,.grp .grid{grid-template-columns:1fr;}}
 </style>
@@ -205,8 +213,27 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
   function cargar(){
     if(!/^[A-Za-z0-9_-]{20,64}$/.test(K)){mensaje('Link incompleto','Revisa que copiaste el link completo que te envió Estudio Bianco.');return;}
     fetch('/api/cliente?k='+encodeURIComponent(K)).then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
-    .then(function(x){if(!x.ok||!x.j.ok){mensaje('No pudimos abrir el proyecto',x.j.error||'Intenta de nuevo en un momento.');return;}D=x.j;pintar();})
+    .then(function(x){if(!x.ok||!x.j.ok){mensaje('No pudimos abrir el proyecto',x.j.error||'Intenta de nuevo en un momento.');return;}D=x.j;if(miNombre()){pintar();registrarVisita();}else bienvenida();})
     .catch(function(){mensaje('Sin conexión','Revisa tu internet e intenta de nuevo.');});
+  }
+  // Bienvenida: el nombre se pide una sola vez al entrar y queda constancia de cada ingreso
+  function bienvenida(){
+    document.getElementById('app').innerHTML='<div class="bienv"><div class="priv" style="border:0;justify-content:center;margin-bottom:28px;"><span>Plataforma privada · Estudio Bianco®</span></div>'
+      +'<img class="logo" src="/logo-estudio-bianco.png" alt="Estudio Bianco®" style="margin:0 auto 26px;"><div class="eyebrow" style="text-align:center;">Te damos la bienvenida</div>'
+      +'<h1 style="text-align:center;margin-bottom:18px;">'+e(D.proyecto.nombre)+'</h1>'
+      +'<label for="bNom">¿Cómo te llamas?</label><input id="bNom" maxlength="80" placeholder="Tu nombre" autocomplete="given-name" onkeydown="if(event.key===\'Enter\')ebEntrar()">'
+      +'<div class="err" id="bErr">Escribe tu nombre para entrar.</div><button onclick="ebEntrar()">Entrar</button>'
+      +'<p>Lo pedimos solo esta vez, para que el estudio sepa quién revisa el proyecto.</p></div>';
+    setTimeout(function(){var i=document.getElementById('bNom');if(i)i.focus();},50);
+  }
+  window.ebEntrar=function(){
+    var n=document.getElementById('bNom').value.trim(); if(!n){document.getElementById('bErr').style.display='block';return;}
+    try{localStorage.setItem('ebc_nombre',n);}catch(x){}
+    pintar(); window.scrollTo(0,0); registrarVisita();
+  };
+  function registrarVisita(){
+    var k='ebc_vis_'+K; try{if(sessionStorage.getItem(k))return;sessionStorage.setItem(k,'1');}catch(x){}
+    post({accion:'visita',nombre:miNombre()}).catch(function(){});
   }
   function mensaje(t,p){document.getElementById('app').innerHTML='<div class="msg"><img class="logo" src="/logo-estudio-bianco.png" alt="Estudio Bianco" style="margin:0 auto 24px;"><h1>'+e(t)+'</h1><p>'+e(p)+'</p></div>';}
 

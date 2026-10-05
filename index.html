@@ -4396,7 +4396,7 @@ function renderGantt(){
     fetch(URL+'/rest/v1/logs?project_id=eq.'+encodeURIComponent(pid)+'&select=*&order=date.desc',{ headers:H })
       .then(function(r){ return r.ok?r.json():null; })
       // Las láminas y renders del portal viven en logs pero tienen su propio módulo: no entran a la bitácora
-      .then(function(data){ if(data)data=data.filter(function(x){return x.category!=='lamina'&&x.category!=='render';}); cb(data&&data.length?data.map(logFromRow):null); })
+      .then(function(data){ if(data)data=data.filter(function(x){return x.category!=='lamina'&&x.category!=='render'&&x.category!=='visita';}); cb(data&&data.length?data.map(logFromRow):null); })
       .catch(function(){ cb(null); });
   };
   window.sbDeleteLog=function(pid,logId){
@@ -7996,7 +7996,20 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
     bx.innerHTML='<h3>Portal del cliente</h3><p>Este es el link privado de <b>'+nom+'</b>. Envíaselo a tu cliente por WhatsApp o correo. Cualquier persona que tenga el link puede ver el listado y responder.</p>'
       +'<div class="lk"><input id="portalLink" readonly value="'+e(L)+'" onclick="this.select()"><button class="btn prim" onclick="portalCopiar()">Copiar</button></div>'
       +'<div class="bt" style="justify-content:space-between;"><span><button class="btn" onclick="window.open(\''+e(L)+'\',\'_blank\')">Ver como cliente ↗</button></span><span><button class="btn" style="color:var(--dn);" onclick="portalDesactivar()">Desactivar link</button> <button class="btn" onclick="portalCerrar()">Listo</button></span></div>'
+      +'<div id="portalIng" class="nota" style="color:var(--tx2);">Cargando ingresos…</div>'
       +'<div class="nota">Si desactivas el link, el anterior deja de funcionar. Puedes crear uno nuevo cuando quieras. Las respuestas del cliente aparecen en el listado y en la Bitácora.</div>';
+    pintarIngresos(pid);
+  }
+  // Historial de ingresos al portal (en la ventana del link)
+  function pintarIngresos(pid){
+    fetch(SB+'/rest/v1/logs?select=id,date,responsible,extra&project_id=eq.'+encodeURIComponent(pid)+'&category=eq.visita&order=id.desc&limit=30',{headers:H})
+    .then(function(r){return r.ok?r.json():[];}).then(function(v){
+      var box=document.getElementById('portalIng'); if(!box)return;
+      if(!v.length){box.innerHTML='<b>Ingresos:</b> el cliente aún no ha entrado al portal.';return;}
+      var porNom={}; v.forEach(function(l){porNom[l.responsible]=(porNom[l.responsible]||0)+1;});
+      box.innerHTML='<b>Ingresos ('+v.length+(v.length===30?'+':'')+'):</b> '+Object.keys(porNom).map(function(n){return e(n)+' ('+porNom[n]+')';}).join(', ')
+        +'<ul style="margin:6px 0 0 16px;padding:0;max-height:140px;overflow:auto;">'+v.map(function(l){return '<li>'+e(l.responsible||'Cliente')+' · '+e(window.portalCuando(l))+'</li>';}).join('')+'</ul>';
+    }).catch(function(){});
   }
   window.portalCrear=function(){
     var pid=currentProjId, t=nuevoToken();
@@ -8034,7 +8047,7 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   }
   function revisar(){
     var pid=currentProjId; if(!pid)return;
-    fetch(SB+'/rest/v1/logs?select=id,date,title,description,responsible,item_id,extra&project_id=eq.'+encodeURIComponent(pid)+'&category=eq.cliente&order=id.desc&limit=100',{headers:H})
+    fetch(SB+'/rest/v1/logs?select=id,date,title,description,responsible,item_id,extra,category&project_id=eq.'+encodeURIComponent(pid)+'&category=in.(cliente,visita)&order=id.desc&limit=150',{headers:H})
     .then(function(r){return r.ok?r.json():[];}).then(function(logs){
       if(pid!==currentProjId)return;
       aplicar(pid,logs.slice().reverse()); ultimas=logs; aviso();
@@ -8045,10 +8058,19 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
     var pid=currentProjId, visto=0; try{visto=+localStorage.getItem('eb_portal_visto_'+pid)||0;}catch(x){}
     var nuevas=ultimas.filter(function(l){return l.id>visto;});
     if(!nuevas.length){box.innerHTML='';return;}
-    box.innerHTML='<div class="portal-av"><button onclick="portalVisto()">Marcar como visto</button><b>💬 '+nuevas.length+' respuesta'+(nuevas.length===1?'':'s')+' nueva'+(nuevas.length===1?'':'s')+' del cliente</b> desde su portal:<ul>'
-      +nuevas.slice(0,8).map(function(l){return '<li><b>'+e(l.responsible||'Cliente')+'</b> · '+e(String(l.title||'').replace(/^Cliente: /,''))+(l.description?': <i>'+e(String(l.description).slice(0,160))+'</i>':'')+' <span style="color:#7A9585;">('+e(l.date||'')+')</span></li>';}).join('')
+    box.innerHTML='<div class="portal-av"><button onclick="portalVisto()">Marcar como visto</button><b>💬 '+nuevas.length+' novedad'+(nuevas.length===1?'':'es')+' del cliente</b> en su portal:<ul>'
+      +nuevas.slice(0,8).map(function(l){if(l.category==='visita')return '<li>👀 <b>'+e(l.responsible||'Cliente')+'</b> entró al portal · '+e(cuando(l))+'</li>';return '<li><b>'+e(l.responsible||'Cliente')+'</b> · '+e(String(l.title||'').replace(/^Cliente: /,''))+(l.description?': <i>'+e(String(l.description).slice(0,160))+'</i>':'')+' <span style="color:#7A9585;">('+e(l.date||'')+')</span></li>';}).join('')
       +(nuevas.length>8?'<li>y '+(nuevas.length-8)+' más (ver Bitácora)</li>':'')+'</ul></div>';
   }
+  // "hoy 14:32", "ayer 09:10" o "5/10 14:32" (hora de Chile)
+  function cuando(l){
+    var x={}; try{x=typeof l.extra==='string'?JSON.parse(l.extra||'{}'):(l.extra||{});}catch(e){}
+    if(!x.at)return l.date||'';
+    var d=new Date(x.at), h=d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZone:'America/Santiago'});
+    var f=function(z){return z.toLocaleDateString('es-CL',{timeZone:'America/Santiago'});}, hoyS=f(new Date()), ayerS=f(new Date(Date.now()-864e5)), ds=f(d);
+    return (ds===hoyS?'hoy':ds===ayerS?'ayer':d.toLocaleDateString('es-CL',{day:'numeric',month:'numeric',timeZone:'America/Santiago'}))+' '+h+(x.equipo?' · desde '+x.equipo:'');
+  }
+  window.portalCuando=cuando;
   window.portalVisto=function(){var m=ultimas.reduce(function(a,l){return Math.max(a,l.id);},0);try{localStorage.setItem('eb_portal_visto_'+currentProjId,String(m));}catch(x){}aviso();};
 
   // Boton y contenedor del aviso en el listado
