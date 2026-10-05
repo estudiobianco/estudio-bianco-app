@@ -98,6 +98,20 @@ async function respuestaDoc(p, b, res) {
   return res.status(200).json({ ok: true });
 }
 
+// Ingreso al portal: queda constancia (nombre, fecha y hora). Si la misma persona vuelve antes de 30 minutos, no se repite.
+async function visita(p, nombre, req, res) {
+  if (!nombre) return res.status(400).json({ ok: false, error: 'Escribe tu nombre.' });
+  const ult = await sb('logs?select=extra&project_id=eq.' + encodeURIComponent(p.id) + '&category=eq.visita&responsible=eq.' + encodeURIComponent(nombre) + '&order=id.desc&limit=1');
+  if (ult && ult[0]) { let x = {}; try { x = JSON.parse(ult[0].extra || '{}'); } catch (e) {} if (x.at && Date.now() - Date.parse(x.at) < 30 * 60 * 1000) return res.status(200).json({ ok: true, repetida: true }); }
+  const ua = String((req.headers || {})['user-agent'] || ''), equipo = /iphone|android|mobile/i.test(ua) ? 'celular' : /ipad|tablet/i.test(ua) ? 'tablet' : 'computador';
+  await sb('logs', { method: 'POST', headers: H({ Prefer: 'return=minimal' }), body: JSON.stringify({
+    id: Date.now() * 10 + Math.floor(Math.random() * 10), project_id: p.id, date: hoySantiago(), type: 'Nota general', title: 'Ingresó al portal', description: '',
+    commits: '', responsible: nombre, due_date: '', status: 'Completada', amount: 0, category: 'visita', item_id: null,
+    extra: JSON.stringify({ visita: true, equipo: equipo, at: new Date().toISOString() })
+  }) });
+  return res.status(200).json({ ok: true });
+}
+
 // "Terminé de revisar": cuenta las respuestas actuales y deja un registro con el resumen
 async function terminar(p, nombre, res) {
   const its = (await sb('items?select=item,client_status,opt_group,opt_sel&project_id=eq.' + encodeURIComponent(p.id) + '&cat=neq.Honorarios')) || [];
@@ -155,6 +169,7 @@ module.exports = async function handler(req, res) {
       if (typeof b === 'string') { try { b = JSON.parse(b); } catch (e) { b = {}; } }
       const p = await proyectoDe(b.k);
       if (!p) return res.status(404).json({ ok: false, error: 'Este link no es válido o fue desactivado.' });
+      if (b.accion === 'visita') return await visita(p, limpio(b.nombre, 80), req, res);
       if (b.accion === 'fin') return await terminar(p, limpio(b.nombre, 80) || 'Cliente', res);
       if (b.accion === 'compra') return await compra(p, b, res);
       if (b.docId) return await respuestaDoc(p, b, res);
