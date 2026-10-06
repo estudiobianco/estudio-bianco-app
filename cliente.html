@@ -263,7 +263,8 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
     var lista=its.filter(function(it){return !filtro||est(it)===filtro;});
     if(!lista.length)h+='<div class="msg" style="padding:40px;">No hay productos en este filtro.</div>';
     var secs={}, orden=[];
-    lista.forEach(function(it){var s=agrupar==='esp'?(it.espacio||'Otros'):(it.cat||'Otros');if(!secs[s]){secs[s]=[];orden.push(s);}secs[s].push(it);});
+    var nomEsp={}; its.forEach(function(it){var s=String(it.espacio||'').trim().replace(/\s+/g,' ');if(!s)return;var k=s.toLowerCase();if(!nomEsp[k]||(s[0]===s[0].toUpperCase()&&nomEsp[k][0]!==nomEsp[k][0].toUpperCase()))nomEsp[k]=s;});
+    lista.forEach(function(it){var s=agrupar==='esp'?(nomEsp[String(it.espacio||'').trim().replace(/\s+/g,' ').toLowerCase()]||'Otros'):(it.cat||'Otros');if(!secs[s]){secs[s]=[];orden.push(s);}secs[s].push(it);});
     if(agrupar==='esp')orden.sort(function(a,b){return (a==='Otros')-(b==='Otros')||a.localeCompare(b,'es');});
     orden.forEach(function(s){
       var arr=secs[s];

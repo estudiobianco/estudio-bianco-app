@@ -923,7 +923,7 @@ body.col-resizing *{cursor:col-resize !important;}
     <select id="fDel" onchange="rC()"><option value="">Estado de entrega</option><option>Por pedir</option><option>Pedido confirmado</option><option>En fabricación</option><option>Por despachar</option><option>En tránsito</option><option>Entregado</option></select>
     <select id="fCS" onchange="rC()"><option value="">Est. cliente</option><option>Por revisar</option><option>Aprobado</option><option>Cambios solicitados</option><option>Rechazado</option></select>
     <input type="text" id="fQ" placeholder="Buscar…" oninput="rC()">
-    <select id="fAgrupar" onchange="setAgrupar(this.value)" title="Cómo agrupar el listado"><option value="cat">Agrupar por categoría</option><option value="esp">Agrupar por espacio</option></select>
+    <select id="fAgrupar" onchange="setAgrupar(this.value)" title="Cómo agrupar el listado"><option value="esp">Agrupar por espacio</option><option value="cat">Agrupar por categoría (revisión técnica)</option></select>
     <button class="btn prim" onclick="addItem(this)">+ Agregar</button>
     <button class="btn" onclick="expCSV()">⬇ CSV</button>
     <button class="acc-toggle-all" id="toggleAllBtn" onclick="toggleAllAccordions()">▼ Colapsar todo</button>
@@ -1505,7 +1505,8 @@ function gF(){
 const COMPRAS_TABS=[['todos','Todos'],['pend','Pendientes de pago'],['pag','Pagados'],['pedir','Por pedir']];
 let comprasTab='todos';
 // Agrupar el listado por categoria o por espacio (se recuerda en este computador)
-var comprasAgrupar='cat';try{comprasAgrupar=localStorage.getItem('eb_compras_agrupar')==='esp'?'esp':'cat';}catch(e){}
+// Por defecto por espacio (así se revisa normalmente); por categoría para la revisión técnica
+var comprasAgrupar='esp';try{comprasAgrupar=localStorage.getItem('eb_compras_agrupar2')==='cat'?'cat':'esp';}catch(e){}
 function comprasTabOk(r,t){
   if(t==='todos')return true;
   const st=(typeof window.payCalc==='function')?window.payCalc(r).st:r.payStatus;
@@ -1687,7 +1688,10 @@ function rC(){
   let vis=0;
   // Agrupar por categoria (por defecto) o por espacio
   const porEsp=comprasAgrupar==='esp';
-  const grpDe=r=>porEsp?((r.space||'').trim()||'Sin espacio'):r.cat;
+  // Espacios escritos con distinta mayúscula o espacios extra ("Dormitorio ignacia" / "Dormitorio Ignacia") van juntos
+  const _espNombre={};
+  if(porEsp)f.forEach(r=>{const s=(r.space||'').trim().replace(/\s+/g,' ');if(!s)return;const k=s.toLowerCase();if(!_espNombre[k]||(s[0]===s[0].toUpperCase()&&_espNombre[k][0]!==_espNombre[k][0].toUpperCase()))_espNombre[k]=s;});
+  const grpDe=r=>porEsp?(_espNombre[(r.space||'').trim().replace(/\s+/g,' ').toLowerCase()]||'Sin espacio'):r.cat;
   const ordCat=c=>{const i=CAT_OPTS.indexOf(c);return i<0?99:i;};
   let cats=[...new Set(f.map(grpDe))];
   if(porEsp)cats.sort((a,b)=>(a==='Sin espacio')-(b==='Sin espacio')||a.localeCompare(b,'es'));
@@ -1896,7 +1900,7 @@ function fechaCortaES(f){ if(!f)return '—'; var p=f.split('-'); return p.lengt
 
 function uIQ(id,f,v){const r=items.find(x=>x.id===id);if(r){r[f]=v;sAll();}}
 function dI(id){if(confirm('¿Eliminar este ítem?')){items=items.filter(x=>x.id!==id);if(typeof window.sbDeleteItem==='function'){try{window.sbDeleteItem(currentProjId,id);}catch(e){}}rC();sAll();}}
-function setAgrupar(v){comprasAgrupar=v==='esp'?'esp':'cat';try{localStorage.setItem('eb_compras_agrupar',comprasAgrupar);}catch(e){}rC();}
+function setAgrupar(v){comprasAgrupar=v==='esp'?'esp':'cat';try{localStorage.setItem('eb_compras_agrupar2',comprasAgrupar);}catch(e){}rC();}
 // Crea el producto en la categoria/espacio indicado
 function crearItem(cat,space){
   const it=mg({id:nii++,cat:cat||'Mobiliario',item:'Nuevo ítem',supplier:'',qty:1,unit:0,notes:''});if(space)it.space=space;
