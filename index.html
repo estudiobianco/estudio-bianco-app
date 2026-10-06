@@ -2531,7 +2531,26 @@ function renderHome(){
   const cp=document.getElementById('colorPicker');
   if(cp&&!cp.children.length){PROJ_COLORS.forEach((c,i)=>{const d=document.createElement('div');d.className='cp-dot'+(i===0?' selected':'');d.style.background=c;d.dataset.color=c;d.onclick=function(){document.querySelectorAll('.cp-dot').forEach(x=>x.classList.remove('selected'));this.classList.add('selected');};cp.appendChild(d);});}
   grid.innerHTML='';
-  projects.forEach(p=>{
+  // Dos grupos: Activos (En desarrollo, En obra, En entrega, En pausa) y Entregados (Finalizado), este plegado por defecto.
+  // Al entregar un proyecto no se borra nada: solo cambia de grupo.
+  projects.forEach(p=>{if(!p.status||p.status==='Activo')p.status='En desarrollo';});
+  const activos=projects.filter(p=>p.status!=='Finalizado'), entregados=projects.filter(p=>p.status==='Finalizado');
+  let entGrid=document.getElementById('projectsEntregados');
+  if(!entGrid){
+    const sec=document.createElement('div');sec.id='projEntSec';sec.className='proj-ent-sec';
+    sec.innerHTML='<button class="proj-ent-h" onclick="toggleEntregados()"><span class="chev">▸</span> Entregados <i id="projEntN"></i></button><div class="projects-grid" id="projectsEntregados"></div>';
+    grid.parentNode.insertBefore(sec,grid.nextSibling);entGrid=document.getElementById('projectsEntregados');
+  }
+  entGrid.innerHTML='';
+  let entAbierto=false;try{entAbierto=localStorage.getItem('eb_home_entregados')==='1';}catch(e){}
+  document.getElementById('projEntSec').classList.toggle('open',entAbierto);
+  document.getElementById('projEntSec').style.display=entregados.length?'':'none';
+  document.getElementById('projEntN').textContent=entregados.length;
+  const grpLbl=document.getElementById('projActH');
+  if(!grpLbl){const h=document.createElement('div');h.id='projActH';h.className='proj-grp-h';grid.parentNode.insertBefore(h,grid);}
+  document.getElementById('projActH').innerHTML='Activos <i>'+activos.length+'</i>';
+  activos.concat(entregados).forEach(p=>{
+    const destino=p.status==='Finalizado'?entGrid:grid;
     const s=getProjectStats(p.id);
     const card=document.createElement('div');
     card.className='proj-card';
@@ -2551,7 +2570,7 @@ function renderHome(){
           ${p.id!=='rucachue'?`<button class="pc-action-btn del" onclick="event.stopPropagation();deleteProject('${p.id}')">🗑</button>`:''}
         </div>
       </div>`;
-    grid.appendChild(card);
+    destino.appendChild(card);
   });
   // Add new project card
   const newCard=document.createElement('div');
@@ -2559,6 +2578,13 @@ function renderHome(){
   newCard.onclick=openNewProj;
   newCard.innerHTML='<div class="np-icon">＋</div><div class="np-lbl">Nuevo proyecto</div>';
   grid.appendChild(newCard);
+}
+
+// Abre o pliega el grupo "Entregados" en Mis proyectos (se recuerda en este computador)
+function toggleEntregados(){
+  const s=document.getElementById('projEntSec'); if(!s)return;
+  const abierto=!s.classList.contains('open'); s.classList.toggle('open',abierto);
+  try{localStorage.setItem('eb_home_entregados',abierto?'1':'0');}catch(e){}
 }
 
 function openProject(pid){
@@ -3510,7 +3536,7 @@ function renderHomeFin(){
       <div class="kc"><div class="kl">Total desembolsado</div><div class="kv g">${fm(desembAll)}</div></div>
       <div class="kc"><div class="kl">Por cobrar / pagar</div><div class="kv r">${fm(pendAll)}</div></div>
       <div class="kc"><div class="kl">% cobrado global</div><div class="kv w">${pctAll}%</div></div>
-      <div class="kc"><div class="kl">Proyectos activos</div><div class="kv b">${projects.length}</div></div>
+      <div class="kc"><div class="kl">Proyectos activos</div><div class="kv b">${projects.filter(p=>p.status!=='Finalizado').length}</div></div>
     </div>
     <div class="fin-bar-wrap">
       <div class="fin-bar-lbl"><span>Avance financiero global</span><span>${pctAll}%</span></div>
@@ -3526,7 +3552,7 @@ function renderHomeFin(){
         <div style="width:10px;height:10px;border-radius:50%;background:${p.color||'#2A5C45'};flex-shrink:0;"></div>
         <h3>${es(p.name)}</h3>
         ${p.client?`<span style="font-size:12px;color:var(--tx2);">${es(p.client)}</span>`:''}
-        <span class="badge" style="background:${p.color||'#2A5C45'}22;color:${p.color||'#2A5C45'};font-size:11px;">${p.status||'Activo'}</span>
+        <span class="badge" style="background:${p.color||'#2A5C45'}22;color:${p.color||'#2A5C45'};font-size:11px;">${(!p.status||p.status==='Activo')?'En desarrollo':p.status}</span>
         <span class="mono" style="font-size:13px;font-weight:600;">${total>0?fm(total):'Sin datos'}</span>
       </div>
       <div class="fin-proj-body">
@@ -4328,8 +4354,10 @@ function renderGantt(){
   };
 
   // Convertir proyecto app <-> nube
-  function projToRow(p){ return { id:p.id, name:p.name, client:p.client||'', color:p.color||'#2A5C45', status:p.status||'Activo', addr:p.addr||'', start_date:p.startDate||'', notes:p.notes||'' }; }
-  function projFromRow(x){ return { id:x.id, name:x.name, client:x.client||'', color:x.color||'#2A5C45', status:x.status||'Activo', addr:x.addr||'', startDate:x.start_date||'', notes:x.notes||'' }; }
+  // Estados del proyecto: En desarrollo, En obra, En entrega, En pausa, Finalizado ('Activo' era el valor antiguo)
+  function estProy(s){ return (!s||s==='Activo')?'En desarrollo':s; }
+  function projToRow(p){ return { id:p.id, name:p.name, client:p.client||'', color:p.color||'#2A5C45', status:estProy(p.status), addr:p.addr||'', start_date:p.startDate||'', notes:p.notes||'' }; }
+  function projFromRow(x){ return { id:x.id, name:x.name, client:x.client||'', color:x.color||'#2A5C45', status:estProy(x.status), addr:x.addr||'', startDate:x.start_date||'', notes:x.notes||'' }; }
 
   // Cargar la lista de proyectos desde la nube
   window.sbLoadProjects=function(cb){
@@ -7970,6 +7998,16 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
 .portal-av b{font-weight:700;}
 .portal-av ul{margin:6px 0 0 18px;padding:0;}
 .portal-av li{margin-bottom:2px;}
+.proj-grp-h{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);margin:0 0 10px;}
+.proj-grp-h i,.proj-ent-h i{font-style:normal;font-weight:400;margin-left:4px;}
+.proj-ent-sec{margin:22px 0 18px;}
+.proj-ent-h{border:0;background:none;padding:6px 0;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);cursor:pointer;font-family:inherit;}
+.proj-ent-h:hover{color:var(--tx);}
+.proj-ent-h .chev{display:inline-block;transition:transform .15s;}
+.proj-ent-sec.open .proj-ent-h .chev{transform:rotate(90deg);}
+.proj-ent-sec #projectsEntregados{display:none;margin-top:10px;}
+.proj-ent-sec.open #projectsEntregados{display:grid;}
+.proj-ent-sec .proj-card{opacity:.8;}
 .pc-badge{border:1px solid #CFE0D5;background:#EEF4F0;color:#24493A;border-radius:99px;padding:0 7px;font-size:10.5px;font-weight:600;cursor:pointer;flex-shrink:0;line-height:18px;font-family:inherit;}
 .pc-badge.txt{background:#24493A;color:#fff;border-color:#24493A;}
 .pc-box{background:#EEF4F0;border:1px solid #CFE0D5;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12.5px;color:#24493A;}
