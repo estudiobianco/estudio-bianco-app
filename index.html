@@ -1188,7 +1188,7 @@ body.col-resizing *{cursor:col-resize !important;}
   </div>
 </div>
 
-
+<footer class="eb-firma">Esta app fue desarrollada con mucho cariño por Ankel Rocha.</footer>
 </main>
 </div>
 
@@ -1758,7 +1758,7 @@ function rC(){
       tr.innerHTML=`
         <td style="${TD}"><div class="opt-c0">${typeof optCasilla==='function'?optCasilla(r):''}<button class="xb" id="${bid}" onclick="abrirFicha(${r.id})" title="Abrir ficha del producto">›</button></div></td>
         <td style="${TD}">${img}</td>
-        <td style="${TD}"><div style="display:flex;align-items:center;gap:4px;">${typeof optRadio==='function'?optRadio(r):''}${urlIcon}<input type="text" value="${es(r.item)}" onchange="uI(${r.id},'item',this.value)" style="${IS}flex:1;min-width:0;font-weight:500;"></div><div style="display:flex;align-items:center;gap:4px;">${typeof optChip==='function'?optChip(r):''}<input type="text" value="${es(r.supplier)}" list="supplierList" autocomplete="off" placeholder="Proveedor por definir" onchange="uI(${r.id},'supplier',this.value);upsertSupplier(this.value)" style="${IS}height:20px;font-size:11px;color:var(--tx3);flex:1;min-width:0;"></div></td>
+        <td style="${TD}"><div style="display:flex;align-items:center;gap:4px;">${typeof optRadio==='function'?optRadio(r):''}${urlIcon}<input type="text" value="${es(r.item)}" onchange="uI(${r.id},'item',this.value)" style="${IS}flex:1;min-width:0;font-weight:500;"></div><div style="display:flex;align-items:center;gap:4px;">${typeof portalCom==='function'?portalCom(r):''}${typeof optChip==='function'?optChip(r):''}<input type="text" value="${es(r.supplier)}" list="supplierList" autocomplete="off" placeholder="Proveedor por definir" onchange="uI(${r.id},'supplier',this.value);upsertSupplier(this.value)" style="${IS}height:20px;font-size:11px;color:var(--tx3);flex:1;min-width:0;"></div></td>
         <td style="${TD}"><input type="text" value="${es(r.space||'')}" oninput="uIQ(${r.id},'space',this.value)" onchange="uI(${r.id},'space',this.value)" placeholder="Espacio…" style="${IS}"></td>
         <td style="${TD}"><input type="number" value="${r.qty}" min="0" onchange="uI(${r.id},'qty',+this.value)" style="${ISN}text-align:center;padding:2px 0;"></td>
         <td style="${TD}"><input type="text" id="uprice-${r.id}" value="${r.unit>0?'$'+r.unit.toLocaleString('es-CL'):''}" placeholder="$0" onfocus="this.value=parseFloat(this.value.replace(/[^0-9]/g,''))||''" onblur="var v=+this.value.replace(/[^0-9]/g,'');uI(${r.id},'unit',v);this.value=v>0?'$'+v.toLocaleString('es-CL'):''" style="${ISN}"></td>
@@ -1900,7 +1900,10 @@ function crearItem(cat,space){
   document.getElementById('fPay').value='';document.getElementById('fDel').value='';document.getElementById('fCS').value='';document.getElementById('fQ').value='';
   const fc=document.getElementById('fCat');if(fc.value&&fc.value!==it.cat)fc.value='';const fs=document.getElementById('fSpace');if(fs&&fs.value&&fs.value!==(it.space||''))fs.value='';
   const key=comprasAgrupar==='esp'?'esp_'+((it.space||'').trim()||'Sin espacio').replace(/[^a-zA-Z0-9]/g,'_'):it.cat.replace(/[^a-zA-Z0-9]/g,'_');accOpen[key]=true;saveAccOpen();rC();sAll();
-  setTimeout(()=>{const b=document.getElementById('cb-'+it.id);if(b){const tr=b.closest('tr');tr.scrollIntoView({block:'center'});const inp=tr.querySelector('td:nth-child(3) input');if(inp){inp.focus();inp.select();}}},80);
+  // Se abre la ficha lateral con el cursor en el link: al pegarlo se leen nombre, precio e imagen
+  setTimeout(()=>{const b=document.getElementById('cb-'+it.id);if(b)b.closest('tr').scrollIntoView({block:'center'});
+    try{abrirFicha(it.id,'det');}catch(e){}
+    setTimeout(()=>{const u=document.getElementById('fpUrl');if(u)u.focus();},250);},80);
 }
 // "+ Agregar aquí" en la cabecera de cada grupo
 function addItemEn(grp,btn){
@@ -5294,6 +5297,7 @@ window.pdfResumenCliente = function(){
     var subtotal=(r.qty||1)*(r.unit||0);
     var sups=[]; try{sups=ldSup().map(function(s){return s.name;});}catch(e){}
     var h='';
+    try{if(typeof window.portalComsHTML==='function')h+=window.portalComsHTML(r.id);}catch(e){}
     h+='<div class="fp-g"><label>Nombre</label><input type="text" value="'+eF(r.item)+'" onchange="fSave(\'item\',this.value)"></div>';
     h+='<div class="fp-row2"><div class="fp-g"><label>Espacio</label><input type="text" value="'+eF(r.space||'')+'" placeholder="Living, Cocina…" onchange="fSave(\'space\',this.value)"></div>';
     h+='<div class="fp-g"><label>Categoria</label><select onchange="fSave(\'cat\',this.value)">'+CAT_OPTS.filter(function(c){return c!=='Honorarios'||appMode==='admin';}).map(function(c){return '<option value="'+eF(c)+'"'+(c===r.cat?' selected':'')+'>'+eF(c)+'</option>';}).join('')+'</select></div></div>';
@@ -7957,6 +7961,15 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
 .portal-av b{font-weight:700;}
 .portal-av ul{margin:6px 0 0 18px;padding:0;}
 .portal-av li{margin-bottom:2px;}
+.pc-badge{border:1px solid #CFE0D5;background:#EEF4F0;color:#24493A;border-radius:99px;padding:0 7px;font-size:10.5px;font-weight:600;cursor:pointer;flex-shrink:0;line-height:18px;font-family:inherit;}
+.pc-badge.txt{background:#24493A;color:#fff;border-color:#24493A;}
+.pc-box{background:#EEF4F0;border:1px solid #CFE0D5;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12.5px;color:#24493A;}
+.pc-t{font-weight:700;margin-bottom:6px;}
+.pc-i{padding:6px 0;border-top:1px solid #DCE8E0;}.pc-i:first-of-type{border-top:0;}
+.pc-d{font-weight:600;}.pc-f{color:#7A9585;font-size:11px;}
+.pc-click{cursor:pointer;}.pc-click:hover{text-decoration:underline;}
+.portal-mini{margin:0 0 10px;font-size:12px;}.portal-mini a{color:#24493A;}
+.eb-firma{margin:56px 0 8px;padding-top:16px;border-top:1px solid var(--bd);text-align:center;font-family:'Fraunces',serif;font-style:italic;font-size:13px;color:var(--tx3);}
 .portal-av button{border:1px solid #B9D2C2;background:#fff;border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer;color:#24493A;font-family:inherit;float:right;margin-left:8px;}
 </style>
 <div id="portalOv"><div class="bx" id="portalBx"></div></div>
@@ -8050,17 +8063,20 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
     fetch(SB+'/rest/v1/logs?select=id,date,title,description,responsible,item_id,extra,category&project_id=eq.'+encodeURIComponent(pid)+'&category=in.(cliente,visita)&order=id.desc&limit=150',{headers:H})
     .then(function(r){return r.ok?r.json():[];}).then(function(logs){
       if(pid!==currentProjId)return;
+      var antes=ultimas.map(function(l){return l.id;}).join(',');
       aplicar(pid,logs.slice().reverse()); ultimas=logs; aviso();
+      // si llegaron respuestas nuevas, se repinta el listado para mostrar los 💬
+      if(antes!==logs.map(function(l){return l.id;}).join(',')){try{var pg=document.getElementById('page-compras');if(pg&&pg.classList.contains('active'))rC();}catch(x){}}
     }).catch(function(){});
   }
   function aviso(){
     var box=document.getElementById('portalAviso'); if(!box)return;
     var pid=currentProjId, visto=0; try{visto=+localStorage.getItem('eb_portal_visto_'+pid)||0;}catch(x){}
-    var nuevas=ultimas.filter(function(l){return l.id>visto;});
-    if(!nuevas.length){box.innerHTML='';return;}
-    box.innerHTML='<div class="portal-av"><button onclick="portalVisto()">Marcar como visto</button><b>💬 '+nuevas.length+' novedad'+(nuevas.length===1?'':'es')+' del cliente</b> en su portal:<ul>'
-      +nuevas.slice(0,8).map(function(l){if(l.category==='visita')return '<li>👀 <b>'+e(l.responsible||'Cliente')+'</b> entró al portal · '+e(cuando(l))+'</li>';return '<li><b>'+e(l.responsible||'Cliente')+'</b> · '+e(String(l.title||'').replace(/^Cliente: /,''))+(l.description?': <i>'+e(String(l.description).slice(0,160))+'</i>':'')+' <span style="color:#7A9585;">('+e(l.date||'')+')</span></li>';}).join('')
-      +(nuevas.length>8?'<li>y '+(nuevas.length-8)+' más (ver Bitácora)</li>':'')+'</ul></div>';
+    var nuevas=ultimas.filter(function(l){return l.id>visto;}), nResp=ultimas.filter(function(l){return l.category!=='visita';}).length;
+    if(!nuevas.length){box.innerHTML=nResp?'<div class="portal-mini"><a href="#" onclick="portalTodos();return false;">💬 Ver las '+nResp+' respuesta'+(nResp===1?'':'s')+' del cliente</a></div>':'';return;}
+    box.innerHTML='<div class="portal-av"><button onclick="portalVisto()">Marcar como visto</button>'+(nResp?'<button onclick="portalTodos()">Ver todas</button>':'')+'<b>💬 '+nuevas.length+' novedad'+(nuevas.length===1?'':'es')+' del cliente</b> en su portal (toca una para ir al producto):<ul>'
+      +nuevas.slice(0,8).map(function(l){if(l.category==='visita')return '<li>👀 <b>'+e(l.responsible||'Cliente')+'</b> entró al portal · '+e(cuando(l))+'</li>';var x=exDe(l);return '<li class="pc-click" onclick="portalIr('+(+l.item_id||0)+','+(+x.docId||0)+')"><b>'+e(l.responsible||'Cliente')+'</b> · '+e(String(l.title||'').replace(/^Cliente: /,''))+(l.description?': <i>'+e(String(l.description).slice(0,160))+'</i>':'')+' <span style="color:#7A9585;">('+e(cuando(l))+')</span></li>';}).join('')
+      +(nuevas.length>8?'<li>y '+(nuevas.length-8)+' más (botón "Ver todas")</li>':'')+'</ul></div>';
   }
   // "hoy 14:32", "ayer 09:10" o "5/10 14:32" (hora de Chile)
   function cuando(l){
@@ -8071,6 +8087,42 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
     return (ds===hoyS?'hoy':ds===ayerS?'ayer':d.toLocaleDateString('es-CL',{day:'numeric',month:'numeric',timeZone:'America/Santiago'}))+' '+h+(x.equipo?' · desde '+x.equipo:'');
   }
   window.portalCuando=cuando;
+
+  // ── Comentarios del cliente junto a cada producto ──
+  function exDe(l){try{return typeof l.extra==='string'?JSON.parse(l.extra||'{}'):(l.extra||{});}catch(x){return {};}}
+  function respuestasDe(itemId){return ultimas.filter(function(l){return l.category!=='visita'&&+l.item_id===+itemId;});}
+  window.portalCom=function(r){
+    var rs=respuestasDe(r.id); if(!rs.length)return '';
+    var conTexto=rs.filter(function(l){return (l.description||'').trim();}), ult=rs[0];
+    return '<button class="pc-badge'+(conTexto.length?' txt':'')+'" title="'+e((ult.responsible||'Cliente')+': '+(ult.description||String(ult.title||'').replace(/^Cliente: /,'')))+'" onclick="event.stopPropagation();portalIr('+r.id+',0)">💬 '+(conTexto.length||rs.length)+'</button>';
+  };
+  window.portalComsHTML=function(itemId){
+    var rs=respuestasDe(itemId); if(!rs.length)return '';
+    return '<div class="pc-box" id="pcBox"><div class="pc-t">💬 Comentarios del cliente</div>'+rs.slice(0,12).map(function(l){
+      var x=exDe(l), dec=x.decision||(x.compra?'Registró su compra':'');
+      return '<div class="pc-i"><b>'+e(l.responsible||'Cliente')+'</b>'+(dec?' · <span class="pc-d">'+e(dec==='Rechazado'?'Descartado':dec==='Por revisar'?'Deshizo su respuesta':dec)+'</span>':'')+' <span class="pc-f">'+e(cuando(l))+'</span>'+(l.description?'<div>'+e(l.description)+'</div>':'')+'</div>';
+    }).join('')+'</div>';
+  };
+  // Ir al lugar del comentario: la ficha del producto o la lámina
+  window.portalIr=function(itemId,docId){
+    try{portalCerrar();}catch(x){}
+    if(docId){go('laminas');return;}
+    if(!itemId)return;
+    try{go('compras');}catch(x){}
+    var b=document.getElementById('cb-'+itemId); if(b)b.closest('tr').scrollIntoView({block:'center'});
+    try{abrirFicha(itemId,'det');}catch(x){}
+    setTimeout(function(){var p=document.getElementById('pcBox');if(p)p.scrollIntoView({block:'start'});},250);
+  };
+  // Todos los comentarios del cliente, del más nuevo al más antiguo
+  window.portalTodos=function(){
+    var rs=ultimas.filter(function(l){return l.category!=='visita';});
+    var bx=document.getElementById('portalBx');
+    bx.innerHTML='<h3>Respuestas del cliente</h3>'+(rs.length?'<p>Toca una para ir al producto o a la lámina.</p><div style="max-height:60vh;overflow:auto;">'+rs.map(function(l){
+      var x=exDe(l), nom=(items||[]).find(function(r){return r.id===+l.item_id;});
+      return '<div class="pc-i pc-click" onclick="portalIr('+(+l.item_id||0)+','+(+x.docId||0)+')"><b>'+e(l.responsible||'Cliente')+'</b> · '+e(String(l.title||'').replace(/^Cliente: /,''))+' <span class="pc-f">'+e(cuando(l))+'</span>'+(l.description?'<div>'+e(l.description)+'</div>':'')+'</div>';
+    }).join('')+'</div>':'<p>Todavía no hay respuestas del cliente en este proyecto.</p>')+'<div class="bt"><button class="btn" onclick="portalCerrar()">Cerrar</button></div>';
+    document.getElementById('portalOv').classList.add('open');
+  };
   window.portalVisto=function(){var m=ultimas.reduce(function(a,l){return Math.max(a,l.id);},0);try{localStorage.setItem('eb_portal_visto_'+currentProjId,String(m));}catch(x){}aviso();};
 
   // Boton y contenedor del aviso en el listado
