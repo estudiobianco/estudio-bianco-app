@@ -13,7 +13,7 @@
 
 const SB_URL = 'https://iucjhzsnlotojvpyjcfo.supabase.co';
 const DECISIONES = ['Aprobado', 'Cambios solicitados', 'Rechazado', 'Por revisar', '']; // 'Por revisar' = deshacer la respuesta
-const CAMPOS_ITEM = 'id,cat,item,supplier,qty,unit,space,specs,product_url,image_url,delivery_status,client_status,opt_group,opt_sel,opt_rec,client_note,order_date,est_delivery,order_num,delivery_resp';
+const CAMPOS_ITEM = 'id,cat,item,supplier,qty,unit,space,specs,product_url,image_url,delivery_status,client_status,opt_group,opt_sel,opt_rec,sort_order,client_note,order_date,est_delivery,order_num,delivery_resp';
 
 function llave() { return process.env.SUPABASE_SERVICE_KEY || ''; }
 function H(extra) { const k = llave(); return Object.assign({ apikey: k, Authorization: 'Bearer ' + k, 'Content-Type': 'application/json' }, extra || {}); }
@@ -140,6 +140,8 @@ module.exports = async function handler(req, res) {
       const p = await proyectoDe((req.query || {}).k);
       if (!p) return res.status(404).json({ ok: false, error: 'Este link no es válido o fue desactivado.' });
       const items = (await sb('items?select=' + CAMPOS_ITEM + '&project_id=eq.' + encodeURIComponent(p.id) + '&cat=neq.Honorarios&order=id')) || [];
+      // mismo orden manual que en la app del estudio (sin orden guardado, el de creación)
+      items.sort((a, b) => (a.sort_order == null ? a.id : a.sort_order) - (b.sort_order == null ? b.id : b.sort_order));
       const provs = await proveedoresDe(items);
       const docsRaw = (await sb('logs?select=id,date,title,description,status,category,extra&project_id=eq.' + encodeURIComponent(p.id) + '&category=in.(lamina,render)&order=id')) || [];
       const docs = docsRaw.map(d => { let x = {}; try { x = d.extra ? JSON.parse(d.extra) : {}; } catch (e) {} return { d, x }; })
