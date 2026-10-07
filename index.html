@@ -17,6 +17,9 @@ nav{width:216px;min-width:216px;background:var(--surface);border-right:1px solid
 .nb .proj{font-size:10px;color:var(--tx3);letter-spacing:.07em;text-transform:uppercase;margin-bottom:3px;}
 .nb .name{font-size:15px;font-weight:600;line-height:1.3;}
 .nb .stu{font-size:12px;color:var(--tx2);margin-top:2px;}
+.nb .nav-od{display:inline-flex;align-items:center;gap:5px;margin-top:9px;padding:5px 10px;font-size:11.5px;font-weight:500;border:1px solid var(--bd2);border-radius:var(--rs);color:var(--tx);background:var(--surface);text-decoration:none;cursor:pointer;font-family:inherit;}
+.nb .nav-od:hover{border-color:#0F6CBD;color:#0F6CBD;}
+.nb .nav-od.vacio{color:var(--tx3);border-style:dashed;}
 .nsl{padding:11px 17px 3px;font-size:10px;color:var(--tx3);letter-spacing:.06em;text-transform:uppercase;font-weight:500;}
 .nm{padding:5px 7px;flex:1;}
 .ni{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--rs);font-size:13px;color:var(--tx2);cursor:pointer;transition:all .13s;margin-bottom:1px;}
@@ -820,6 +823,7 @@ body.col-resizing *{cursor:col-resize !important;}
       <div class="fg npm-full"><label>Color del proyecto</label>
         <div class="color-picker" id="colorPicker"></div>
       </div>
+      <div class="fg npm-full"><label>Carpeta OneDrive <span style="font-weight:400;font-size:10px;color:var(--tx3);">(link para guardar los archivos del proyecto)</span></label><input type="url" id="npmOnedrive" placeholder="Pega aquí el link de la carpeta (https://…)"></div>
       <div class="fg npm-full"><label>Notas</label><input type="text" id="npmNotes" placeholder="Descripción breve…"></div>
       <div class="fg npm-full"><label>Vincular cliente existente <span style="font-weight:400;font-size:10px;color:var(--tx3);">(opcional)</span></label>
         <select id="npmClientLink" style="height:36px;font-size:13px;padding:0 10px;border:1px solid var(--bd2);border-radius:var(--rs);background:var(--surface);color:var(--tx);font-family:'DM Sans',sans-serif;">
@@ -867,6 +871,7 @@ body.col-resizing *{cursor:col-resize !important;}
     <div class="proj" id="navProj">Proyecto</div>
     <div class="name" id="navName">—</div>
     <div class="stu" id="navClient">—</div>
+    <div id="navOnedrive"></div>
   </div>
   <div class="nm">
     <div class="nsl">Compras</div>
@@ -2566,6 +2571,7 @@ function renderHome(){
       <div class="pc-footer">
         <span class="badge" style="background:${p.color||'#2A5C45'}22;color:${p.color||'#2A5C45'};font-size:10.5px;">${p.status||'En desarrollo'}</span>
         <div class="pc-actions">
+          ${p.onedrive?'<a class="pc-action-btn" href="'+es(p.onedrive)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Abrir la carpeta OneDrive" style="text-decoration:none;">📁</a>':''}
           <button class="pc-action-btn" onclick="event.stopPropagation();editProject('${p.id}')">✏ Editar</button>
           ${p.id!=='rucachue'?`<button class="pc-action-btn del" onclick="event.stopPropagation();deleteProject('${p.id}')">🗑</button>`:''}
         </div>
@@ -2611,6 +2617,7 @@ function openProject(pid){
   if(navProj) navProj.textContent='Proyecto';
   if(navName) navName.textContent=p.name;
   if(navClient) navClient.textContent=p.client;
+  navOnedrive();
   // Update review date
   const rv=document.getElementById('lastRevGlobal');
   const rl=document.getElementById('lastRevLabel');
@@ -2658,6 +2665,18 @@ function openProject(pid){
   }
 }
 
+// Botón de la carpeta OneDrive del proyecto abierto (menú lateral, bajo el cliente)
+function navOnedrive(){
+  const el=document.getElementById('navOnedrive'); if(!el)return;
+  const p=projects.find(x=>x.id===currentProjId);
+  if(!p){el.innerHTML='';return;}
+  if(p.onedrive){
+    el.innerHTML='<a class="nav-od" href="'+es(p.onedrive)+'" target="_blank" rel="noopener" title="Abrir la carpeta del proyecto en OneDrive">📁 Carpeta OneDrive</a>';
+  }else{
+    el.innerHTML='<button class="nav-od vacio" onclick="editProject(currentProjId);setTimeout(function(){document.getElementById(\'npmOnedrive\').focus();},60);" title="Agregar el link de la carpeta OneDrive">📁 Agregar carpeta OneDrive</button>';
+  }
+}
+
 function goHome(){
   document.title = 'Estudio Bianco — Gestión de Proyectos';
   document.getElementById('homePage').classList.remove('hidden');
@@ -2685,6 +2704,7 @@ function openNewProj(){
   document.getElementById('npmDate').value=new Date().toISOString().split('T')[0];
   document.getElementById('npmStatus').value='En desarrollo';
   document.getElementById('npmNotes').value='';
+  document.getElementById('npmOnedrive').value='';
   document.querySelectorAll('.cp-dot').forEach((d,i)=>{d.classList.toggle('selected',i===0);});
   document.getElementById('newProjModal').classList.add('show');
   setTimeout(()=>document.getElementById('npmName').focus(),50);
@@ -2699,6 +2719,7 @@ function editProject(pid){
   document.getElementById('npmDate').value=p.startDate||'';
   document.getElementById('npmStatus').value=p.status||'En desarrollo';
   document.getElementById('npmNotes').value=p.notes||'';
+  document.getElementById('npmOnedrive').value=p.onedrive||'';
   const selColor=p.color||PROJ_COLORS[0];
   document.querySelectorAll('.cp-dot').forEach(d=>{d.classList.toggle('selected',d.dataset.color===selColor);});
   document.getElementById('newProjModal').classList.add('show');
@@ -2709,13 +2730,20 @@ function saveNewProj(){
   const client=document.getElementById('npmClient').value.trim();
   if(!name){alert('Ingresa el nombre del proyecto.');return;}
   const color=(document.querySelector('.cp-dot.selected')||{dataset:{color:PROJ_COLORS[0]}}).dataset.color;
+  // Link de la carpeta OneDrive (projects.onedrive_url): solo se acepta un link web
+  let onedrive=document.getElementById('npmOnedrive').value.trim();
+  if(onedrive&&!/^https?:\/\//i.test(onedrive)){
+    if(/^[\w.-]+\.[a-z]{2,}\//i.test(onedrive))onedrive='https://'+onedrive;
+    else{alert('El link de OneDrive debe empezar con https:// (cópialo desde OneDrive con "Copiar vínculo").');return;}
+  }
+  let guardado=null;
   if(editingProjId){
     const p=projects.find(x=>x.id===editingProjId);
-    if(p){Object.assign(p,{name,client,addr:document.getElementById('npmAddr').value,startDate:document.getElementById('npmDate').value,status:document.getElementById('npmStatus').value,notes:document.getElementById('npmNotes').value,color});}
+    if(p){Object.assign(p,{name,client,addr:document.getElementById('npmAddr').value,startDate:document.getElementById('npmDate').value,status:document.getElementById('npmStatus').value,notes:document.getElementById('npmNotes').value,onedrive,color});guardado=p;}
   }else{
     const id='p'+Date.now();
-    const newProj={id,name,client,addr:document.getElementById('npmAddr').value,startDate:document.getElementById('npmDate').value,status:document.getElementById('npmStatus').value,notes:document.getElementById('npmNotes').value,color};
-    projects.push(newProj);
+    const newProj={id,name,client,addr:document.getElementById('npmAddr').value,startDate:document.getElementById('npmDate').value,status:document.getElementById('npmStatus').value,notes:document.getElementById('npmNotes').value,onedrive,color};
+    projects.push(newProj);guardado=newProj;
     // Link to existing client if selected
     const linkedClientId=(document.getElementById('npmClientLink')||{}).value||'';
     if(linkedClientId){
@@ -2728,9 +2756,11 @@ function saveNewProj(){
     }
   }
   svProjects(projects);
-  if(typeof window.sbSaveProject==='function'){try{window.sbSaveProject(projects[projects.length-1]);}catch(e){}}
+  // Sube a la nube el proyecto editado o creado (antes subía siempre el último de la lista)
+  if(guardado&&typeof window.sbSaveProject==='function'){try{window.sbSaveProject(guardado);}catch(e){}}
   closeNewProj();
   renderHome();
+  if(guardado&&guardado.id===currentProjId)navOnedrive();
 }
 function deleteProject(pid){
   if(!confirm('¿Eliminar este proyecto y todos sus datos? Esta acción no se puede deshacer.'))return;
@@ -4356,8 +4386,8 @@ function renderGantt(){
   // Convertir proyecto app <-> nube
   // Estados del proyecto: En desarrollo, En obra, En entrega, En pausa, Finalizado ('Activo' era el valor antiguo)
   function estProy(s){ return (!s||s==='Activo')?'En desarrollo':s; }
-  function projToRow(p){ return { id:p.id, name:p.name, client:p.client||'', color:p.color||'#2A5C45', status:estProy(p.status), addr:p.addr||'', start_date:p.startDate||'', notes:p.notes||'' }; }
-  function projFromRow(x){ return { id:x.id, name:x.name, client:x.client||'', color:x.color||'#2A5C45', status:estProy(x.status), addr:x.addr||'', startDate:x.start_date||'', notes:x.notes||'' }; }
+  function projToRow(p){ return { id:p.id, name:p.name, client:p.client||'', color:p.color||'#2A5C45', status:estProy(p.status), addr:p.addr||'', start_date:p.startDate||'', notes:p.notes||'', onedrive_url:p.onedrive||null }; }
+  function projFromRow(x){ return { id:x.id, name:x.name, client:x.client||'', color:x.color||'#2A5C45', status:estProy(x.status), addr:x.addr||'', startDate:x.start_date||'', notes:x.notes||'', onedrive:x.onedrive_url||'' }; }
 
   // Cargar la lista de proyectos desde la nube
   window.sbLoadProjects=function(cb){
