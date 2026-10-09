@@ -61,10 +61,17 @@ async function compra(p, b, res) {
   const itemId = +b.itemId, fecha = limpio(b.fecha, 10), entrega = limpio(b.entrega, 10), orden = limpio(b.orden, 60), com = limpio(b.comentario, 1000), nombre = limpio(b.nombre, 80) || 'Cliente';
   const esFecha = d => /^\d{4}-\d{2}-\d{2}$/.test(d);
   if (!(itemId > 0) || !esFecha(fecha) || (entrega && !esFecha(entrega))) return res.status(400).json({ ok: false, error: 'Revisa las fechas.' });
-  const it = await sb('items?select=id,item,cat,delivery_status,track_note&project_id=eq.' + encodeURIComponent(p.id) + '&id=eq.' + itemId + '&limit=1');
+  const it = await sb('items?select=id,item,cat,delivery_status,track_note,unit,p1amt,p2amt,p3amt,p4amt&project_id=eq.' + encodeURIComponent(p.id) + '&id=eq.' + itemId + '&limit=1');
   if (!it || !it[0] || it[0].cat === 'Honorarios') return res.status(404).json({ ok: false, error: 'Producto no encontrado.' });
-  const nota = 'Comprado por el cliente (' + nombre + ') el ' + fecha + (orden ? ' · orden ' + orden : '') + (com ? ' · ' + com : '');
+  // Precio que pagó el cliente (por unidad, opcional): reemplaza el precio del listado
+  const precio = Math.round(+String(b.precio || '').replace(/[^0-9]/g, '') || 0);
+  const conPrecio = precio > 0 && precio < 1e10 && precio !== +it[0].unit;
+  const nota = 'Comprado por el cliente (' + nombre + ') el ' + fecha + (orden ? ' · orden ' + orden : '') + (conPrecio ? ' · pagó $' + precio.toLocaleString('es-CL') + ' (antes $' + (+it[0].unit || 0).toLocaleString('es-CL') + ')' : '') + (com ? ' · ' + com : '');
   const cambio = { order_date: fecha, delivery_resp: 'Cliente', order_num: orden, track_note: ((it[0].track_note || '') + (it[0].track_note ? '\n' : '') + nota).slice(0, 4000) };
+  if (conPrecio) cambio.unit = precio;
+  // Lo pagó el cliente directo a la tienda: queda pagado (si el estudio no registró pagos propios)
+  const pagosEstudio = ['p1amt', 'p2amt', 'p3amt', 'p4amt'].reduce((a, k) => a + (+it[0][k] || 0), 0);
+  if (!pagosEstudio) cambio.pay_status = 'Pagado';
   if (entrega) cambio.est_delivery = entrega;
   if (!it[0].delivery_status || it[0].delivery_status === 'Por pedir') cambio.delivery_status = 'Pedido confirmado';
   await sb('items?project_id=eq.' + encodeURIComponent(p.id) + '&id=eq.' + itemId, { method: 'PATCH', headers: H({ Prefer: 'return=minimal' }), body: JSON.stringify(cambio) });
@@ -72,7 +79,7 @@ async function compra(p, b, res) {
     id: Date.now() * 10 + Math.floor(Math.random() * 10), project_id: p.id, date: hoySantiago(), type: 'Nota general',
     title: ('Cliente compró: ' + (it[0].item || 'producto')).slice(0, 200), description: nota + (entrega ? ' · entrega aprox. ' + entrega : ''),
     commits: '', responsible: nombre, due_date: '', status: 'Completada', amount: 0, category: 'cliente', item_id: itemId,
-    extra: JSON.stringify({ cliente: true, compra: { fecha: fecha, entrega: entrega, orden: orden }, autor: 'cliente', at: new Date().toISOString() })
+    extra: JSON.stringify({ cliente: true, compra: { fecha: fecha, entrega: entrega, orden: orden, precio: conPrecio ? precio : 0 }, autor: 'cliente', at: new Date().toISOString() })
   }) });
   return res.status(200).json({ ok: true });
 }
