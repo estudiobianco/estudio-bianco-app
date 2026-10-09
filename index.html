@@ -127,6 +127,8 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
 .fp-btn.sec{background:var(--surface);color:var(--tx);border:1px solid var(--bd2);}
 .paybadge{display:inline-flex;align-items:center;gap:5px;border:none;border-radius:10px;padding:3px 9px;font-size:11px;font-weight:500;cursor:pointer;font-family:"DM Sans",sans-serif;white-space:nowrap;}
 .paybadge i{width:6px;height:6px;border-radius:50%;display:inline-block;}
+.paybadge.pb-cli{font-size:9.5px;padding:3px 8px;gap:4px;white-space:normal;max-width:100%;text-align:left;line-height:1.15;}
+.paybadge.pb-cli i{flex:none;}
 .pb-pend{background:var(--wnl);color:var(--wn);}.pb-pend i{background:var(--wn);}
 .pb-parc{background:var(--wnl);color:var(--wn);}.pb-parc i{background:var(--wn);}
 .pb-ok{background:var(--acl);color:var(--ac);}.pb-ok i{background:var(--ac);}
@@ -1381,8 +1383,10 @@ function delCls(s){return {'Por pedir':'ds-sin','Pedido confirmado':'ds-fab','En
 function insCls(s){return s==='Instalado'?'is-Instalado':'is-Pendiente';}
 function csCls(s){return {'Aprobado':'cs-apr','Por revisar':'cs-rev','Cambios solicitados':'cs-cam','Rechazado':'cs-rej'}[s]||'cs-none';}
 function cotCls(s){return {'Pendiente':'cot-pe','Aprobada':'cot-ap','Rechazada':'cot-re','En espera':'cot-es'}[s]||'cot-pe';}
-// El cliente lo compró directo en la tienda ("Lo compré yo" en el portal, o Responsable = Cliente con fecha de pedido)
-function compraCliente(r){return !!(r&&r.deliveryResp==='Cliente'&&r.orderDate);}
+// El cliente lo compró directo en la tienda ("Lo compré yo" en el portal, o Responsable = Cliente en la ficha)
+function compraCliente(r){return !!(r&&r.deliveryResp==='Cliente');}
+// Texto del estado de pago: "Pagado por cliente" cuando lo pagó el cliente y el estudio no registró pagos
+function payTxt(r){if(typeof window.payCalc==='function'){var pc=window.payCalc(r);if(pc.label==='Pagado por cliente')return pc.label;}return (r&&r.payStatus)||'Pendiente';}
 function getStage(r){if(r.installStatus==='Instalado')return 6;if(r.deliveryStatus==='Entregado')return 5;if(r.deliveryStatus==='En tránsito')return 4;if(r.deliveryStatus==='En fabricación')return 3;if(r.payStatus==='Pagado'||r.payStatus==='Pagado parcialmente'||r.deliveryStatus==='Pedido confirmado'||compraCliente(r))return 2;if(r.clientApprovalDate)return 1;return 0;}
 function getStageName(r){return STAGES[getStage(r)];}
 
@@ -2024,7 +2028,7 @@ function rPag(){
     const cc=catCls(r.cat),pc=payCls(r.payStatus);
     const pid='pag-'+r.id,bid='pagb-'+r.id;
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td><button class="xb" id="${bid}" onclick="tE('${pid}','${bid}')">›</button></td><td><span class="badge ${cc}">${r.cat}</span></td><td style="font-weight:500;">${es(r.item)}</td><td style="color:var(--tx2);font-size:11.5px;">${es(r.supplier)}</td><td class="mono" style="text-align:right;">${t>0?fm(t):'—'}</td><td><span class="badge ${pc}">${r.payStatus}</span></td><td class="mono" style="text-align:right;color:var(--ac);font-weight:500;">${fm(tpd)}</td><td class="mono" style="text-align:right;color:${tpn>0?'var(--dn)':'var(--tx3)'};">${tpn>0?fm(tpn):'—'}</td>`;
+    tr.innerHTML=`<td><button class="xb" id="${bid}" onclick="tE('${pid}','${bid}')">›</button></td><td><span class="badge ${cc}">${r.cat}</span></td><td style="font-weight:500;">${es(r.item)}</td><td style="color:var(--tx2);font-size:11.5px;">${es(r.supplier)}</td><td class="mono" style="text-align:right;">${t>0?fm(t):'—'}</td><td><span class="badge ${pc}">${payTxt(r)}</span></td><td class="mono" style="text-align:right;color:var(--ac);font-weight:500;">${fm(tpd)}</td><td class="mono" style="text-align:right;color:${tpn>0?'var(--dn)':'var(--tx3)'};">${tpn>0?fm(tpn):'—'}</td>`;
     b.appendChild(tr);
     const ep=document.createElement('tr');ep.id=pid;ep.className='xp';
     ep.innerHTML=`<td colspan="8"><div class="xi"><div class="xtit">Cuotas de pago — ${es(r.item)} · Total: ${t>0?fm(t):'sin precio'}</div><table class="ptbl"><thead><tr><th style="width:75px">Cuota</th><th style="width:75px">%</th><th style="width:105px">Monto ($)</th><th style="width:110px">Fecha pago</th><th style="width:140px">Medio de pago</th><th>Nota / referencia</th></tr></thead><tbody>${buildPayRows(r.id,'uIPag')}</tbody></table><div class="pay-sum"><div class="psi"><div class="psl">Total pagado</div><div class="psv g">${fm(tpd)}</div></div><div class="psi"><div class="psl">Saldo pendiente</div><div class="psv r">${fm(tpn)}</div></div>${t>0?`<div class="psi"><div class="psl">% pagado</div><div class="psv w">${Math.round(tpd/t*100)}%</div></div>`:''}</div></div></td>`;
@@ -2048,7 +2052,7 @@ function rPend(){
     const g=pd.filter(r=>r.cat===cat);
     const gt=g.reduce((a,r)=>a+(r.payStatus==='Pagado parcialmente'?tpend(r):rT(r)),0);
     const cc=catCls(cat);
-    const rows=g.map(r=>{const pc=payCls(r.payStatus);const pend=r.payStatus==='Pagado parcialmente'?tpend(r):rT(r);const lt=r.leadWeeks?r.leadWeeks+' sem':(r.notes&&r.notes.match(/(\d+)\s*sem/i)?r.notes.match(/(\d+)\s*sem/i)[1]+' sem':'—');return`<tr><td style="font-weight:500;">${es(r.item)}</td><td style="color:var(--tx2);font-size:11.5px;">${es(r.supplier)}</td><td class="mono" style="text-align:right;">${pend>0?fm(pend):'Sin precio'}</td><td><span class="badge ${pc}">${r.payStatus}</span></td><td style="text-align:center;color:var(--tx2);font-size:11.5px;">${lt}</td><td style="text-align:center;font-size:11.5px;color:var(--tx2);">${r.estDelivery?fd(r.estDelivery):'—'}</td><td style="color:var(--tx2);font-size:11.5px;">${es(r.notes)||'—'}</td></tr>`;}).join('');
+    const rows=g.map(r=>{const pc=payCls(r.payStatus);const pend=r.payStatus==='Pagado parcialmente'?tpend(r):rT(r);const lt=r.leadWeeks?r.leadWeeks+' sem':(r.notes&&r.notes.match(/(\d+)\s*sem/i)?r.notes.match(/(\d+)\s*sem/i)[1]+' sem':'—');return`<tr><td style="font-weight:500;">${es(r.item)}</td><td style="color:var(--tx2);font-size:11.5px;">${es(r.supplier)}</td><td class="mono" style="text-align:right;">${pend>0?fm(pend):'Sin precio'}</td><td><span class="badge ${pc}">${payTxt(r)}</span></td><td style="text-align:center;color:var(--tx2);font-size:11.5px;">${lt}</td><td style="text-align:center;font-size:11.5px;color:var(--tx2);">${r.estDelivery?fd(r.estDelivery):'—'}</td><td style="color:var(--tx2);font-size:11.5px;">${es(r.notes)||'—'}</td></tr>`;}).join('');
     const div=document.createElement('div');div.className='pg';
     div.innerHTML=`<div class="pgh"><h3><span class="badge ${cc}">${cat}</span>${g.length} ítem${g.length!==1?'s':''}</h3><span class="amt">${gt>0?fm(gt):'Sin precio'}</span></div><div class="pgw"><table><thead><tr><th>Ítem</th><th>Proveedor</th><th>Monto pendiente</th><th>Estado pago</th><th style="text-align:center">Lead time</th><th style="text-align:center">Entrega est.</th><th>Notas</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     con.appendChild(div);
@@ -2112,7 +2116,7 @@ function rSeg(){
         var td2=document.createElement('td');td2.style.fontWeight='500';td2.textContent=r.item;
         var td3=document.createElement('td');td3.style.cssText='color:var(--tx2);font-size:11.5px;';td3.textContent=r.supplier||'';
         var td4=document.createElement('td');td4.innerHTML='<div class="stepper">'+bStp(r)+'</div>';
-        var td5=document.createElement('td');td5.innerHTML='<span class="badge '+payCls(r.payStatus)+'" style="display:block;margin-bottom:2px;">'+r.payStatus+'</span><span class="badge '+delCls(r.deliveryStatus)+'" style="display:block;margin-bottom:2px;">'+r.deliveryStatus+'</span><span class="badge '+insCls(r.installStatus)+'">'+r.installStatus+'</span>';
+        var td5=document.createElement('td');td5.innerHTML='<span class="badge '+payCls(r.payStatus)+'" style="display:block;margin-bottom:2px;">'+payTxt(r)+'</span><span class="badge '+delCls(r.deliveryStatus)+'" style="display:block;margin-bottom:2px;">'+r.deliveryStatus+'</span><span class="badge '+insCls(r.installStatus)+'">'+r.installStatus+'</span>';
         tr.appendChild(td0);tr.appendChild(td1);tr.appendChild(td2);tr.appendChild(td3);tr.appendChild(td4);tr.appendChild(td5);b.appendChild(tr);
         var ep=document.createElement('tr');ep.id=pid;ep.className='xp segrow_'+catKey;
         var epTd=document.createElement('td');epTd.colSpan=6;
@@ -2251,7 +2255,7 @@ function showPDF(){
         +'<td style="text-align:right;font-family:monospace;">'+(rT(r)>0?fm(rT(r)):'—')+'</td>'
         +'<td style="text-align:right;font-family:monospace;color:#2A5C45;">'+(tp(r)>0?fm(tp(r)):'—')+'</td>'
         +'<td style="text-align:right;font-family:monospace;color:#B83030;">'+(tpend(r)>0?fm(tpend(r)):'—')+'</td>'
-        +'<td><span style="font-size:9px;padding:1px 6px;border-radius:99px;'+(sc[r.payStatus]||'')+'">'+r.payStatus+'</span></td>'
+        +'<td><span style="font-size:9px;padding:1px 6px;border-radius:99px;'+(sc[r.payStatus]||'')+'">'+payTxt(r)+'</span></td>'
         +'</tr>';
     });
     catHTML+='<div style="margin-bottom:18px;break-inside:avoid;">'
@@ -3823,7 +3827,7 @@ function rPend2(){
       rows.forEach(function(r){
         var tr=document.createElement('tr');tr.style.borderTop='1px solid var(--bd)';
         var pend=r.payStatus==='Pagado parcialmente'?tpend(r):rT(r),paid=tp(r);
-        tr.innerHTML='<td style="padding:7px 12px;">'+es(r.item)+'</td><td style="padding:7px 12px;text-align:right;" class="mono">'+fm(rT(r))+'</td><td style="padding:7px 12px;text-align:right;" class="mono">'+(paid>0?fm(paid):'—')+'</td><td style="padding:7px 12px;text-align:right;color:var(--dn);" class="mono">'+fm(pend)+'</td><td style="padding:7px 12px;"><span class="badge '+payCls(r.payStatus)+'">'+r.payStatus+'</span></td>';
+        tr.innerHTML='<td style="padding:7px 12px;">'+es(r.item)+'</td><td style="padding:7px 12px;text-align:right;" class="mono">'+fm(rT(r))+'</td><td style="padding:7px 12px;text-align:right;" class="mono">'+(paid>0?fm(paid):'—')+'</td><td style="padding:7px 12px;text-align:right;color:var(--dn);" class="mono">'+fm(pend)+'</td><td style="padding:7px 12px;"><span class="badge '+payCls(r.payStatus)+'">'+payTxt(r)+'</span></td>';
         tb.appendChild(tr);
       });
       tbl.appendChild(tb);div.appendChild(tbl);grp2.appendChild(div);
@@ -5314,7 +5318,7 @@ window.pdfResumenCliente = function(){
     var total=(typeof rTraw==='function'?rTraw(r):(r.qty||1)*(r.unit||0));
     var paid=window.pagadoItem(r);
     if(r.payStatus==='Devuelto')return {label:'Devuelto',cls:'pb-dev',st:'Devuelto'};
-    if(paid<=0&&compraCliente(r))return {label:'Pagado por cliente',cls:'pb-ok',st:'Pagado'};
+    if(paid<=0&&compraCliente(r))return {label:'Pagado por cliente',cls:'pb-ok pb-cli',st:'Pagado'};
     if(total<=0)return {label:'Por cotizar',cls:'pb-cot',st:'Pendiente'};
     if(paid>=total)return {label:'Pagado',cls:'pb-ok',st:'Pagado'};
     if(paid>0)return {label:'Pago parcial',cls:'pb-parc',st:'Pagado parcialmente'};
@@ -6877,6 +6881,20 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
     });
   }
 
+  // ── Entregas en curso: pedidos o compras del cliente que aún no llegan (sin los atrasados) ──
+  function entregasEnCurso(){
+    var h=hoy();
+    return IT().filter(function(r){
+      if(r.cat==='Honorarios'||r.clientStatus==='Rechazado')return false;
+      if(r.optGroup&&!r.optSel)return false;
+      var ds=r.deliveryStatus||'Por pedir';
+      if(ds==='Entregado'||/Instalad/.test(r.installStatus||''))return false;
+      if(ds==='Por pedir'&&!r.orderDate&&!compraCliente(r))return false;
+      if(r.estDelivery&&r.estDelivery<h)return false;
+      return true;
+    }).sort(function(a,b){return (a.estDelivery||'9999').localeCompare(b.estDelivery||'9999');});
+  }
+
   // ── Alertas automaticas (pendientes derivados con clave unica; desaparecen al resolver el dato) ──
   function derivados(){
     var out=[], h=hoy();
@@ -6943,6 +6961,17 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
         h+='<div class="sg-grp" onclick="sgSet(\'verComp\','+(!st.verComp)+')"><span>'+(st.verComp?'▾':'▸')+'</span> Completadas <span class="n">'+comp.length+'</span></div>';
         if(st.verComp){h+='<div class="tc"><table class="sg-t"><tbody>';comp.forEach(function(l){h+=filaTarea(l);});h+='</tbody></table></div>';}
       }
+    }
+    // Productos ya pedidos o comprados (también por el cliente) que aún no llegan; los atrasados van en Alertas
+    var enc=entregasEnCurso();
+    if(enc.length){
+      h+='<div class="sg-grp" style="cursor:default;"><span>🚚</span> Entregas en curso <span class="n">'+enc.length+'</span><span style="color:var(--tx3);font-size:11.5px;">Productos pedidos que aún no llegan</span></div>';
+      h+='<div class="tc"><table class="sg-t"><tbody>';
+      enc.forEach(function(r){
+        var cli=compraCliente(r);
+        h+='<tr class="fila" onclick="abrirFicha('+r.id+',\'ent\')"><td style="width:34px;">🚚</td><td><div class="sg-tit">'+e(r.item||'')+'</div><div class="sg-sub">'+e(r.deliveryStatus||'Pedido confirmado')+(cli?' · Compra del cliente':'')+'</div></td><td class="opt">'+e(r.space||'')+'</td><td class="opt" style="width:140px;">'+e(cli?'Cliente':(r.supplier||''))+'</td><td style="width:120px;">'+(r.estDelivery?e(fCorta(r.estDelivery)):'<span style="color:var(--wn);">Sin fecha</span>')+'</td><td style="width:130px;color:var(--tx3);font-size:12px;">Abrir producto ›</td></tr>';
+      });
+      h+='</tbody></table></div>';
     }
     var der=derivados();
     if(der.length){
