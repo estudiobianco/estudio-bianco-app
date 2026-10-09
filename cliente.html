@@ -465,6 +465,7 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
       ov.querySelector('.cuerpo').innerHTML='<h3>Registrar tu compra</h3><p style="color:var(--tx2);font-size:13px;margin-bottom:6px;">'+e(it.item)+' · El estudio recibe estos datos para hacer el seguimiento de la entrega.</p>'
         +'<label>¿Cuándo lo compraste?</label><input type="date" id="cFecha" value="'+e(it.compra&&it.compra.fecha||hoy)+'">'
         +'<label>Fecha probable de entrega o despacho (si la sabes)</label><input type="date" id="cEntrega" value="'+e(it.compra&&it.compra.entrega||'')+'">'
+        +'<label>¿Cuánto pagaste? (precio por unidad, opcional)</label><input id="cPrecio" inputmode="numeric" maxlength="14" placeholder="Ej: 332.990">'
         +'<label>N° de orden o boleta (opcional)</label><input id="cOrden" maxlength="60" value="'+e(it.compra&&it.compra.orden||'')+'">'
         +'<label>Comentario (opcional)</label><textarea id="cCom" maxlength="1000" placeholder="Ej: lo compré en la tienda de Talca, me cobraron despacho aparte…"></textarea>'
         +'<div class="err" id="cErr"></div><div class="bt"><button onclick="ebCerrarComp()">Cancelar</button><button class="p" id="cOk" onclick="ebEnviarCompra('+it.id+')">Guardar</button></div>';
@@ -476,11 +477,12 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
     var f=document.getElementById('cFecha').value, en=document.getElementById('cEntrega').value, o=document.getElementById('cOrden').value.trim(), c=document.getElementById('cCom').value.trim(), err=document.getElementById('cErr');
     if(!f){err.textContent='Indica la fecha de compra.';err.style.display='block';return;}
     if(en&&en<f){err.textContent='La entrega no puede ser antes de la compra.';err.style.display='block';return;}
+    var pr=+(document.getElementById('cPrecio').value||'').replace(/[^0-9]/g,'')||0;
     var b=document.getElementById('cOk'); b.disabled=true; b.textContent='Guardando…';
-    post({accion:'compra',itemId:id,fecha:f,entrega:en,orden:o,comentario:c,nombre:miNombre()}).then(function(j){
+    post({accion:'compra',itemId:id,fecha:f,entrega:en,orden:o,precio:pr,comentario:c,nombre:miNombre()}).then(function(j){
       b.disabled=false; b.textContent='Guardar';
       if(!j.ok){err.textContent=j.error||'No se pudo guardar.';err.style.display='block';return;}
-      var it=D.items.find(function(x){return x.id===id;}); if(it){it.compra={fecha:f,entrega:en,orden:o,por:'cliente'};it.entrega='Pedido confirmado';}
+      var it=D.items.find(function(x){return x.id===id;}); if(it){it.compra={fecha:f,entrega:en,orden:o,por:'cliente'};it.entrega='Pedido confirmado';if(pr>0)it.precio=pr;}
       ebCerrarComp(); pintar(); toast('✓ Compra registrada. ¡Gracias!'); refrescar();
     }).catch(function(){b.disabled=false;b.textContent='Guardar';err.textContent='Sin conexión. Intenta de nuevo.';err.style.display='block';});
   };

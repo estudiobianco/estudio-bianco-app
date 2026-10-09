@@ -1381,7 +1381,9 @@ function delCls(s){return {'Por pedir':'ds-sin','Pedido confirmado':'ds-fab','En
 function insCls(s){return s==='Instalado'?'is-Instalado':'is-Pendiente';}
 function csCls(s){return {'Aprobado':'cs-apr','Por revisar':'cs-rev','Cambios solicitados':'cs-cam','Rechazado':'cs-rej'}[s]||'cs-none';}
 function cotCls(s){return {'Pendiente':'cot-pe','Aprobada':'cot-ap','Rechazada':'cot-re','En espera':'cot-es'}[s]||'cot-pe';}
-function getStage(r){if(r.installStatus==='Instalado')return 6;if(r.deliveryStatus==='Entregado')return 5;if(r.deliveryStatus==='En tránsito')return 4;if(r.deliveryStatus==='En fabricación')return 3;if(r.payStatus==='Pagado'||r.payStatus==='Pagado parcialmente')return 2;if(r.clientApprovalDate)return 1;return 0;}
+// El cliente lo compró directo en la tienda ("Lo compré yo" en el portal, o Responsable = Cliente con fecha de pedido)
+function compraCliente(r){return !!(r&&r.deliveryResp==='Cliente'&&r.orderDate);}
+function getStage(r){if(r.installStatus==='Instalado')return 6;if(r.deliveryStatus==='Entregado')return 5;if(r.deliveryStatus==='En tránsito')return 4;if(r.deliveryStatus==='En fabricación')return 3;if(r.payStatus==='Pagado'||r.payStatus==='Pagado parcialmente'||r.deliveryStatus==='Pedido confirmado'||compraCliente(r))return 2;if(r.clientApprovalDate)return 1;return 0;}
 function getStageName(r){return STAGES[getStage(r)];}
 
 // ── DEFAULT DATA ──────────────────────────────────────────────────────────────
@@ -1471,7 +1473,7 @@ function go(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove
 function uNT(){var n=document.getElementById('navTotDiv');if(!n)return;if(appMode==='admin'&&currentProjId){n.style.display='';document.getElementById('navTotal').textContent=fm(items.filter(function(r){return r.cat!=='Honorarios';}).reduce(function(a,r){return a+rT(r);},0));}else{n.style.display='none';}}
 function tp(r){return(r.p1amt||0)+(r.p2amt||0)+(r.p3amt||0)+(r.p4amt||0);}
 function tpend(r){return Math.max(0,rT(r)-tp(r));}
-function autoPayStatus(r){var paid=tp(r);var total=rT(r);if(paid<=0)return 'Pendiente';if(paid>=total)return 'Pagado';return 'Pagado parcialmente';}
+function autoPayStatus(r){var paid=tp(r);var total=rT(r);if(paid<=0)return compraCliente(r)?'Pagado':'Pendiente';if(paid>=total)return 'Pagado';return 'Pagado parcialmente';}
 function recalcPayStatus(){var changed=0;items.forEach(function(r){var auto=autoPayStatus(r);if(auto!==r.payStatus){r.payStatus=auto;changed++;}});if(changed>0){sAll();tst(changed+' estados actualizados');}else tst('Estados correctos');}
 
 // ── PANEL STATE ───────────────────────────────────────────────────────────────
@@ -5312,6 +5314,7 @@ window.pdfResumenCliente = function(){
     var total=(typeof rTraw==='function'?rTraw(r):(r.qty||1)*(r.unit||0));
     var paid=window.pagadoItem(r);
     if(r.payStatus==='Devuelto')return {label:'Devuelto',cls:'pb-dev',st:'Devuelto'};
+    if(paid<=0&&compraCliente(r))return {label:'Pagado por cliente',cls:'pb-ok',st:'Pagado'};
     if(total<=0)return {label:'Por cotizar',cls:'pb-cot',st:'Pendiente'};
     if(paid>=total)return {label:'Pagado',cls:'pb-ok',st:'Pagado'};
     if(paid>0)return {label:'Pago parcial',cls:'pb-parc',st:'Pagado parcialmente'};
@@ -8126,6 +8129,8 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
       if(ex.compra){ // el cliente registro que lo compro el
         it.orderDate=ex.compra.fecha||it.orderDate; if(ex.compra.entrega)it.estDelivery=ex.compra.entrega; it.orderNum=ex.compra.orden||it.orderNum||''; it.deliveryResp='Cliente';
         if(!it.deliveryStatus||it.deliveryStatus==='Por pedir')it.deliveryStatus='Pedido confirmado';
+        if(+ex.compra.precio>0)it.unit=+ex.compra.precio;
+        if(!(typeof tp==='function'&&tp(it)>0))it.payStatus='Pagado';
         if(l.description&&String(it.trackNote||'').indexOf(l.description.split(' · entrega')[0])<0)it.trackNote=(it.trackNote?it.trackNote+'\n':'')+l.description.split(' · entrega')[0];
         cambio=true; return;
       }
