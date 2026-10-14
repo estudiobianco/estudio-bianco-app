@@ -1925,6 +1925,7 @@ function dI(id){if(confirm('¿Eliminar este ítem?')){items=items.filter(x=>x.id
 function setAgrupar(v){comprasAgrupar=v==='esp'?'esp':'cat';try{localStorage.setItem('eb_compras_agrupar2',comprasAgrupar);}catch(e){}rC();}
 // Crea el producto en la categoria/espacio indicado
 function crearItem(cat,space){
+  nii=Math.max(nii,Math.max(0,...items.map(i=>+i.id||0))+1); // nunca repetir un id que ya está en el listado
   const it=mg({id:nii++,cat:cat||'Mobiliario',item:'Nuevo ítem',supplier:'',qty:1,unit:0,notes:''});if(space)it.space=space;
   it.sortOrder=items.reduce((m,r)=>Math.max(m,ordenItem(r)),0)+1; // queda al final de su grupo
   items.push(it);
@@ -4367,6 +4368,11 @@ function renderGantt(){
   window.sbSave=function(pid,its){
     if(!pid||!its) return;
     clearTimeout(_t);
+    // Dos productos con el mismo id hacen que la nube rechace TODO el guardado: al repetido se le da un id nuevo
+    var vistos={}, maxId=0, rep=0;
+    its.forEach(function(r){if(+r.id>maxId)maxId=+r.id;});
+    its.forEach(function(r){if(vistos[r.id]){r.id=++maxId;rep++;}vistos[r.id]=1;});
+    if(rep){try{if(typeof nii!=='undefined'&&nii<=maxId)nii=maxId+1;}catch(e){}try{localStorage.setItem('ar6_p'+pid+'_items',JSON.stringify(its));}catch(e){}}
     var snapshot=its.map(function(r){return toRow(r,pid);});
     _t=setTimeout(function(){
       if(!snapshot.length){ setStatus('ok'); return; }
