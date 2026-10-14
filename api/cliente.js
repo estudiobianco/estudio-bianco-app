@@ -13,7 +13,7 @@
 
 const SB_URL = 'https://iucjhzsnlotojvpyjcfo.supabase.co';
 const DECISIONES = ['Aprobado', 'Cambios solicitados', 'Rechazado', 'Por revisar', '']; // 'Por revisar' = deshacer la respuesta
-const CAMPOS_ITEM = 'id,cat,item,supplier,qty,unit,space,specs,product_url,image_url,delivery_status,client_status,opt_group,opt_sel,opt_rec,sort_order,client_note,order_date,est_delivery,order_num,delivery_resp';
+const CAMPOS_ITEM = 'id,cat,item,supplier,qty,unit,space,specs,product_url,image_url,delivery_status,client_status,opt_group,opt_sel,opt_rec,sort_order,client_note,order_date,est_delivery,order_num,delivery_resp,ship_cost';
 
 function llave() { return process.env.SUPABASE_SERVICE_KEY || ''; }
 function H(extra) { const k = llave(); return Object.assign({ apikey: k, Authorization: 'Bearer ' + k, 'Content-Type': 'application/json' }, extra || {}); }
@@ -66,9 +66,13 @@ async function compra(p, b, res) {
   // Precio que pagó el cliente (por unidad, opcional): reemplaza el precio del listado
   const precio = Math.round(+String(b.precio || '').replace(/[^0-9]/g, '') || 0);
   const conPrecio = precio > 0 && precio < 1e10 && precio !== +it[0].unit;
-  const nota = 'Comprado por el cliente (' + nombre + ') el ' + fecha + (orden ? ' · orden ' + orden : '') + (conPrecio ? ' · pagó $' + precio.toLocaleString('es-CL') + ' (antes $' + (+it[0].unit || 0).toLocaleString('es-CL') + ')' : '') + (com ? ' · ' + com : '');
+  // Costo de despacho que pagó el cliente (opcional): se guarda en items.ship_cost
+  const despacho = Math.round(+String(b.despacho || '').replace(/[^0-9]/g, '') || 0);
+  const conDespacho = despacho > 0 && despacho < 1e9;
+  const nota = 'Comprado por el cliente (' + nombre + ') el ' + fecha + (orden ? ' · orden ' + orden : '') + (conPrecio ? ' · pagó $' + precio.toLocaleString('es-CL') + ' (antes $' + (+it[0].unit || 0).toLocaleString('es-CL') + ')' : '') + (conDespacho ? ' · despacho $' + despacho.toLocaleString('es-CL') : '') + (com ? ' · ' + com : '');
   const cambio = { order_date: fecha, delivery_resp: 'Cliente', order_num: orden, track_note: ((it[0].track_note || '') + (it[0].track_note ? '\n' : '') + nota).slice(0, 4000) };
   if (conPrecio) cambio.unit = precio;
+  if (conDespacho) cambio.ship_cost = despacho;
   // Lo pagó el cliente directo a la tienda: queda pagado (si el estudio no registró pagos propios)
   const pagosEstudio = ['p1amt', 'p2amt', 'p3amt', 'p4amt'].reduce((a, k) => a + (+it[0][k] || 0), 0);
   if (!pagosEstudio) cambio.pay_status = 'Pagado';
@@ -79,7 +83,7 @@ async function compra(p, b, res) {
     id: Date.now() * 10 + Math.floor(Math.random() * 10), project_id: p.id, date: hoySantiago(), type: 'Nota general',
     title: ('Cliente compró: ' + (it[0].item || 'producto')).slice(0, 200), description: nota + (entrega ? ' · entrega aprox. ' + entrega : ''),
     commits: '', responsible: nombre, due_date: '', status: 'Completada', amount: 0, category: 'cliente', item_id: itemId,
-    extra: JSON.stringify({ cliente: true, compra: { fecha: fecha, entrega: entrega, orden: orden, precio: conPrecio ? precio : 0 }, autor: 'cliente', at: new Date().toISOString() })
+    extra: JSON.stringify({ cliente: true, compra: { fecha: fecha, entrega: entrega, orden: orden, precio: conPrecio ? precio : 0, despacho: conDespacho ? despacho : 0 }, autor: 'cliente', at: new Date().toISOString() })
   }) });
   return res.status(200).json({ ok: true });
 }
@@ -159,7 +163,7 @@ module.exports = async function handler(req, res) {
         ok: true,
         proyecto: { nombre: p.name || '', cliente: p.client || '' },
         items: items.map(x => ({
-          id: x.id, cat: x.cat || '', item: x.item || '', proveedor: x.supplier || '', cant: x.qty || 1, precio: x.unit || 0,
+          id: x.id, cat: x.cat || '', item: x.item || '', proveedor: x.supplier || '', cant: x.qty || 1, precio: x.unit || 0, despacho: +x.ship_cost || 0,
           espacio: x.space || '', specs: x.specs || '', link: x.product_url || '', imagen: x.image_url || '',
           entrega: x.delivery_status || 'Por pedir', estado: x.client_status || '',
           compra: x.order_date ? { fecha: x.order_date, entrega: x.est_delivery || '', orden: x.order_num || '', por: x.delivery_resp === 'Cliente' ? 'cliente' : 'estudio' } : null, grupo: x.opt_group || '', elegida: x.opt_sel === '1', recomendada: x.opt_rec === '1', nota: x.client_note || ''
