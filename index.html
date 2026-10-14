@@ -1467,8 +1467,8 @@ const fm=n=>'$'+Math.round(n).toLocaleString('es-CL');
 const fd=d=>{if(!d)return'—';const[y,m,dd]=d.split('-');return dd+'/'+m+'/'+y;};
 // Grupos de opciones: dentro de un grupo solo suma la opcion elegida (optSel). rTraw = valor del producto aunque no este elegido.
 const optFuera=r=>!!(r&&r.optGroup&&!r.optSel);
-const rTraw=r=>r.qty*r.unit;
-const rT=r=>optFuera(r)?0:r.qty*r.unit;
+const rTraw=r=>r.qty*r.unit+(+r.shipCost||0); // incluye el costo de despacho (items.ship_cost)
+const rT=r=>optFuera(r)?0:r.qty*r.unit+(+r.shipCost||0);
 // Posición manual del producto en el listado
 const ordenItem=r=>(r.sortOrder==null||r.sortOrder==='')?+r.id:+r.sortOrder;
 const es=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
@@ -1476,7 +1476,9 @@ function tst(msg){const t=document.getElementById('toast');t.textContent=msg;t.c
 function go(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');({compras:rC,pagados:function(){rPag();setTimeout(rPend2,50);},pendientes:rPend,seguimiento:function(){try{rSeguimiento();}catch(e){try{console.error(e);}catch(x){}}},cotizaciones:rCot,honorarios:rH,gestion:rGP,crm:rCRM,proveedores:function(){try{rSup();}catch(e){}},pagosprov:function(){try{rPagosProv();}catch(e){}},ingresos:function(){try{rIngresos();}catch(e){}}})[id]?.();}
 function uNT(){var n=document.getElementById('navTotDiv');if(!n)return;if(appMode==='admin'&&currentProjId){n.style.display='';document.getElementById('navTotal').textContent=fm(items.filter(function(r){return r.cat!=='Honorarios';}).reduce(function(a,r){return a+rT(r);},0));}else{n.style.display='none';}}
 function tp(r){return(r.p1amt||0)+(r.p2amt||0)+(r.p3amt||0)+(r.p4amt||0);}
-function tpend(r){return Math.max(0,rT(r)-tp(r));}
+// Monto ya pagado: lo que registró el estudio o, si lo compró el cliente directo, el total del producto
+function tpCli(r){var p=tp(r);return p>0?p:(compraCliente(r)?rT(r):0);}
+function tpend(r){return Math.max(0,rT(r)-tpCli(r));}
 function autoPayStatus(r){var paid=tp(r);var total=rT(r);if(paid<=0)return compraCliente(r)?'Pagado':'Pendiente';if(paid>=total)return 'Pagado';return 'Pagado parcialmente';}
 function recalcPayStatus(){var changed=0;items.forEach(function(r){var auto=autoPayStatus(r);if(auto!==r.payStatus){r.payStatus=auto;changed++;}});if(changed>0){sAll();tst(changed+' estados actualizados');}else tst('Estados correctos');}
 
@@ -1595,7 +1597,11 @@ function rCKPI(){
   // Transferencias por proveedor registradas en la pestaña Pagos
   const transf = provPaysTotal();
   // Total desembolsado = cuotas de ítems + transferencias a proveedores (igual que en Pagos y en el PDF)
-  const desemb = cuotas + transf;
+  // Lo que el cliente compró y pagó directo en la tienda también cuenta como pagado
+  const cliPag = _wi.filter(r=>compraCliente(r)&&tp(r)<=0).reduce((a,r)=>a+rT(r), 0);
+  const desemb = cuotas + transf + cliPag;
+  // Costos de despacho (items.ship_cost), ya incluidos en el presupuesto
+  const desp = _wi.reduce((a,r)=>a+(optFuera(r)?0:(+r.shipCost||0)), 0), nDesp = _wi.filter(r=>!optFuera(r)&&+r.shipCost>0).length;
   // Ítems pagados 100% = payStatus Pagado
   const totalPagados = _wi.filter(r=>r.payStatus==='Pagado').reduce((a,r)=>a+rT(r), 0);
   const nPagados = _wi.filter(r=>r.payStatus==='Pagado').length;
@@ -1615,12 +1621,17 @@ function rCKPI(){
     <div class="kc" style="border-left:3px solid var(--ac);">
       <div class="kl">Pagado</div>
       <div class="kv g" style="font-size:18px;">${fm(desemb)}</div>
-      <div style="font-size:10.5px;color:var(--tx3);margin-top:2px;">${pct}% del presupuesto${transf>0?` · incluye ${fm(transf)} transferidos a proveedores`:''}</div>
+      <div style="font-size:10.5px;color:var(--tx3);margin-top:2px;">${pct}% del presupuesto${transf>0?` · incluye ${fm(transf)} transferidos a proveedores`:''}${cliPag>0?' · incluye '+fm(cliPag)+' pagado por el cliente':''}</div>
     </div>
     <div class="kc" style="border-left:3px solid var(--dn);">
       <div class="kl">Por pagar</div>
       <div class="kv r" style="font-size:18px;">${fm(saldo)}</div>
       <div style="font-size:10.5px;color:var(--tx3);margin-top:2px;">${100-pct}% pendiente</div>
+    </div>
+    <div class="kc" style="border-left:3px solid #8A7A66;">
+      <div class="kl">Despachos</div>
+      <div class="kv" style="font-size:18px;">${desp>0?fm(desp):'—'}</div>
+      <div style="font-size:10.5px;color:var(--tx3);margin-top:2px;">${nDesp?nDesp+' producto'+(nDesp!==1?'s':'')+' · incluido en el presupuesto':'Sin costos de despacho'}</div>
     </div>
     ${ingresosKPIs()}
     <div class="kc" style="grid-column:1/-1;padding:10px 16px;background:var(--s2);">
@@ -1780,7 +1791,7 @@ function rC(){
         <td style="${TD}"><input type="text" value="${es(r.space||'')}" oninput="uIQ(${r.id},'space',this.value)" onchange="uI(${r.id},'space',this.value)" placeholder="Espacio…" style="${IS}"></td>
         <td style="${TD}"><input type="number" value="${r.qty}" min="0" onchange="uI(${r.id},'qty',+this.value)" style="${ISN}text-align:center;padding:2px 0;"></td>
         <td style="${TD}"><input type="text" id="uprice-${r.id}" value="${r.unit>0?'$'+r.unit.toLocaleString('es-CL'):''}" placeholder="$0" onfocus="this.value=parseFloat(this.value.replace(/[^0-9]/g,''))||''" onblur="var v=+this.value.replace(/[^0-9]/g,'');uI(${r.id},'unit',v);this.value=v>0?'$'+v.toLocaleString('es-CL'):''" style="${ISN}"></td>
-        <td style="${TD}text-align:right;font-variant-numeric:tabular-nums;padding-right:10px;white-space:nowrap;"${_fuera?' title="Opción no elegida: no suma al presupuesto"':''}>${t>0?'<span class="opt-sub">'+fm(t)+'</span>':'<span style="color:var(--tx3);font-size:11px;">Por cotizar</span>'}</td>
+        <td style="${TD}text-align:right;font-variant-numeric:tabular-nums;padding-right:10px;white-space:nowrap;"${_fuera?' title="Opción no elegida: no suma al presupuesto"':''}>${t>0?'<span class="opt-sub">'+fm(t)+'</span>'+(+r.shipCost>0?'<div style="font-size:9.5px;color:var(--tx3);line-height:1.1;" title="El total incluye el costo de despacho">incl. despacho '+fm(+r.shipCost)+'</div>':''):'<span style="color:var(--tx3);font-size:11px;">Por cotizar</span>'}</td>
         <td style="${TD}"><select onchange="uI(${r.id},'clientStatus',this.value)" class="${csc}" style="${ISS}">${CS_OPTS.map(s=>`<option value="${s}"${s===r.clientStatus?' selected':''}>${s||'Sin estado'}</option>`).join('')}</select></td>
         <td style="${TD}text-align:center;">${payBadgeHTML(r)}</td>
         <td style="${TD}"><select onchange="uI(${r.id},'deliveryStatus',this.value)" class="${dc}" style="${ISS}">${DEL_OPTS.map(s=>`<option${s===r.deliveryStatus?' selected':''}>${s}</option>`).join('')}</select></td>
@@ -2798,7 +2809,9 @@ function renderCatSummary(){
 
   // Grand totals from filtered
   const gTotal=filtered.reduce((a,r)=>a+rT(r),0);
-  const gDesemb=filtered.reduce((a,r)=>a+tp(r),0);
+  const gDesemb=filtered.reduce((a,r)=>a+tpCli(r),0);
+  const gDesp=filtered.reduce((a,r)=>a+(optFuera(r)?0:(+r.shipCost||0)),0), nDesp=filtered.filter(r=>!optFuera(r)&&+r.shipCost>0).length;
+  const gCli=filtered.filter(r=>compraCliente(r)&&tp(r)<=0).reduce((a,r)=>a+rT(r),0);
   const gPend=filtered.reduce((a,r)=>a+tpend(r),0);
   const gPagados=filtered.filter(r=>r.payStatus==='Pagado').reduce((a,r)=>a+rT(r),0);
   const gParcial=filtered.filter(r=>r.payStatus==='Pagado parcialmente').reduce((a,r)=>a+tp(r),0);
@@ -2820,7 +2833,7 @@ function renderCatSummary(){
     }).forEach(cat=>{
       const ci=filtered.filter(r=>r.cat===cat);
       const ct=ci.reduce((a,r)=>a+rT(r),0);
-      const cd=ci.reduce((a,r)=>a+tp(r),0);
+      const cd=ci.reduce((a,r)=>a+tpCli(r),0);
       const cp=Math.max(0,ct-cd);
       const cpct=ct>0?Math.round(cd/ct*100):0;
       const cc=catCls(cat);
@@ -2874,7 +2887,7 @@ function renderCatSummary(){
       <div class="cat-sum-cell">
         <div class="csl">Total desembolsado</div>
         <div class="csv g">${gDesemb>0?fm(gDesemb):'—'}</div>
-        <div class="csb">${gPagados>0?'Pagado: '+fm(gPagados):''}${gParcial>0?(gPagados>0?' + ':'')+' Parcial: '+fm(gParcial):''}</div>
+        <div class="csb">${gPagados>0?'Pagado: '+fm(gPagados):''}${gParcial>0?(gPagados>0?' + ':'')+' Parcial: '+fm(gParcial):''}${gCli>0?'<br>Pagado por cliente: '+fm(gCli):''}</div>
       </div>
       <div class="cat-sum-cell">
         <div class="csl">Por pagar</div>
@@ -2890,6 +2903,11 @@ function renderCatSummary(){
         <div class="csl">Pagados 100%</div>
         <div class="csv b">${filtered.filter(r=>r.payStatus==='Pagado').length}</div>
         <div class="csb">de ${filtered.length} ítems</div>
+      </div>
+      <div class="cat-sum-cell">
+        <div class="csl">Despachos</div>
+        <div class="csv">${gDesp>0?fm(gDesp):'—'}</div>
+        <div class="csb">${nDesp?nDesp+' producto'+(nDesp!==1?'s':'')+' · incluido en el total':'Sin costos de despacho'}</div>
       </div>
       ${gDevuelto>0?`<div class="cat-sum-cell"><div class="csl">Devuelto</div><div class="csv s">${fm(gDevuelto)}</div><div class="csb">${filtered.filter(r=>r.payStatus==='Devuelto').length} ítems</div></div>`:''}
     </div>
@@ -4305,7 +4323,7 @@ function renderGantt(){
       est_delivery:r.estDelivery||'', actual_delivery:r.actualDelivery||'',
       install_date:r.installDate||'', track_note:r.trackNote||'',
       lead_unit:r.leadUnit||'semanas', date_history:JSON.stringify(r.dateHistory||[]),
-      order_num:r.orderNum||'', delivery_resp:r.deliveryResp||'', ship_link:r.shipLink||'',
+      order_num:r.orderNum||'', ship_cost:+r.shipCost||0, delivery_resp:r.deliveryResp||'', ship_link:r.shipLink||'',
       image_url:r.imageUrl||'',
       opt_group:r.optGroup||'', opt_sel:r.optSel?'1':'', opt_rec:r.optRec?'1':'', client_note:r.clientNote||'', sort_order:(r.sortOrder==null||r.sortOrder==='')?null:+r.sortOrder
     };
@@ -4330,7 +4348,7 @@ function renderGantt(){
       estDelivery:x.est_delivery||'', actualDelivery:x.actual_delivery||'',
       installDate:x.install_date||'', trackNote:x.track_note||'',
       leadUnit:x.lead_unit||'semanas', dateHistory:(function(){try{return JSON.parse(x.date_history||'[]');}catch(e){return [];}})(),
-      orderNum:x.order_num||'', deliveryResp:x.delivery_resp||'', shipLink:x.ship_link||'',
+      orderNum:x.order_num||'', shipCost:+x.ship_cost||0, deliveryResp:x.delivery_resp||'', shipLink:x.ship_link||'',
       imageUrl:x.image_url||'',
       optGroup:x.opt_group||'', optSel:x.opt_sel==='1', optRec:x.opt_rec==='1', clientNote:x.client_note||'', sortOrder:x.sort_order==null?null:+x.sort_order
     };
@@ -5378,7 +5396,9 @@ window.pdfResumenCliente = function(){
     h+='<div class="fp-g"><label>Proveedor</label><input type="text" list="supplierList" value="'+eF(r.supplier||'')+'" onchange="fSave(\'supplier\',this.value);try{upsertSupplier(this.value)}catch(e){}"></div>';
     h+='<div class="fp-row2"><div class="fp-g"><label>Cantidad</label><input type="number" min="0" value="'+(r.qty||1)+'" onchange="fSave(\'qty\',+this.value||0);renderFichaExt()"></div>';
     h+='<div class="fp-g"><label>Precio unitario</label><input type="text" value="'+(r.unit>0?r.unit.toLocaleString('es-CL'):'')+'" placeholder="0" onchange="fSaveNum(\'unit\',this.value)"></div></div>';
-    h+='<div class="fp-kpi" style="margin-bottom:12px;"><div class="l">Subtotal</div><div class="v">'+(subtotal>0?mF(subtotal):'Por cotizar')+'</div></div>';
+    h+='<div class="fp-g"><label>Costo de despacho <span style="color:var(--tx3);">· total del envío, se suma al producto</span></label><input type="text" value="'+(+r.shipCost>0?(+r.shipCost).toLocaleString('es-CL'):'')+'" placeholder="0" onchange="fSaveNum(\'shipCost\',this.value)"></div>';
+    var _desp=+r.shipCost||0;
+    h+='<div class="fp-kpi" style="margin-bottom:12px;"><div class="l">Subtotal'+(_desp>0?' con despacho':'')+'</div><div class="v">'+(subtotal+_desp>0?mF(subtotal+_desp):'Por cotizar')+'</div>'+(_desp>0&&subtotal>0?'<div class="l" style="margin-top:2px;">Producto '+mF(subtotal)+' + despacho '+mF(_desp)+'</div>':'')+'</div>';
     h+='<div class="fp-g"><label>Enlace del producto <span style="color:var(--tx3);">· al pegarlo se leen nombre, precio e imagen</span></label><div style="display:flex;gap:6px;"><input type="text" id="fpUrl" value="'+eF(r.productUrl||'')+'" placeholder="Pega aquí el link de la tienda" onpaste="var e=this;setTimeout(function(){fSave(\'productUrl\',e.value.trim());fLeerLink();},60)" onchange="fSave(\'productUrl\',this.value.trim());fLeerLink()" style="flex:1;min-width:0;">'
       +'<button class="fp-btn sec" style="width:auto;padding:0 10px;white-space:nowrap;" onclick="fLeerLink(true)" title="Leer nombre, precio e imagen desde la tienda">Leer datos</button>'
       +(r.productUrl?'<a href="'+eF(r.productUrl)+'" target="_blank" rel="noopener" class="fp-btn sec" style="width:auto;padding:0 10px;display:flex;align-items:center;text-decoration:none;">Abrir</a>':'')+'</div><div id="fpLinkRes"></div><div style="font-size:10.5px;color:var(--tx3);margin-top:4px;">¿La tienda no deja leer el link? Usa el <a href="#" onclick="abrirBotonTiendas();return false;">botón para tiendas</a> y pega aquí con Ctrl+V.</div></div>';
@@ -7286,6 +7306,14 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   function resumenTxt(s){return String(s||'').replace(/[#*_>\x60]/g,'').replace(/\s+/g,' ').trim();}
   function htmlBit(){
     var regs=L().filter(esRegistro);
+    // Reuniones del calendario (Google Calendar o agendadas en la app) que ya pasaron: entran a la bitácora
+    // como "Reunión (calendario)" si ese día no hay un registro de reunión con su resumen
+    var hoyS=hoy(), conReg={};
+    regs.forEach(function(r){if(/Reuni/i.test(r.type||'')&&r.date)conReg[r.date]=1;});
+    var reus=L().filter(function(l){var x=l.extra||{};return esEvento(l)&&x.kind!=='Entrega'&&x.kind!=='Instalación'&&!/instalaci|despacho|entrega de/i.test(l.title||'');});
+    function esReu(l){var x=l.extra||{};return x.kind==='Reunión'||/reuni|llamada|meet/i.test(l.title||'')||x.kind==='Otro'||!x.kind;}
+    regs=regs.concat(reus.filter(function(l){return l.date&&l.date<=hoyS&&!conReg[l.date];}).map(function(l){var x=l.extra||{};return {id:l.id,date:l.date,type:esReu(l)?'Reunión (calendario)':(x.kind||'Evento')+' (calendario)',title:l.title||'Reunión',desc:'',commits:'',responsible:'',extra:{autor:x.origen||'Calendario',part:x.start?x.start+(x.end?' a '+x.end:''):''},__ev:true};}));
+    var proxReu=reus.filter(function(l){return l.date&&l.date>hoyS;}).sort(function(a,b){return a.date.localeCompare(b.date);})[0];
     var tipos={},meses={};regs.forEach(function(r){tipos[r.type]=1;if(r.date)meses[r.date.slice(0,7)]=1;});
     TIPOS_BIT.forEach(function(t){tipos[t]=1;});
     var q=st.bq.toLowerCase();
@@ -7299,12 +7327,14 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
       +'<select onchange="sgSet(\'btipo\',this.value)"><option value="">Todos los tipos</option>'+Object.keys(tipos).sort().map(function(t){return '<option'+(t===st.btipo?' selected':'')+'>'+e(t)+'</option>';}).join('')+'</select>'
       +'<select onchange="sgSet(\'bmes\',this.value)"><option value="">Todos los meses</option>'+Object.keys(meses).sort().reverse().map(function(m){var d=aFecha(m+'-01');return '<option value="'+m+'"'+(m===st.bmes?' selected':'')+'>'+MESL[d.getMonth()]+' '+d.getFullYear()+'</option>';}).join('')+'</select></div>';
     if(!regs.length)return h+'<div class="sg-vacio"><div style="font-family:var(--serif);font-size:18px;color:var(--tx);margin-bottom:6px;">La bitácora está vacía</div><div style="margin-bottom:14px;">Registra visitas de obra, reuniones y observaciones con fotos y acuerdos.</div><button class="btn prim" onclick="sgAbrirRegistro(null)">+ Agregar registro</button></div>';
+    if(proxReu)h+='<div class="sg-aviso">📅 Próxima reunión: '+e(proxReu.title||'Reunión')+' · '+e(fCorta(proxReu.date))+((proxReu.extra||{}).start?' a las '+e(proxReu.extra.start):'')+'</div>';
     if(!lista.length)return h+'<div class="sg-vacio">Sin registros para este filtro.</div>';
     h+='<div class="tc" style="overflow:hidden;">';
     lista.forEach(function(r){
-      var d=r.date?aFecha(r.date):null, x=r.extra||{}, acu=acuerdosDe(r.id), abiertos=acu.filter(function(a){return !hecha(a);}).length;
+      var d=r.date?aFecha(r.date):null, x=r.extra||{}, acu=r.__ev?[]:acuerdosDe(r.id), abiertos=acu.filter(function(a){return !hecha(a);}).length;
       var fotos=(x.fotos||[]).slice(0,3);
-      h+='<div class="sg-reg" onclick="sgAbrirRegistro('+r.id+')"><div class="sg-rf">'+(d?'<b>'+d.getDate()+' '+MES[d.getMonth()].toUpperCase()+' '+d.getFullYear()+'</b><span>'+DIASL[d.getDay()]+'</span>':'<span>Sin fecha</span>')+'</div>'
+      if(r.__ev)r.desc='Sin resumen registrado. Para agregarlo usa "📋 Pegar resumen de reunión".';
+      h+='<div class="sg-reg" onclick="'+(r.__ev?'sgAbrirEvento':'sgAbrirRegistro')+'('+r.id+')"><div class="sg-rf">'+(d?'<b>'+d.getDate()+' '+MES[d.getMonth()].toUpperCase()+' '+d.getFullYear()+'</b><span>'+DIASL[d.getDay()]+'</span>':'<span>Sin fecha</span>')+'</div>'
         +'<div class="sg-rb"><span class="sg-rtipo">● '+e(r.type)+'</span><div class="sg-rtit">'+e(r.title||'(sin título)')+'</div>'
         +'<div class="sg-rpor">Por '+e(x.autor||r.responsible||'Estudio Bianco')+(x.part?' · '+e(x.part):'')+'</div>'
         +(r.desc?'<div class="sg-rres">'+e(resumenTxt(r.desc).slice(0,240))+(resumenTxt(r.desc).length>240?'…':'')+'</div>':'')
@@ -8159,6 +8189,7 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
         it.orderDate=ex.compra.fecha||it.orderDate; if(ex.compra.entrega)it.estDelivery=ex.compra.entrega; it.orderNum=ex.compra.orden||it.orderNum||''; it.deliveryResp='Cliente';
         if(!it.deliveryStatus||it.deliveryStatus==='Por pedir')it.deliveryStatus='Pedido confirmado';
         if(+ex.compra.precio>0)it.unit=+ex.compra.precio;
+        if(+ex.compra.despacho>0)it.shipCost=+ex.compra.despacho;
         if(!(typeof tp==='function'&&tp(it)>0))it.payStatus='Pagado';
         if(l.description&&String(it.trackNote||'').indexOf(l.description.split(' · entrega')[0])<0)it.trackNote=(it.trackNote?it.trackNote+'\n':'')+l.description.split(' · entrega')[0];
         cambio=true; return;

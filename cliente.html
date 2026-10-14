@@ -200,7 +200,7 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
   function e(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   function m(n){return '$'+Math.round(n).toLocaleString('es-CL');}
   function fuera(it){return it.grupo&&!it.elegida;}
-  function sub(it){return (+it.cant||1)*(+it.precio||0);}
+  function sub(it){return (+it.cant||1)*(+it.precio||0)+(+it.despacho||0);} // incluye despacho
   function urlOk(u){return /^https?:\/\//i.test(String(u||'').trim());}
   function est(it){return it.estado||'Por revisar';}
   // Aviso abajo; si trae una accion, muestra "Deshacer" por 6 segundos
@@ -333,7 +333,7 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
       +'<span class="badge b-'+e(cls)+'">'+(es_==='Aprobado'?'✓ Aprobado':es_==='Rechazado'?'Descartado':es_==='Cambios solicitados'?'Cambios pedidos':'Por revisar')+'</span></div><div class="bd">';
     if(nOp)h+='<div class="opn">Opción '+nOp+' de '+nTot+(it.elegida?' · incluida en el total':' · alternativa')+'</div>';
     h+='<div class="nm">'+e(it.item)+'</div><div class="meta">'+[it.proveedor,it.espacio].filter(Boolean).map(e).join(' · ')+'</div>';
-    h+='<div class="pr"><span class="u">'+(it.cant>1?it.cant+' × ':'')+(+it.precio>0?m(it.precio):'Por cotizar')+'</span><span class="t">'+(+it.precio>0?m(sub(it)):'')+'</span></div>';
+    h+='<div class="pr"><span class="u">'+(it.cant>1?it.cant+' × ':'')+(+it.precio>0?m(it.precio):'Por cotizar')+'</span><span class="t">'+(+it.precio>0?m(sub(it)):'')+'</span></div>'+(+it.despacho>0?'<div style="font-size:11.5px;color:var(--tx2);text-align:right;margin-top:-2px;">Incluye despacho '+m(it.despacho)+'</div>':'');
     if((it.specs||'').trim())h+='<div class="specs" onclick="this.classList.toggle(\'open\')" title="Ver más">'+e(it.specs)+'</div>';
     if((it.nota||'').trim())h+='<button class="notab" onclick="ebNota(this)">💬 Nota del estudio</button><div class="nota">'+e(it.nota)+'</div>';
     h+='<div class="row"><span class="ent'+(it.entrega==='Entregado'?' ok':'')+'">'+e(it.entrega||'Por pedir')+'</span>'+(urlOk(it.link)?'<a class="tienda" href="'+e(it.link)+'" target="_blank" rel="noopener">Ver en tienda ↗</a>':'')+'</div>';
@@ -466,6 +466,7 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
         +'<label>¿Cuándo lo compraste?</label><input type="date" id="cFecha" value="'+e(it.compra&&it.compra.fecha||hoy)+'">'
         +'<label>Fecha probable de entrega o despacho (si la sabes)</label><input type="date" id="cEntrega" value="'+e(it.compra&&it.compra.entrega||'')+'">'
         +'<label>¿Cuánto pagaste? (precio por unidad, opcional)</label><input id="cPrecio" inputmode="numeric" maxlength="14" placeholder="Ej: 332.990">'
+        +'<label>Costo de despacho (opcional)</label><input id="cDesp" inputmode="numeric" maxlength="12" placeholder="Ej: 15.990" value="'+(+it.despacho>0?(+it.despacho).toLocaleString('es-CL'):'')+'">'
         +'<label>N° de orden o boleta (opcional)</label><input id="cOrden" maxlength="60" value="'+e(it.compra&&it.compra.orden||'')+'">'
         +'<label>Comentario (opcional)</label><textarea id="cCom" maxlength="1000" placeholder="Ej: lo compré en la tienda de Talca, me cobraron despacho aparte…"></textarea>'
         +'<div class="err" id="cErr"></div><div class="bt"><button onclick="ebCerrarComp()">Cancelar</button><button class="p" id="cOk" onclick="ebEnviarCompra('+it.id+')">Guardar</button></div>';
@@ -478,11 +479,12 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
     if(!f){err.textContent='Indica la fecha de compra.';err.style.display='block';return;}
     if(en&&en<f){err.textContent='La entrega no puede ser antes de la compra.';err.style.display='block';return;}
     var pr=+(document.getElementById('cPrecio').value||'').replace(/[^0-9]/g,'')||0;
+    var dp=+(document.getElementById('cDesp').value||'').replace(/[^0-9]/g,'')||0;
     var b=document.getElementById('cOk'); b.disabled=true; b.textContent='Guardando…';
-    post({accion:'compra',itemId:id,fecha:f,entrega:en,orden:o,precio:pr,comentario:c,nombre:miNombre()}).then(function(j){
+    post({accion:'compra',itemId:id,fecha:f,entrega:en,orden:o,precio:pr,despacho:dp,comentario:c,nombre:miNombre()}).then(function(j){
       b.disabled=false; b.textContent='Guardar';
       if(!j.ok){err.textContent=j.error||'No se pudo guardar.';err.style.display='block';return;}
-      var it=D.items.find(function(x){return x.id===id;}); if(it){it.compra={fecha:f,entrega:en,orden:o,por:'cliente'};it.entrega='Pedido confirmado';if(pr>0)it.precio=pr;}
+      var it=D.items.find(function(x){return x.id===id;}); if(it){it.compra={fecha:f,entrega:en,orden:o,por:'cliente'};it.entrega='Pedido confirmado';if(pr>0)it.precio=pr;if(dp>0)it.despacho=dp;}
       ebCerrarComp(); pintar(); toast('✓ Compra registrada. ¡Gracias!'); refrescar();
     }).catch(function(){b.disabled=false;b.textContent='Guardar';err.textContent='Sin conexión. Intenta de nuevo.';err.style.display='block';});
   };
