@@ -3043,7 +3043,7 @@ const SRC_CLS={'Instagram':'src-ig','WhatsApp':'src-ig','Referido':'src-ref','Co
 const INT_ICONS={'Llamada':'📞','WhatsApp':'💬','Email':'📧','Reunión':'🤝','Visita':'🏠','Otro':'📌'};
 
 function ldClients(){try{const v=localStorage.getItem('ar6_crm');return v?JSON.parse(v):[];}catch(e){return[];}}
-function svClients(){try{localStorage.setItem('ar6_crm',JSON.stringify(crmClients));}catch(e){}}
+function svClients(){try{localStorage.setItem('ar6_crm',JSON.stringify(crmClients));}catch(e){}try{if(typeof window.sbSaveClients==='function')window.sbSaveClients(crmClients);}catch(e){}}
 function mgClient(c){return Object.assign({id:Date.now()+'',name:'',phone:'',email:'',source:'',stage:'Primera consulta',projIds:[],budget:0,addr:'',notes:'',remAction:'',remDate:'',remResp:'',interactions:[],createdAt:new Date().toISOString()},c);}
 
 let crmClients=ldClients().map(mgClient);
@@ -3378,6 +3378,7 @@ function deleteClient(){
   if(!crmCurrentId)return;
   const c=crmClients.find(x=>x.id===crmCurrentId);
   if(!confirm(`¿Eliminar a ${c?.name||'este cliente'} y todo su historial?`))return;
+  try{if(typeof window.sbDelClient==='function')window.sbDelClient(crmCurrentId);}catch(e){}
   crmClients=crmClients.filter(x=>x.id!==crmCurrentId);
   svClients();closeCrmDetail();
 }
@@ -4428,8 +4429,33 @@ function renderGantt(){
     }).catch(function(){});
   };
 
+  // ── CLIENTES (crm_clients): la nube es la referencia; localStorage queda de respaldo ──
+  function cliToRow(c){ return { id:String(c.id), name:c.name||'', phone:c.phone||'', email:c.email||'', source:c.source||'', stage:c.stage||'', budget:+c.budget||0, addr:c.addr||'', notes:c.notes||'', rem_action:c.remAction||'', rem_date:c.remDate||'', rem_resp:c.remResp||'', proj_ids:c.projIds||[], interactions:c.interactions||[], created_at:c.createdAt||new Date().toISOString() }; }
+  function cliFromRow(x){ return { id:String(x.id), name:x.name||'', phone:x.phone||'', email:x.email||'', source:x.source||'', stage:x.stage||'Primera consulta', budget:+x.budget||0, addr:x.addr||'', notes:x.notes||'', remAction:x.rem_action||'', remDate:x.rem_date||'', remResp:x.rem_resp||'', projIds:Array.isArray(x.proj_ids)?x.proj_ids:[], interactions:Array.isArray(x.interactions)?x.interactions:[], createdAt:x.created_at||'' }; }
+  var cliSubidos={}; // firma de lo último subido por cliente, para subir solo los que cambiaron
+  window.sbSaveClients=function(list){
+    var rows=(list||[]).map(cliToRow).filter(function(r){var f=JSON.stringify(r);if(cliSubidos[r.id]===f)return false;cliSubidos[r.id]=f;return true;});
+    if(!rows.length)return;
+    fetch(URL+'/rest/v1/crm_clients?on_conflict=id',{method:'POST',headers:Object.assign({},H,{'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(rows)})
+      .then(function(r){if(!r.ok)rows.forEach(function(x){delete cliSubidos[x.id];});}).catch(function(){rows.forEach(function(x){delete cliSubidos[x.id];});});
+  };
+  window.sbDelClient=function(id){ fetch(URL+'/rest/v1/crm_clients?id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:H}).catch(function(){}); };
+  function loadClientsFromCloud(){
+    fetch(URL+'/rest/v1/crm_clients?select=*',{headers:H}).then(function(r){return r.ok?r.json():null;}).then(function(data){
+      if(!data||typeof crmClients==='undefined')return;
+      var byId={}; crmClients.forEach(function(c){byId[c.id]=c;});
+      data.forEach(function(x){var c=cliFromRow(x);cliSubidos[c.id]=JSON.stringify(cliToRow(c));byId[c.id]=mgClient(c);}); // la nube manda
+      var merged=Object.keys(byId).map(function(k){return byId[k];});
+      crmClients.length=0; merged.forEach(function(c){crmClients.push(c);});
+      try{localStorage.setItem('ar6_crm',JSON.stringify(crmClients));}catch(e){}
+      window.sbSaveClients(crmClients); // sube los que solo existían en este navegador
+      try{if(typeof renderHomeCRM==='function'&&homeCurrentTab==='crm')renderHomeCRM();}catch(e){}
+    }).catch(function(){});
+  }
+
   // Al iniciar: traer los proyectos de la nube y fusionarlos con los locales
   function loadProjectsFromCloud(){
+    loadClientsFromCloud();
     if(typeof window.sbLoadProjects!=='function') return;
     window.sbLoadProjects(function(cloudProjs){
       if(!cloudProjs||!cloudProjs.length) return;
