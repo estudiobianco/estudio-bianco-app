@@ -1468,7 +1468,9 @@ const fd=d=>{if(!d)return'—';const[y,m,dd]=d.split('-');return dd+'/'+m+'/'+y;
 // Grupos de opciones: dentro de un grupo solo suma la opcion elegida (optSel). rTraw = valor del producto aunque no este elegido.
 const optFuera=r=>!!(r&&r.optGroup&&!r.optSel);
 const rTraw=r=>r.qty*r.unit+(+r.shipCost||0); // incluye el costo de despacho (items.ship_cost)
-const rT=r=>optFuera(r)?0:r.qty*r.unit+(+r.shipCost||0);
+// Descartado por el cliente: sale del listado y de los totales; se ve en la pestaña Descartados
+const descartado=r=>!!(r&&r.clientStatus==='Rechazado');
+const rT=r=>(optFuera(r)||descartado(r))?0:r.qty*r.unit+(+r.shipCost||0);
 // Posición manual del producto en el listado
 const ordenItem=r=>(r.sortOrder==null||r.sortOrder==='')?+r.id:+r.sortOrder;
 const es=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
@@ -1511,16 +1513,22 @@ function gF(){
   const tabsEl=document.getElementById('comprasTabs');
   if(tabsEl){
     const n=t=>base.filter(r=>comprasTabOk(r,t)).length;
-    tabsEl.innerHTML=COMPRAS_TABS.map(([k,l])=>'<button class="ctab'+(k===comprasTab?' act':'')+'" onclick="setComprasTab(\''+k+'\')">'+l+' <span class="ctab-n">'+n(k)+'</span></button>').join('');
+    const nDesc=n('desc'); if(comprasTab==='desc'&&!nDesc)comprasTab='todos';
+    tabsEl.innerHTML=COMPRAS_TABS.filter(([k])=>k!=='desc'||nDesc).map(([k,l])=>'<button class="ctab'+(k===comprasTab?' act':'')+(k==='desc'?' ctab-desc':'')+'" onclick="setComprasTab(\''+k+'\')"'+(k==='desc'?' title="Productos que el cliente descartó: no suman al presupuesto"':'')+'>'+l+' <span class="ctab-n">'+n(k)+'</span></button>').join('')
+      +(comprasTab==='desc'?'<div class="desc-aviso">Estos productos los descartó el cliente: no aparecen en el listado ni suman al presupuesto. Usa ↺ para reponer uno al listado.</div>':'');
   }
   return base.filter(r=>comprasTabOk(r,comprasTab));
 }
-const COMPRAS_TABS=[['todos','Todos'],['pend','Pendientes de pago'],['pag','Pagados'],['pedir','Por pedir']];
+const COMPRAS_TABS=[['todos','Todos'],['pend','Pendientes de pago'],['pag','Pagados'],['pedir','Por pedir'],['desc','Descartados']];
+// Reponer un producto descartado: vuelve al listado sin estado del cliente
+function reponerItem(id){uI(id,'clientStatus','');tst('↺ Producto repuesto en el listado');}
 let comprasTab='todos';
 // Agrupar el listado por categoria o por espacio (se recuerda en este computador)
 // Por defecto por espacio (así se revisa normalmente); por categoría para la revisión técnica
 var comprasAgrupar='esp';try{comprasAgrupar=localStorage.getItem('eb_compras_agrupar2')==='cat'?'cat':'esp';}catch(e){}
 function comprasTabOk(r,t){
+  if(t==='desc')return descartado(r);
+  if(descartado(r))return false;
   if(t==='todos')return true;
   const st=(typeof window.payCalc==='function')?window.payCalc(r).st:r.payStatus;
   if(t==='pend')return st==='Pendiente'||st==='Pagado parcialmente';
@@ -1633,6 +1641,7 @@ function rCKPI(){
       <div class="kv" style="font-size:18px;">${desp>0?fm(desp):'—'}</div>
       <div style="font-size:10.5px;color:var(--tx3);margin-top:2px;">${nDesp?nDesp+' producto'+(nDesp!==1?'s':'')+' · incluido en el presupuesto':'Sin costos de despacho'}</div>
     </div>
+    ${typeof kpiAdminExtra==='function'?kpiAdminExtra():''}
     ${ingresosKPIs()}
     <div class="kc" style="grid-column:1/-1;padding:10px 16px;background:var(--s2);">
       <div style="display:flex;justify-content:space-between;font-size:11.5px;color:var(--tx2);margin-bottom:5px;">
@@ -1787,7 +1796,7 @@ function rC(){
       tr.innerHTML=`
         <td style="${TD}"><div class="opt-c0"><span class="drag-h" draggable="true" data-id="${r.id}" title="Arrastra para mover">⋮⋮</span>${typeof optCasilla==='function'?optCasilla(r):''}<button class="xb" id="${bid}" onclick="abrirFicha(${r.id})" title="Abrir ficha del producto">›</button></div></td>
         <td style="${TD}">${img}</td>
-        <td style="${TD}"><div style="display:flex;align-items:center;gap:4px;">${typeof optRadio==='function'?optRadio(r):''}${urlIcon}<input type="text" value="${es(r.item)}" onchange="uI(${r.id},'item',this.value)" style="${IS}flex:1;min-width:0;font-weight:500;"></div><div style="display:flex;align-items:center;gap:4px;">${typeof portalCom==='function'?portalCom(r):''}${typeof optChip==='function'?optChip(r):''}<input type="text" value="${es(r.supplier)}" list="supplierList" autocomplete="off" placeholder="Proveedor por definir" onchange="uI(${r.id},'supplier',this.value);upsertSupplier(this.value)" style="${IS}height:20px;font-size:11px;color:var(--tx3);flex:1;min-width:0;"></div></td>
+        <td style="${TD}"><div style="display:flex;align-items:center;gap:4px;">${comprasTab==='desc'?'<button class="xb" title="Reponer al listado" onclick="reponerItem('+r.id+')">↺</button>':''}${typeof optRadio==='function'?optRadio(r):''}${urlIcon}<input type="text" value="${es(r.item)}" onchange="uI(${r.id},'item',this.value)" style="${IS}flex:1;min-width:0;font-weight:500;"></div><div style="display:flex;align-items:center;gap:4px;">${typeof portalCom==='function'?portalCom(r):''}${typeof optChip==='function'?optChip(r):''}<input type="text" value="${es(r.supplier)}" list="supplierList" autocomplete="off" placeholder="Proveedor por definir" onchange="uI(${r.id},'supplier',this.value);upsertSupplier(this.value)" style="${IS}height:20px;font-size:11px;color:var(--tx3);flex:1;min-width:0;"></div></td>
         <td style="${TD}"><input type="text" value="${es(r.space||'')}" oninput="uIQ(${r.id},'space',this.value)" onchange="uI(${r.id},'space',this.value)" placeholder="Espacio…" style="${IS}"></td>
         <td style="${TD}"><input type="number" value="${r.qty}" min="0" onchange="uI(${r.id},'qty',+this.value)" style="${ISN}text-align:center;padding:2px 0;"></td>
         <td style="${TD}"><input type="text" id="uprice-${r.id}" value="${r.unit>0?'$'+r.unit.toLocaleString('es-CL'):''}" placeholder="$0" onfocus="this.value=parseFloat(this.value.replace(/[^0-9]/g,''))||''" onblur="var v=+this.value.replace(/[^0-9]/g,'');uI(${r.id},'unit',v);this.value=v>0?'$'+v.toLocaleString('es-CL'):''" style="${ISN}"></td>
@@ -4522,7 +4531,7 @@ function renderGantt(){
     fetch(URL+'/rest/v1/logs?project_id=eq.'+encodeURIComponent(pid)+'&select=*&order=date.desc',{ headers:H })
       .then(function(r){ return r.ok?r.json():null; })
       // Las láminas y renders del portal viven en logs pero tienen su propio módulo: no entran a la bitácora
-      .then(function(data){ if(data)data=data.filter(function(x){return x.category!=='lamina'&&x.category!=='render'&&x.category!=='visita';}); cb(data&&data.length?data.map(logFromRow):null); })
+      .then(function(data){ if(data)data=data.filter(function(x){return x.category!=='lamina'&&x.category!=='render'&&x.category!=='visita'&&x.category!=='actividad'&&(x.category!=='cliente'||(typeof appMode!=='undefined'&&appMode==='admin'));}); cb(data&&data.length?data.map(logFromRow):null); })
       .catch(function(){ cb(null); });
   };
   window.sbDeleteLog=function(pid,logId){
@@ -6166,6 +6175,41 @@ window.pdfResumenCliente = function(){
 .ctab:hover{color:var(--tx);}
 .ctab.act{color:var(--tx);border-bottom-color:var(--tx);font-weight:500;}
 .ctab-n{display:inline-block;min-width:18px;padding:0 6px;border-radius:99px;background:var(--s2);font-size:11px;color:var(--tx2);margin-left:3px;font-variant-numeric:tabular-nums;}
+.ctab.ctab-desc{margin-left:auto;color:var(--tx3);font-size:12px;}
+.ctab.ctab-desc.act{color:var(--dn);border-bottom-color:var(--dn);}
+.desc-aviso{flex-basis:100%;font-size:12px;color:var(--tx2);background:#FBF1EF;border-left:3px solid var(--dn);border-radius:6px;padding:8px 12px;margin:8px 0 2px;}
+/* Tarjetas solo para administración y panel lateral de novedades/actividad */
+.kc.kc-click{cursor:pointer;transition:box-shadow .15s;}
+.kc.kc-click:hover{box-shadow:0 2px 10px rgba(0,0,0,.08);}
+.kc-nov{margin-top:5px;font-size:11px;font-weight:600;color:#2F78A8;}
+#ebPanel{position:fixed;inset:0;z-index:9000;display:none;}
+#ebPanel.open{display:block;}
+.ebp-bg{position:absolute;inset:0;background:rgba(0,0,0,.18);}
+.ebp-box{position:absolute;top:0;right:0;bottom:0;width:min(460px,100vw);background:var(--surface);box-shadow:-6px 0 24px rgba(0,0,0,.12);display:flex;flex-direction:column;}
+.ebp-h{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid var(--bd);font-size:15px;}
+.ebp-h button{border:none;background:none;font-size:18px;cursor:pointer;color:var(--tx2);}
+.ebp-body{overflow:auto;padding:14px 18px 30px;flex:1;}
+.ebp-tabs{display:flex;gap:6px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
+.ebp-tabs button{border:1px solid var(--bd2);background:var(--surface);color:var(--tx);border-radius:99px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit;}
+.ebp-tabs button.act{background:var(--tx);color:var(--surface);border-color:var(--tx);}
+.ebp-tabs i{font-style:normal;opacity:.7;margin-left:3px;}
+.ebp-tabs .ebp-lnk{border:none;background:none;color:#2F78A8;margin-left:auto;padding:5px 0;}
+.ebp-vis{font-size:12px;color:var(--tx2);margin-bottom:12px;background:var(--s2);border-radius:8px;padding:8px 10px;}
+.ebp-vis summary{cursor:pointer;}
+.ebp-vis ul{margin:6px 0 0 16px;padding:0;}
+.ebp-g{border:1px solid var(--bd);border-radius:10px;margin-bottom:10px;overflow:hidden;}
+.ebp-gh{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--s2);font-size:12.5px;font-weight:600;}
+.ebp-gh a{color:var(--tx);text-decoration:none;flex:1;}
+.ebp-gh a:hover{text-decoration:underline;}
+.ebp-gh span{font-weight:400;color:var(--tx3);font-size:11px;}
+.ebp-gh button{border:1px solid var(--bd2);background:var(--surface);border-radius:6px;cursor:pointer;font-size:11px;padding:2px 8px;color:var(--tx2);}
+.ebp-i{padding:8px 10px;font-size:12.5px;border-top:1px solid var(--bd);}
+.ebp-g .ebp-i:first-of-type{border-top:none;}
+.ebp-i.nuevo{background:#EEF5FB;}
+.ebp-i div{margin-top:3px;color:var(--tx2);}
+.ebp-sola{border:1px solid var(--bd);border-radius:10px;margin-bottom:8px;}
+.ebp-vacio{color:var(--tx3);font-size:13px;padding:24px 4px;text-align:center;}
+.ebp-res{font-size:12px;color:var(--tx2);margin-bottom:12px;}
 /* Menu lateral que se achica */
 nav{position:sticky;transition:width .18s ease,min-width .18s ease;}
 .nav-tg{position:absolute;top:8px;right:6px;z-index:2;width:22px;height:22px;border:1px solid var(--bd);border-radius:4px;background:var(--surface);color:var(--tx3);cursor:pointer;font-size:12px;line-height:1;padding:0;}
@@ -6857,7 +6901,7 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   function toast(t){try{tst(t);}catch(x){}}
   function esAdmin(){try{return appMode==='admin';}catch(x){return false;}}
   function autor(){return esAdmin()?'Ankel Rocha':'Equipo Estudio Bianco';}
-  function L(){try{return logs||[];}catch(x){return [];}}
+  function L(){try{var a=logs||[];return esAdmin()?a:a.filter(function(l){return l.category!=='cliente'&&l.category!=='actividad'&&l.category!=='visita';});}catch(x){return [];}}
   function IT(){try{return items||[];}catch(x){return [];}}
   function itemDe(id){return IT().find(function(r){return +r.id===+id;});}
   function logDe(id){return L().find(function(l){return +l.id===+id;});}
@@ -8243,7 +8287,12 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
       if(antes!==logs.map(function(l){return l.id;}).join(',')){try{var pg=document.getElementById('page-compras');if(pg&&pg.classList.contains('active'))rC();}catch(x){}}
     }).catch(function(){});
   }
+  // Las novedades ya no se acumulan sobre el listado: viven en la tarjeta "Portal del cliente" y su panel lateral
   function aviso(){
+    var box=document.getElementById('portalAviso'); if(box)box.innerHTML='';
+    try{repintarKPI();if(document.getElementById('ebPanel')&&document.getElementById('ebPanel').classList.contains('open')&&panelVista==='nov')pintarNov();}catch(x){}
+  }
+  function avisoAnterior(){
     var box=document.getElementById('portalAviso'); if(!box)return;
     var pid=currentProjId, visto=0; try{visto=+localStorage.getItem('eb_portal_visto_'+pid)||0;}catch(x){}
     var nuevas=ultimas.filter(function(l){return l.id>visto;}), nResp=ultimas.filter(function(l){return l.category!=='visita';}).length;
@@ -8266,11 +8315,13 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   function exDe(l){try{return typeof l.extra==='string'?JSON.parse(l.extra||'{}'):(l.extra||{});}catch(x){return {};}}
   function respuestasDe(itemId){return ultimas.filter(function(l){return l.category!=='visita'&&+l.item_id===+itemId;});}
   window.portalCom=function(r){
+    if(!esAdm())return ''; // los comentarios del cliente solo los ve la administración
     var rs=respuestasDe(r.id); if(!rs.length)return '';
     var conTexto=rs.filter(function(l){return (l.description||'').trim();}), ult=rs[0];
     return '<button class="pc-badge'+(conTexto.length?' txt':'')+'" title="'+e((ult.responsible||'Cliente')+': '+(ult.description||String(ult.title||'').replace(/^Cliente: /,'')))+'" onclick="event.stopPropagation();portalIr('+r.id+',0)">💬 '+(conTexto.length||rs.length)+'</button>';
   };
   window.portalComsHTML=function(itemId){
+    if(!esAdm())return '';
     var rs=respuestasDe(itemId); if(!rs.length)return '';
     return '<div class="pc-box" id="pcBox"><div class="pc-t">💬 Comentarios del cliente</div>'+rs.slice(0,12).map(function(l){
       var x=exDe(l), dec=x.decision||(x.compra?'Registró su compra':'');
@@ -8288,7 +8339,8 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
     setTimeout(function(){var p=document.getElementById('pcBox');if(p)p.scrollIntoView({block:'start'});},250);
   };
   // Todos los comentarios del cliente, del más nuevo al más antiguo
-  window.portalTodos=function(){
+  window.portalTodos=function(){ window.ebNovedades('todas'); };
+  window.portalTodosAnterior=function(){
     var rs=ultimas.filter(function(l){return l.category!=='visita';});
     var bx=document.getElementById('portalBx');
     bx.innerHTML='<h3>Respuestas del cliente</h3>'+(rs.length?'<p>Toca una para ir al producto o a la lámina.</p><div style="max-height:60vh;overflow:auto;">'+rs.map(function(l){
@@ -8309,8 +8361,133 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
     document.getElementById('portalBtn').style.display=appMode==='admin'?'':'none';
     if(!document.getElementById('portalAviso')){var d=document.createElement('div');d.id='portalAviso';var tabs=document.getElementById('comprasTabs');tabs.parentNode.insertBefore(d,tabs);}
   }
-  if(typeof window.openProject==='function'){var _o=window.openProject;window.openProject=function(pid){cargadoEn[pid]=Date.now();ultimas=[];var r=_o.apply(this,arguments);try{montar();aviso();}catch(x){}setTimeout(revisar,2500);return r;};}
-  if(typeof window.go==='function'){var _g=window.go;window.go=function(p){var r=_g.apply(this,arguments);if(p==='compras'){try{montar();aviso();}catch(x){}revisar();}return r;};}
+  // ══ SOLO ADMINISTRACIÓN: tarjetas "Portal del cliente" y "Javiera", panel lateral de novedades y de actividad ══
+  function esAdm(){try{return appMode==='admin';}catch(x){return false;}}
+  var stats={}, panelVista='', novTab='sin';
+  function leidos(pid){try{return JSON.parse(localStorage.getItem('eb_portal_leidos_'+pid)||'{}');}catch(x){return {};}}
+  function esLeido(pid,l){var v=0;try{v=+localStorage.getItem('eb_portal_visto_'+pid)||0;}catch(x){}return l.id<=v||!!leidos(pid)[l.id];}
+  function respuestas(){return ultimas.filter(function(l){return l.category!=='visita';});}
+  function sinLeer(){var pid=currentProjId;return respuestas().filter(function(l){return !esLeido(pid,l);});}
+  function hora(d){return d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZone:'America/Santiago'});}
+  function durTxt(min){return min<60?min+' min':Math.floor(min/60)+' h'+(min%60?' '+(min%60)+' min':'');}
+  function cargarStats(){
+    var pid=currentProjId; if(!pid||!esAdm())return;
+    var q=function(cat,lim){return fetch(SB+'/rest/v1/logs?select=id,date,responsible,extra&project_id=eq.'+encodeURIComponent(pid)+'&category=eq.'+cat+'&order=id.desc&limit='+lim,{headers:H}).then(function(r){return r.ok?r.json():[];});};
+    Promise.all([q('visita',500),q('actividad',300)]).then(function(x){
+      stats[pid]={visitas:x[0],act:x[1].map(function(l){l.x=exDe(l);return l;})};
+      if(pid===currentProjId){repintarKPI();if(panelVista==='act'&&document.getElementById('ebPanel').classList.contains('open'))window.ebActividad();}
+    }).catch(function(){});
+  }
+  function repintarKPI(){var el=document.getElementById('kpiAdminExtra');if(el)el.innerHTML=tarjetas();}
+  function tarjetas(){
+    var s=stats[currentProjId]||{}, v=s.visitas, a=s.act, n=sinLeer().length;
+    var c1='<div class="kc kc-click" style="border-left:3px solid #2F78A8;" onclick="ebNovedades()" title="Ver las novedades del portal del cliente">'
+      +'<div class="kl">Portal del cliente</div><div class="kv" style="font-size:18px;">'+(v?v.length+' ingreso'+(v.length===1?'':'s'):'…')+'</div>'
+      +'<div style="font-size:10.5px;color:var(--tx3);margin-top:2px;">'+(v&&v.length?'Último: '+e(cuando(v[0]))+(v[0].responsible?' · '+e(v[0].responsible):''):(v?'Aún no ha entrado':'Cargando…'))+'</div>'
+      +(n?'<div class="kc-nov">💬 '+n+' sin leer</div>':'<div style="font-size:10.5px;color:var(--tx3);margin-top:2px;">'+(respuestas().length?'Todo leído · ver respuestas':'Sin respuestas todavía')+'</div>')+'</div>';
+    var tot=a?a.reduce(function(t,l){return t+(+l.x.cambios||0);},0):0;
+    var c2='<div class="kc kc-click" style="border-left:3px solid #8A7A66;" onclick="ebActividad()" title="Ver cuándo entró Javiera a este proyecto">'
+      +'<div class="kl">Javiera</div><div class="kv" style="font-size:18px;">'+(a?a.length+' ingreso'+(a.length===1?'':'s'):'…')+'</div>'
+      +'<div style="font-size:10.5px;color:var(--tx3);margin-top:2px;">'+(a&&a.length?'Último: '+e(cuando({extra:{at:a[0].x.inicio}}))+' · '+(a[0].x.cambios?a[0].x.cambios+' cambio'+(a[0].x.cambios===1?'':'s'):'solo revisó'):(a?'No ha entrado a este proyecto':'Cargando…'))+'</div>'
+      +(a&&a.length?'<div style="font-size:10.5px;color:var(--tx3);margin-top:2px;">'+tot+' cambio'+(tot===1?'':'s')+' en total</div>':'')+'</div>';
+    return c1+c2;
+  }
+  window.kpiAdminExtra=function(){ if(!esAdm()||!currentProjId)return ''; return '<div id="kpiAdminExtra" style="display:contents;">'+tarjetas()+'</div>'; };
+  function panel(){
+    var p=document.getElementById('ebPanel');
+    if(!p){p=document.createElement('div');p.id='ebPanel';p.innerHTML='<div class="ebp-bg" onclick="ebPanelCerrar()"></div><div class="ebp-box"><div class="ebp-h"><b id="ebpTit"></b><button onclick="ebPanelCerrar()" title="Cerrar">✕</button></div><div id="ebpBody" class="ebp-body"></div></div>';document.body.appendChild(p);}
+    return p;
+  }
+  window.ebPanelCerrar=function(){var p=document.getElementById('ebPanel');if(p)p.classList.remove('open');panelVista='';};
+  document.addEventListener('keydown',function(ev){if(ev.key==='Escape')window.ebPanelCerrar();});
+  // Novedades del portal: agrupadas por producto, con "Sin leer" y "Todas"
+  window.ebNovedades=function(t){
+    if(!esAdm())return;
+    if(t)novTab=t; var p=panel(); panelVista='nov';
+    document.getElementById('ebpTit').textContent='Novedades del portal del cliente';
+    pintarNov(); p.classList.add('open');
+  };
+  function pintarNov(){
+    var pid=currentProjId, rs=respuestas(), nSin=sinLeer().length;
+    var lista=novTab==='sin'?rs.filter(function(l){return !esLeido(pid,l);}):rs;
+    var grupos={}, orden=[];
+    lista.forEach(function(l){var x=exDe(l);var k=x.docId?'d'+x.docId:(+l.item_id?'i'+l.item_id:'g'+l.id);if(!grupos[k]){grupos[k]=[];orden.push(k);}grupos[k].push(l);});
+    var h='<div class="ebp-tabs"><button class="'+(novTab==='sin'?'act':'')+'" onclick="ebNovedades(\'sin\')">Sin leer <i>'+nSin+'</i></button><button class="'+(novTab==='todas'?'act':'')+'" onclick="ebNovedades(\'todas\')">Todas <i>'+rs.length+'</i></button>'
+      +(nSin?'<button class="ebp-lnk" onclick="ebLeerTodo()">Marcar todo como leído</button>':'')+'</div>';
+    var v=(stats[pid]||{}).visitas||ultimas.filter(function(l){return l.category==='visita';});
+    if(v.length)h+='<details class="ebp-vis"><summary>👀 '+v.length+' ingreso'+(v.length===1?'':'s')+' al portal · último '+e(cuando(v[0]))+'</summary><ul>'+v.slice(0,40).map(function(l){return '<li>'+e(l.responsible||'Cliente')+' · '+e(cuando(l))+'</li>';}).join('')+'</ul></details>';
+    if(!orden.length)h+='<div class="ebp-vacio">'+(novTab==='sin'?'Estás al día: no hay novedades sin leer.':'Todavía no hay respuestas del cliente en este proyecto.')+'</div>';
+    orden.forEach(function(k){
+      var ls=grupos[k], l0=ls[0], x0=exDe(l0), it=(items||[]).find(function(r){return r.id===+l0.item_id;});
+      var ids=ls.map(function(l){return l.id;}).join(',');
+      if(k.charAt(0)==='g'){ // respuesta general (por ejemplo "terminó su revisión")
+        h+='<div class="ebp-sola ebp-i'+(esLeido(pid,l0)?'':' nuevo')+'"><b>'+e(l0.responsible||'Cliente')+'</b> · '+e(String(l0.title||'').replace(/^Cliente /,''))+' <span class="pc-f">'+e(cuando(l0))+'</span>'+(esLeido(pid,l0)?'':' <button style="float:right;border:1px solid var(--bd2);background:var(--surface);border-radius:6px;cursor:pointer;font-size:11px;" onclick="ebLeer(\''+ids+'\')">✓ Leído</button>')+'</div>';
+        return;
+      }
+      var nom=x0.docId?String(l0.title||'Lámina').replace(/^Cliente[^·]*·\s*/,''):(it?it.item:String(l0.title||'Producto').replace(/^Cliente[^·]*·\s*/,''));
+      var nuevos=ls.some(function(l){return !esLeido(pid,l);});
+      h+='<div class="ebp-g"><div class="ebp-gh"><a href="#" onclick="ebPanelCerrar();portalIr('+(+l0.item_id||0)+','+(+x0.docId||0)+');return false;" title="Ir al producto">'+e(nom)+'</a>'+(it&&it.space?'<span>'+e(it.space)+'</span>':'')+(nuevos?'<button title="Marcar como leído" onclick="ebLeer(\''+ids+'\')">✓ Leído</button>':'')+'</div>';
+      ls.forEach(function(l){
+        var x=exDe(l), dec=x.decision||(x.compra?'Registró su compra':'');
+        h+='<div class="ebp-i'+(esLeido(pid,l)?'':' nuevo')+'"><b>'+e(l.responsible||'Cliente')+'</b>'+(dec?' · <span class="pc-d">'+e(dec==='Rechazado'?'Descartado':dec==='Por revisar'?'Deshizo su respuesta':dec)+'</span>':'')+' <span class="pc-f">'+e(cuando(l))+'</span>'+(l.description?'<div>'+e(String(l.description).slice(0,400))+'</div>':'')+'</div>';
+      });
+      h+='</div>';
+    });
+    document.getElementById('ebpBody').innerHTML=h;
+  }
+  window.ebLeer=function(ids){var pid=currentProjId,o=leidos(pid);String(ids).split(',').forEach(function(i){if(i)o[i]=1;});try{localStorage.setItem('eb_portal_leidos_'+pid,JSON.stringify(o));}catch(x){}pintarNov();repintarKPI();};
+  window.ebLeerTodo=function(){var m=ultimas.reduce(function(a,l){return Math.max(a,l.id);},0);try{localStorage.setItem('eb_portal_visto_'+currentProjId,String(m));localStorage.removeItem('eb_portal_leidos_'+currentProjId);}catch(x){}pintarNov();repintarKPI();};
+  // Actividad de Javiera en el proyecto: una fila por sesión
+  window.ebActividad=function(){
+    if(!esAdm())return;
+    var p=panel(); panelVista='act';
+    document.getElementById('ebpTit').textContent='Javiera en este proyecto';
+    var a=(stats[currentProjId]||{}).act, h='';
+    if(!a)h='<div class="ebp-vacio">Cargando…</div>';
+    else if(!a.length)h='<div class="ebp-vacio">Javiera no ha entrado a este proyecto desde que se activó este registro (14-10-2026).</div>';
+    else{
+      var tot=a.reduce(function(t,l){return t+(+l.x.cambios||0);},0);
+      h+='<div class="ebp-res">'+a.length+' ingreso'+(a.length===1?'':'s')+' · '+tot+' cambio'+(tot===1?'':'s')+' en total. Se cuenta un ingreso cada vez que abre el proyecto o vuelve después de 30 minutos.</div>';
+      a.forEach(function(l){
+        var x=l.x, ini=x.inicio?new Date(x.inicio):null, fin=x.fin?new Date(x.fin):null, min=ini&&fin?Math.max(1,Math.round((fin-ini)/60000)):0;
+        h+='<div class="ebp-sola ebp-i"><b>'+e(cuando({extra:{at:x.inicio}}))+'</b>'+(fin?' a '+hora(fin):'')+(min?' <span class="pc-f">· '+durTxt(min)+'</span>':'')+(x.equipo?' <span class="pc-f">· '+e(x.equipo)+'</span>':'')
+          +'<div>'+(x.paginas&&x.paginas.length?e(x.paginas.join(', '))+' · ':'')+(x.cambios?x.cambios+' cambio'+(x.cambios===1?'':'s'):'Solo revisó, sin cambios')+'</div></div>';
+      });
+    }
+    document.getElementById('ebpBody').innerHTML=h; p.classList.add('open');
+  };
+
+  // Registro de la actividad del equipo (modo trabajador): sesión por proyecto en logs category 'actividad'
+  var PAG={compras:'Listado',seguimiento:'Seguimiento',laminas:'Láminas',cotizaciones:'Cotizaciones',proveedores:'Proveedores',pagosprov:'Pagos',ingresos:'Ingresos',gestion:'Gestión',crm:'Clientes',pendientes:'Pagos pendientes'};
+  var ses=null, sesT=null, ultInput=Date.now();
+  ['keydown','mousedown','wheel','touchstart'].forEach(function(ev){document.addEventListener(ev,function(){ultInput=Date.now();},{passive:true,capture:true});});
+  function hoyCL(){return new Date().toLocaleDateString('sv-SE',{timeZone:'America/Santiago'});}
+  function sesGuardar(keep){
+    if(!ses)return; clearTimeout(sesT);
+    var row={id:ses.id,project_id:ses.pid,date:ses.date,type:'Nota general',title:'Sesión de trabajo de Javiera',description:'',commits:'',responsible:'Javiera',due_date:'',status:'Completada',amount:0,category:'actividad',item_id:null,extra:JSON.stringify(ses.x),source:'app'};
+    try{fetch(SB+'/rest/v1/logs?on_conflict=project_id,id',{method:'POST',keepalive:!!keep,headers:Object.assign({},H,{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify([row])}).catch(function(){});}catch(x){}
+  }
+  function sesTocar(pagina,cambio){
+    if(esAdm()||!currentProjId)return;
+    var ahora=Date.now();
+    if(!ses||ses.pid!==currentProjId||ahora-ses.ult>30*60000){
+      if(ses)sesGuardar(false);
+      ses={id:ahora*10+Math.floor(Math.random()*10),pid:currentProjId,date:hoyCL(),ult:ahora,x:{inicio:new Date().toISOString(),fin:new Date().toISOString(),paginas:[],cambios:0,equipo:/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)?'celular':'computador'}};
+    }
+    ses.ult=ahora; ses.x.fin=new Date().toISOString();
+    if(pagina&&ses.x.paginas.indexOf(pagina)<0)ses.x.paginas.push(pagina);
+    if(cambio)ses.x.cambios++;
+    clearTimeout(sesT); sesT=setTimeout(function(){sesGuardar(false);},cambio?8000:3000);
+  }
+  // Cuenta los cambios guardados (listado y seguimiento)
+  ['sbSave','sbSaveLogs'].forEach(function(fn){var o=window[fn];if(typeof o!=='function')return;window[fn]=function(){try{sesTocar(null,true);}catch(x){}return o.apply(this,arguments);};});
+  // Mientras está trabajando (hubo teclado o mouse en los últimos 5 min) se actualiza la hora de salida
+  setInterval(function(){if(ses&&!esAdm()&&!document.hidden&&Date.now()-ultInput<5*60000&&Date.now()-ses.ult<30*60000){ses.ult=Date.now();ses.x.fin=new Date().toISOString();sesGuardar(false);}},120000);
+  document.addEventListener('visibilitychange',function(){if(document.hidden&&ses)sesGuardar(true);});
+  window.addEventListener('pagehide',function(){if(ses)sesGuardar(true);});
+
+  if(typeof window.openProject==='function'){var _o=window.openProject;window.openProject=function(pid){cargadoEn[pid]=Date.now();ultimas=[];try{window.ebPanelCerrar();}catch(x){}var r=_o.apply(this,arguments);try{montar();aviso();}catch(x){}setTimeout(revisar,2500);return r;};} // openProject llama a go('compras'), que registra la sesión y carga las tarjetas
+  if(typeof window.go==='function'){var _g=window.go;window.go=function(p){var r=_g.apply(this,arguments);if(p==='compras'){try{montar();aviso();}catch(x){}revisar();cargarStats();}try{sesTocar(PAG[p]||p,false);}catch(x){}return r;};}
   setInterval(function(){var pg=document.getElementById('page-compras');if(currentProjId&&pg&&pg.classList.contains('active')&&!document.hidden)revisar();},60000);
   window.addEventListener('focus',function(){if(currentProjId)revisar();});
   setTimeout(function(){try{montar();}catch(x){}},1500);
