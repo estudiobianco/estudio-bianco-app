@@ -1797,7 +1797,7 @@ function rC(){
         <td style="${TD}"><div class="opt-c0"><span class="drag-h" draggable="true" data-id="${r.id}" title="Arrastra para mover">⋮⋮</span>${typeof optCasilla==='function'?optCasilla(r):''}<button class="xb" id="${bid}" onclick="abrirFicha(${r.id})" title="Abrir ficha del producto">›</button></div></td>
         <td style="${TD}">${img}</td>
         <td style="${TD}"><div style="display:flex;align-items:center;gap:4px;">${comprasTab==='desc'?'<button class="xb" title="Reponer al listado" onclick="reponerItem('+r.id+')">↺</button>':''}${typeof optRadio==='function'?optRadio(r):''}${urlIcon}<input type="text" value="${es(r.item)}" onchange="uI(${r.id},'item',this.value)" style="${IS}flex:1;min-width:0;font-weight:500;"></div><div style="display:flex;align-items:center;gap:4px;">${typeof portalCom==='function'?portalCom(r):''}${typeof optChip==='function'?optChip(r):''}<input type="text" value="${es(r.supplier)}" list="supplierList" autocomplete="off" placeholder="Proveedor por definir" onchange="uI(${r.id},'supplier',this.value);upsertSupplier(this.value)" style="${IS}height:20px;font-size:11px;color:var(--tx3);flex:1;min-width:0;"></div></td>
-        <td style="${TD}"><input type="text" value="${es(r.space||'')}" oninput="uIQ(${r.id},'space',this.value)" onchange="uI(${r.id},'space',this.value)" placeholder="Espacio…" style="${IS}"></td>
+        <td style="${TD}">${selEspacio(r,'row',IS+'padding-right:0;')}</td>
         <td style="${TD}"><input type="number" value="${r.qty}" min="0" onchange="uI(${r.id},'qty',+this.value)" style="${ISN}text-align:center;padding:2px 0;"></td>
         <td style="${TD}"><input type="text" id="uprice-${r.id}" value="${r.unit>0?'$'+r.unit.toLocaleString('es-CL'):''}" placeholder="$0" onfocus="this.value=parseFloat(this.value.replace(/[^0-9]/g,''))||''" onblur="var v=+this.value.replace(/[^0-9]/g,'');uI(${r.id},'unit',v);this.value=v>0?'$'+v.toLocaleString('es-CL'):''" style="${ISN}"></td>
         <td style="${TD}text-align:right;font-variant-numeric:tabular-nums;padding-right:10px;white-space:nowrap;"${_fuera?' title="Opción no elegida: no suma al presupuesto"':''}>${t>0?'<span class="opt-sub">'+fm(t)+'</span>'+(+r.shipCost>0?'<div style="font-size:9.5px;color:var(--tx3);line-height:1.1;" title="El total incluye el costo de despacho">incl. despacho '+fm(+r.shipCost)+'</div>':''):'<span style="color:var(--tx3);font-size:11px;">Por cotizar</span>'}</td>
@@ -1933,6 +1933,61 @@ function uIQ(id,f,v){const r=items.find(x=>x.id===id);if(r){r[f]=v;sAll();}}
 function dI(id){if(confirm('¿Eliminar este ítem?')){items=items.filter(x=>x.id!==id);if(typeof window.sbDeleteItem==='function'){try{window.sbDeleteItem(currentProjId,id);}catch(e){}}rC();sAll();}}
 function setAgrupar(v){comprasAgrupar=v==='esp'?'esp':'cat';try{localStorage.setItem('eb_compras_agrupar2',comprasAgrupar);}catch(e){}rC();}
 // Crea el producto en la categoria/espacio indicado
+// ── ESPACIOS GUARDADOS POR PROYECTO (projects.spaces) ──
+// Lista desplegable para no escribir el mismo espacio de dos formas ("Dormitorio principal" y "dorm. principal")
+function espKey(s){return String(s||'').trim().replace(/\s+/g,' ').toLowerCase();}
+function espaciosProyecto(){
+  var p=projects.find(function(x){return x.id===currentProjId;})||{}, lista=[], vistos={};
+  (Array.isArray(p.spaces)?p.spaces:[]).concat(items.map(function(r){return r.space;})).forEach(function(s){s=String(s||'').trim().replace(/\s+/g,' ');var k=espKey(s);if(s&&!vistos[k]){vistos[k]=1;lista.push(s);}});
+  return lista;
+}
+function espCanon(s){var k=espKey(s);return espaciosProyecto().find(function(x){return espKey(x)===k;})||String(s||'').trim().replace(/\s+/g,' ');}
+function guardarEspacios(lista){
+  var p=projects.find(function(x){return x.id===currentProjId;}); if(!p)return;
+  p.spaces=lista.slice(); svProjects(projects);
+  try{if(typeof window.sbSaveProject==='function')window.sbSaveProject(p);}catch(e){}
+}
+function selEspacio(r,modo,estilo){
+  var lista=espaciosProyecto(), act=espCanon(r.space||'');
+  return '<select class="sel-esp" style="'+estilo+'" onchange="elegirEspacio(this,'+r.id+',\''+modo+'\')">'
+    +'<option value=""'+(act?'':' selected')+'>Sin espacio</option>'
+    +lista.map(function(s){return '<option value="'+es(s)+'"'+(s===act?' selected':'')+'>'+es(s)+'</option>';}).join('')
+    +'<option value="__nuevo">+ Nuevo espacio…</option><option value="__editar">✎ Editar espacios…</option></select>';
+}
+function elegirEspacio(sel,id,modo){
+  var v=sel.value, r=items.find(function(x){return x.id===id;}); if(!r)return;
+  if(v==='__editar'){sel.value=espCanon(r.space||'');abrirEspacios();return;}
+  if(v==='__nuevo'){
+    var n=prompt('Nombre del nuevo espacio (por ejemplo: Dormitorio principal):','');
+    if(!n||!n.trim()){sel.value=espCanon(r.space||'');return;}
+    v=espCanon(n); var lista=espaciosProyecto(); if(lista.map(espKey).indexOf(espKey(v))<0){lista.push(v);} guardarEspacios(lista);
+  }
+  if(modo==='ficha'){fSave('space',v);try{renderFicha();}catch(e){}try{rC();}catch(e){}}else{uI(id,'space',v);}
+}
+// Ventana para agregar, renombrar (cambia todos sus productos), ordenar y quitar espacios
+function abrirEspacios(){
+  var ov=document.getElementById('espOv');
+  if(!ov){ov=document.createElement('div');ov.id='espOv';ov.className='esp-ov';ov.onclick=function(ev){if(ev.target===ov)cerrarEspacios();};document.body.appendChild(ov);}
+  var lista=espaciosProyecto();
+  var cnt=function(s){return items.filter(function(r){return espKey(r.space)===espKey(s);}).length;};
+  ov.innerHTML='<div class="esp-box"><h3>Espacios del proyecto</h3><p>Renombrar un espacio cambia todos sus productos. Solo se puede quitar un espacio sin productos.</p><div class="esp-list">'
+    +lista.map(function(s,i){var n=cnt(s);return '<div class="esp-row"><input value="'+es(s)+'" onchange="renombrarEspacio('+i+',this.value)"><span class="esp-n">'+n+' producto'+(n===1?'':'s')+'</span><button title="Subir" onclick="moverEspacio('+i+',-1)"'+(i?'':' disabled')+'>↑</button><button title="Bajar" onclick="moverEspacio('+i+',1)"'+(i<lista.length-1?'':' disabled')+'>↓</button><button title="Quitar" onclick="quitarEspacio('+i+')"'+(n?' disabled':'')+'>✕</button></div>';}).join('')
+    +'</div><div class="esp-row"><input id="espNuevo" placeholder="Nuevo espacio…" onkeydown="if(event.key===\'Enter\')agregarEspacio()"><button class="esp-add" onclick="agregarEspacio()">Agregar</button></div><div class="esp-bt"><button class="btn prim" onclick="cerrarEspacios()">Listo</button></div></div>';
+  ov.classList.add('open');
+}
+function cerrarEspacios(){var ov=document.getElementById('espOv');if(ov)ov.classList.remove('open');try{rC();}catch(e){}}
+function agregarEspacio(){var i=document.getElementById('espNuevo');var v=(i&&i.value||'').trim().replace(/\s+/g,' ');if(!v)return;var lista=espaciosProyecto();if(lista.map(espKey).indexOf(espKey(v))>=0){tst('Ese espacio ya existe');return;}lista.push(v);guardarEspacios(lista);abrirEspacios();setTimeout(function(){var n=document.getElementById('espNuevo');if(n)n.focus();},30);}
+function renombrarEspacio(i,nuevo){
+  var lista=espaciosProyecto(), viejo=lista[i]; nuevo=String(nuevo||'').trim().replace(/\s+/g,' '); if(!nuevo||nuevo===viejo){abrirEspacios();return;}
+  var otro=lista.findIndex(function(s,j){return j!==i&&espKey(s)===espKey(nuevo);});
+  if(otro>=0&&!confirm('Ya existe "'+lista[otro]+'". ¿Juntar los productos de "'+viejo+'" en ese espacio?')){abrirEspacios();return;}
+  var destino=otro>=0?lista[otro]:nuevo, n=0;
+  items.forEach(function(r){if(espKey(r.space)===espKey(viejo)){r.space=destino;n++;}});
+  if(otro>=0)lista.splice(i,1);else lista[i]=destino;
+  guardarEspacios(lista); if(n)sAll(); abrirEspacios(); tst('✓ '+n+' producto'+(n===1?'':'s')+' en "'+destino+'"');
+}
+function moverEspacio(i,d){var lista=espaciosProyecto(),j=i+d;if(j<0||j>=lista.length)return;var t=lista[i];lista[i]=lista[j];lista[j]=t;guardarEspacios(lista);abrirEspacios();}
+function quitarEspacio(i){var lista=espaciosProyecto();lista.splice(i,1);guardarEspacios(lista);abrirEspacios();}
 function crearItem(cat,space){
   nii=Math.max(nii,Math.max(0,...items.map(i=>+i.id||0))+1); // nunca repetir un id que ya está en el listado
   const it=mg({id:nii++,cat:cat||'Mobiliario',item:'Nuevo ítem',supplier:'',qty:1,unit:0,notes:''});if(space)it.space=space;
@@ -4426,8 +4481,8 @@ function renderGantt(){
   // Convertir proyecto app <-> nube
   // Estados del proyecto: En desarrollo, En obra, En entrega, En pausa, Finalizado ('Activo' era el valor antiguo)
   function estProy(s){ return (!s||s==='Activo')?'En desarrollo':s; }
-  function projToRow(p){ return { id:p.id, name:p.name, client:p.client||'', color:p.color||'#2A5C45', status:estProy(p.status), addr:p.addr||'', start_date:p.startDate||'', notes:p.notes||'', onedrive_url:p.onedrive||null }; }
-  function projFromRow(x){ return { id:x.id, name:x.name, client:x.client||'', color:x.color||'#2A5C45', status:estProy(x.status), addr:x.addr||'', startDate:x.start_date||'', notes:x.notes||'', onedrive:x.onedrive_url||'' }; }
+  function projToRow(p){ return { id:p.id, name:p.name, client:p.client||'', color:p.color||'#2A5C45', status:estProy(p.status), addr:p.addr||'', start_date:p.startDate||'', notes:p.notes||'', onedrive_url:p.onedrive||null, spaces:Array.isArray(p.spaces)?p.spaces:[] }; }
+  function projFromRow(x){ return { id:x.id, name:x.name, client:x.client||'', color:x.color||'#2A5C45', status:estProy(x.status), addr:x.addr||'', startDate:x.start_date||'', notes:x.notes||'', onedrive:x.onedrive_url||'', spaces:Array.isArray(x.spaces)?x.spaces:[] }; }
 
   // Cargar la lista de proyectos desde la nube
   window.sbLoadProjects=function(cb){
@@ -5432,7 +5487,7 @@ window.pdfResumenCliente = function(){
     var h='';
     try{if(typeof window.portalComsHTML==='function')h+=window.portalComsHTML(r.id);}catch(e){}
     h+='<div class="fp-g"><label>Nombre</label><input type="text" value="'+eF(r.item)+'" onchange="fSave(\'item\',this.value)"></div>';
-    h+='<div class="fp-row2"><div class="fp-g"><label>Espacio</label><input type="text" value="'+eF(r.space||'')+'" placeholder="Living, Cocina…" onchange="fSave(\'space\',this.value)"></div>';
+    h+='<div class="fp-row2"><div class="fp-g"><label>Espacio</label>'+selEspacio(r,'ficha','')+'</div>';
     h+='<div class="fp-g"><label>Categoria</label><select onchange="fSave(\'cat\',this.value)">'+CAT_OPTS.filter(function(c){return c!=='Honorarios'||appMode==='admin';}).map(function(c){return '<option value="'+eF(c)+'"'+(c===r.cat?' selected':'')+'>'+eF(c)+'</option>';}).join('')+'</select></div></div>';
     h+='<div class="fp-g"><label>Proveedor</label><input type="text" list="supplierList" value="'+eF(r.supplier||'')+'" onchange="fSave(\'supplier\',this.value);try{upsertSupplier(this.value)}catch(e){}"></div>';
     h+='<div class="fp-row2"><div class="fp-g"><label>Cantidad</label><input type="number" min="0" value="'+(r.qty||1)+'" onchange="fSave(\'qty\',+this.value||0);renderFichaExt()"></div>';
@@ -6176,6 +6231,22 @@ window.pdfResumenCliente = function(){
 .ctab.act{color:var(--tx);border-bottom-color:var(--tx);font-weight:500;}
 .ctab-n{display:inline-block;min-width:18px;padding:0 6px;border-radius:99px;background:var(--s2);font-size:11px;color:var(--tx2);margin-left:3px;font-variant-numeric:tabular-nums;}
 .ctab.ctab-desc{margin-left:auto;color:var(--tx3);font-size:12px;}
+/* Espacios guardados del proyecto */
+select.sel-esp{width:100%;cursor:pointer;background:transparent;}
+.fp-g select.sel-esp{height:34px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 8px;font-size:13px;font-family:inherit;color:var(--tx);background:var(--surface);}
+.esp-ov{position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,.25);display:none;align-items:center;justify-content:center;}
+.esp-ov.open{display:flex;}
+.esp-box{background:var(--surface);border-radius:14px;padding:20px 22px;width:min(460px,94vw);max-height:86vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,.18);}
+.esp-box h3{margin:0 0 4px;font-size:17px;font-weight:600;}
+.esp-box p{margin:0 0 12px;font-size:12px;color:var(--tx3);}
+.esp-list{overflow:auto;margin-bottom:10px;}
+.esp-row{display:flex;gap:6px;align-items:center;margin-bottom:6px;}
+.esp-row input{flex:1;min-width:0;height:32px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 9px;font-size:13px;font-family:inherit;}
+.esp-row button{height:32px;min-width:32px;border:1px solid var(--bd2);background:var(--surface);border-radius:var(--rs);cursor:pointer;color:var(--tx2);}
+.esp-row button:disabled{opacity:.35;cursor:default;}
+.esp-row .esp-add{padding:0 12px;}
+.esp-n{font-size:11px;color:var(--tx3);white-space:nowrap;min-width:74px;text-align:right;}
+.esp-bt{display:flex;justify-content:flex-end;margin-top:6px;}
 .ctab.ctab-desc.act{color:var(--dn);border-bottom-color:var(--dn);}
 .desc-aviso{flex-basis:100%;font-size:12px;color:var(--tx2);background:#FBF1EF;border-left:3px solid var(--dn);border-radius:6px;padding:8px 12px;margin:8px 0 2px;}
 /* Tarjetas solo para administración y panel lateral de novedades/actividad */
