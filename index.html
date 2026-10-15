@@ -1900,7 +1900,7 @@ function setPlazo(id,n,unit){
   if(unit!==null) r.leadUnit=unit;
   sAll(); recalcEst(id);
 }
-// Columna "Fecha entrega" del listado: fecha estimada (o la real si ya se entregó). Es la misma que usan Seguimiento y Gestión.
+// Columna "Fecha entrega" del listado (15-10-2026): fecha estimada (o la real si ya se entregó). Es la misma que usan Seguimiento y Gestión.
 function fechaEntregaCelda(r,estilo){
   var ent=r.deliveryStatus==='Entregado', v=ent?(r.actualDelivery||r.estDelivery||''):(r.estDelivery||'');
   var hoyS=new Date().toLocaleDateString('sv-SE',{timeZone:'America/Santiago'}), atrasada=!ent&&v&&v<hoyS;
