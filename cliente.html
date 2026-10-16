@@ -337,6 +337,17 @@ details.mas[open] summary::after{content:'▴';}
 .et-d p{margin:0;font-size:14.5px;line-height:1.6;color:#3A2F27;}
 .et-d .et-img{width:34%;flex-shrink:0;min-height:150px;}
 .et-d .et-img img{width:100%;height:100%;object-fit:cover;display:block;}
+.proc .etapas{display:flex;align-items:flex-start;}
+.proc .etapas::before{left:6%;right:6%;}
+.proc .et{flex:1 1 0;min-width:0;}
+.proc .et.extra{flex:.75 1 0;padding-top:20px;}
+.proc .et.extra .et-p,.proc .et.extra.hecha .et-p{width:32px;height:32px;background:#F6F2ED;border-color:#E2DAD0;color:#A39A91;}
+.proc .et.extra.hecha .et-p{background:#E8DED4;border-color:#E8DED4;color:#6F655C;}
+.proc .et.extra .et-p svg{width:16px;height:16px;}
+.proc .et.extra .et-ok{width:14px;height:14px;font-size:8px;border-color:#A39A91;color:#6F655C;}
+.proc .et.extra b{font-size:12px;color:#A39A91;}
+.proc .et.extra small{font-size:11px;color:#B5ACA2;}
+@media (max-width:700px){.proc .etapas{flex-wrap:wrap;}.proc .et,.proc .et.extra{flex:0 0 33.33%;}}
 @media (max-width:700px){.proc .etapas::before{display:none;}.et-d{flex-direction:column;}.et-d .et-img{width:100%;height:150px;}.et-d .et-dt{padding:16px 18px;}.et-d p{font-size:13.5px;}}
 @media (max-width:600px){.ph{height:130px;}.bd{padding:8px 9px 10px;}.nm{font-size:12.5px;}.acts button{font-size:11px;padding:7px 0;white-space:nowrap;letter-spacing:-.01em;}.ic{font-size:10px;}.recb{font-size:9.5px;padding:2px 6px;}.badge{font-size:9.5px;padding:2px 6px;}}
 /* Reuniones, agenda, datos y contactos */
@@ -715,7 +726,10 @@ details.sv-det[open] summary h3::after{content:' ▴';}
     'Es la etapa de compras, fabricación e instalación. Para avanzar sin atrasos te pedimos tener organizado tu flujo de pagos: los proveedores trabajan con abonos y saldos en fechas fijas, y cumplirlos a tiempo es clave para respetar los plazos de entrega.'
   ];
   function etTexto(i){if(i<0||i>=ETAPAS.length)return '';return '<div class="et-dt"><b>'+ETAPAS[i][1]+'</b><p>'+ET_TXT[i]+'</p></div><div class="et-img"><img src="/proceso.jpg" alt="" onerror="this.parentNode.remove()"></div>';}
-  window.ebEt=function(i){var w=document.getElementById('etw'),d=document.getElementById('etd');if(!w||!d)return;w.querySelectorAll('.et').forEach(function(n,k){n.classList.toggle('sel',k===i);});d.innerHTML=etTexto(i);};
+  window.ebEt=function(i){var w=document.getElementById('etw'),d=document.getElementById('etd');if(!w||!d)return;w.querySelectorAll('.et').forEach(function(n){n.classList.toggle('sel',n.getAttribute('data-i')===String(i));});d.innerHTML=etTexto(i);};
+  // Reuniones adicionales dentro del proceso de diseño
+  var etExtras=[], ICO_REU=svgI('<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M12 13v4M10 15h4"/>');
+  window.ebEtX=function(n){var w=document.getElementById('etw'),d=document.getElementById('etd'),r=etExtras[n];if(!w||!d||!r)return;w.querySelectorAll('.et').forEach(function(x){x.classList.toggle('sel',x.getAttribute('data-x')===String(n));});var t=String(r.titulo||'').replace(/^reuni[oó]n adicional\s*[·:\-]?\s*/i,'');d.innerHTML='<div class="et-dt"><b>Reunión adicional</b><p>'+(t?e(t)+' · ':'')+e(fechaLarga(r.fecha))+'. Una reunión extra para avanzar o resolver detalles de tu proyecto.</p></div>';};
   function fechaLarga(d){if(!d)return '';var x=new Date(String(d).slice(0,10)+'T12:00:00');return isNaN(x)?d:x.toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long'});}
   function htmlAvance(){
     var sg=D.seguimiento||{}, et=sg.etapa||'', fe=sg.fechas||{}, cerrado=et==='cerrado', idx=cerrado?ETAPAS.length:ETAPAS.map(function(x){return x[0];}).indexOf(et);
@@ -732,7 +746,11 @@ details.sv-det[open] summary h3::after{content:' ▴';}
       +(cts.length?'<div class="av-sec"><h3>Equipo Estudio Bianco</h3><p class="meta" style="margin:0 0 8px;">Para que tu consulta llegue más rápido, escríbele directo a quien corresponda:</p><div class="contactos">'+cts.map(function(c){return '<div class="ct"><small>'+e(c.area)+'</small><b>'+e(c.nombre)+'</b>'+(c.para?'<span class="ct-para">'+e(c.para)+'</span>':'')+(c.telefono?'<a href="tel:'+e(String(c.telefono).replace(/[^\d+]/g,''))+'">☎ '+e(c.telefono)+'</a>':'')+(c.correo?'<a href="mailto:'+e(c.correo)+'">✉ '+e(c.correo)+'</a>':'')+'</div>';}).join('')+'</div></div>':'');
     // 2. Proceso de diseño: cada etapa con su ícono; abajo la explicación de la etapa en curso (o de la que el cliente toque)
     var etIni=cerrado?ETAPAS.length-1:idx;
-    h+='<div class="av-sec proc"><h3 class="h-up">Proceso de diseño</h3><div class="etapas" id="etw">'+ETAPAS.map(function(x,i){var st=i<idx?'hecha':(i===idx?'actual':'');return '<div class="et '+st+(i===etIni?' sel':'')+'" onclick="ebEt('+i+')" role="button" tabindex="0"><span class="et-p">'+ET_ICO[i]+(st==='hecha'?'<i class="et-ok">✓</i>':'')+'</span><b>'+x[1]+'</b>'+(fe[x[0]]?'<small>'+e(fechaCorta(fe[x[0]]))+'</small>':'')+(st==='actual'?'<em>Estamos aquí</em>':'')+'</div>';}).join('')+'</div>'
+    // Reuniones adicionales: van entre las etapas según su fecha, en un tono más claro
+    var extras=(sg.reuniones||[]).filter(function(r){return r.adicional&&r.fecha;}).sort(function(a,b){return a.fecha.localeCompare(b.fecha);}); etExtras=extras;
+    var porEt={}; extras.forEach(function(r,n){var k=0;ETAPAS.forEach(function(x,i){if(fe[x[0]]&&fe[x[0]]<=r.fecha)k=i;});(porEt[k]=porEt[k]||[]).push(n);});
+    function nodoExtra(n){var r=extras[n], ok=r.fecha<=hoyS;return '<div class="et extra'+(ok?' hecha':'')+'" data-x="'+n+'" onclick="ebEtX('+n+')" role="button" tabindex="0"><span class="et-p">'+ICO_REU+(ok?'<i class="et-ok">✓</i>':'')+'</span><b>Reunión adicional</b><small>'+e(fechaCorta(r.fecha))+'</small></div>';}
+    h+='<div class="av-sec proc"><h3 class="h-up">Proceso de diseño</h3><div class="etapas" id="etw">'+ETAPAS.map(function(x,i){var st=i<idx?'hecha':(i===idx?'actual':'');return '<div class="et '+st+(i===etIni?' sel':'')+'" data-i="'+i+'" onclick="ebEt('+i+')" role="button" tabindex="0"><span class="et-p">'+ET_ICO[i]+(st==='hecha'?'<i class="et-ok">✓</i>':'')+'</span><b>'+x[1]+'</b>'+(fe[x[0]]?'<small>'+e(fechaCorta(fe[x[0]]))+'</small>':'')+(st==='actual'?'<em>Estamos aquí</em>':'')+'</div>'+(porEt[i]||[]).map(nodoExtra).join('');}).join('')+'</div>'
       +'<div class="et-d" id="etd">'+etTexto(etIni)+'</div>'
       +(cerrado?'<p class="meta" style="margin-top:10px;">✓ Tu proyecto está terminado. ¡Gracias por confiar en nosotros!</p>':'')+'</div>';
     // 3. Detalles de tu servicio (plegable): qué incluye, cotización, resumen y etapas de pago
