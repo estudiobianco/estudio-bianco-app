@@ -121,8 +121,14 @@ async function seguimientoDe(p) {
     const reunionCliente = l.type === 'Reunión con cliente';
     const visible = x.cliente_visible === true || ((obra || reunionCliente) && x.cliente_visible !== false);
     if (!visible) return;
-    if (l.type !== 'Evento' && /reuni/i.test(l.type || '')) { reuniones.push({ fecha: l.date || '', titulo: l.title || 'Reunión', resumen: String(l.description || '').slice(0, 4000), acuerdos: String(l.commits || '').slice(0, 2000) }); return; }
-    if (l.type === 'Evento') { if ((l.date || '') >= hoy) proximas.push({ fecha: l.date, hora: x.start || '', titulo: l.title || 'Reunión', lugar: x.loc || '' }); return; }
+    const adicional = /adicional/i.test(l.title || '');
+    if (l.type !== 'Evento' && /reuni/i.test(l.type || '')) { reuniones.push({ fecha: l.date || '', titulo: l.title || 'Reunión', resumen: String(l.description || '').slice(0, 4000), acuerdos: String(l.commits || '').slice(0, 2000), adicional: adicional }); return; }
+    if (l.type === 'Evento') {
+      // Futura y sin realizar: "Lo que viene". Ya realizada: queda en la bitácora (sin la descripción del calendario, que es interna)
+      if ((l.date || '') >= hoy && !/Completad/i.test(l.status || '')) proximas.push({ fecha: l.date, hora: x.start || '', titulo: l.title || 'Reunión', lugar: x.loc || '' });
+      else reuniones.push({ fecha: l.date || '', titulo: l.title || 'Reunión', resumen: '', acuerdos: '', adicional: adicional });
+      return;
+    }
     if (l.type === 'Tarea' || l.type === 'Compromiso') return;
     avances.push({ fecha: l.date || '', hasta: obra && l.due_date && l.due_date !== l.date ? l.due_date : '', tipo: l.type === '🏗 Partida de obra' ? 'Partida de obra' : (l.type || ''), titulo: l.title || '', estado: /Completad|Hecho|Terminad/i.test(l.status || '') ? 'Terminado' : (obra ? 'En curso o programado' : '') });
   });
