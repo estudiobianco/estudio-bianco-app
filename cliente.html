@@ -167,6 +167,23 @@ footer b{color:var(--tx2);font-weight:700;}
 .bienv{max-width:420px;margin:8vh auto 0;display:flex;flex-direction:column;}
 .bienv label{font-size:13px;color:var(--tx2);margin-bottom:6px;text-align:center;}
 .bienv .err{text-align:center;}
+/* Entrada animada (≈1 s): líneas que se dibujan desde el centro y contenido que sube en cascada */
+.bienv .priv span{position:relative;padding:0 16px;}
+.bienv .priv span::before,.bienv .priv span::after{content:'';position:absolute;top:50%;width:min(90px,18vw);height:1px;background:#8B7D6E;transform:scaleX(0);animation:ebLinea .9s cubic-bezier(.65,0,.35,1) .1s forwards;}
+.bienv .priv span::before{right:100%;transform-origin:right center;}
+.bienv .priv span::after{left:100%;transform-origin:left center;}
+.bienv .ln{height:1px;background:#8B7D6E;width:56px;margin:0 auto 22px;transform:scaleX(0);animation:ebLinea .7s cubic-bezier(.65,0,.35,1) .3s forwards;}
+.bienv>*{opacity:0;transform:translateY(10px);animation:ebSube .5s cubic-bezier(.2,.7,.2,1) forwards;}
+.bienv>.priv{transform:none;animation-name:ebAparece;animation-delay:0s;}
+.bienv>*:nth-child(2){animation-delay:.08s;}.bienv>*:nth-child(3){animation-delay:.14s;}.bienv>*:nth-child(4){animation-delay:.2s;}
+.bienv>*:nth-child(5){animation-delay:.26s;}.bienv>*:nth-child(6){animation-delay:.32s;}.bienv>*:nth-child(7){animation-delay:.38s;}
+.bienv>*:nth-child(8){animation-delay:.42s;}.bienv>*:nth-child(9){animation-delay:.46s;}.bienv>*:nth-child(10){animation-delay:.5s;}.bienv>*:nth-child(n+11){animation-delay:.5s;}
+.bienv>.err{animation:none;opacity:1;transform:none;}
+.bienv>.ln{opacity:1;}
+@keyframes ebLinea{to{transform:scaleX(1);}}
+@keyframes ebSube{to{opacity:1;transform:none;}}
+@keyframes ebAparece{to{opacity:1;}}
+@media (prefers-reduced-motion:reduce){.bienv>*,.bienv .ln,.bienv .priv span::before,.bienv .priv span::after{animation:none!important;opacity:1!important;transform:none!important;}}
 .bienv input{text-align:center;}
 .bienv input{border:1px solid var(--bd2);border-radius:12px;padding:13px 14px;font-size:16px;font-family:inherit;color:var(--tx);}
 .bienv input:focus{outline:none;border-color:#8B7D6E;}
@@ -275,7 +292,7 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
   // Clave de 4 números (solo en el link con nombre). Se recuerda en este equipo.
   function pedirClave(err,bloq){
     document.getElementById('app').innerHTML='<div class="bienv"><div class="priv" style="border:0;justify-content:center;margin-bottom:28px;"><span>Plataforma privada · Estudio Bianco®</span></div>'
-      +'<img class="logo" src="/logo-estudio-bianco.png" alt="Estudio Bianco®" style="margin:0 auto 26px;"><div class="eyebrow" style="text-align:center;">Tu proyecto</div>'
+      +'<img class="logo" src="/logo-estudio-bianco.png" alt="Estudio Bianco®" style="margin:0 auto 18px;"><div class="ln"></div><div class="eyebrow" style="text-align:center;">Tu proyecto</div>'
       +'<h1 style="text-align:center;margin-bottom:8px;">¡Te damos la bienvenida a tu portal de cliente!</h1>'
       +'<p style="text-align:center;color:var(--tx2);font-size:15px;margin:0 0 22px;">Nos alegra verte acá.</p>'
       +'<label for="bPin">Clave de 4 números que te dio Estudio Bianco</label><input id="bPin" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="one-time-code" placeholder="••••" style="text-align:center;letter-spacing:.5em;font-size:22px;"'+(bloq?' disabled':'')+' onkeydown="if(event.key===\'Enter\')ebClave()">'
@@ -291,7 +308,7 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
   // Bienvenida: el nombre se pide una sola vez al entrar y queda constancia de cada ingreso
   function bienvenida(){
     document.getElementById('app').innerHTML='<div class="bienv"><div class="priv" style="border:0;justify-content:center;margin-bottom:28px;"><span>Plataforma privada · Estudio Bianco®</span></div>'
-      +'<img class="logo" src="/logo-estudio-bianco.png" alt="Estudio Bianco®" style="margin:0 auto 26px;"><div class="eyebrow" style="text-align:center;">Te damos la bienvenida</div>'
+      +'<img class="logo" src="/logo-estudio-bianco.png" alt="Estudio Bianco®" style="margin:0 auto 18px;"><div class="ln"></div><div class="eyebrow" style="text-align:center;">Te damos la bienvenida</div>'
       +'<h1 style="text-align:center;margin-bottom:18px;">'+e(D.proyecto.nombre)+'</h1>'
       +'<label for="bNom">¿Cómo te llamas?</label><input id="bNom" maxlength="80" placeholder="Tu nombre" autocomplete="given-name" onkeydown="if(event.key===\'Enter\')ebEntrar()">'
       +'<div class="err" id="bErr">Escribe tu nombre para entrar.</div><button onclick="ebEntrar()">Entrar</button>'
