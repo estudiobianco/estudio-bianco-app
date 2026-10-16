@@ -193,7 +193,7 @@ td input[type=number]{text-align:right;font-family:"DM Mono",monospace;}
 .b-dec{background:var(--inl);color:var(--in);}
 .b-hon{background:var(--s2);color:var(--tx2);}
 .b-mat{background:#E8F5E9;color:#2E7D32;}
-.b-equ{background:#FBE9E7;color:#BF360C;}
+.b-equ{background:#FBE9E7;color:#BF360C;}.b-art{background:#F3E8F1;color:#7A3E6E;}
 .ps-Pendiente{background:var(--dnl);color:var(--dn);}
 .ps-Pagado{background:var(--acl);color:var(--ac2);}
 .ps-Parcial{background:var(--wnl);color:var(--wn);}
@@ -1039,7 +1039,7 @@ body.col-resizing *{cursor:col-resize !important;}
   </div>
   <div class="kr" id="comprasKPI"></div>
   <div class="tb">
-    <select id="fCat" onchange="rC()"><option value="">Todas las categorías</option><option>Obra</option><option>Revestimientos y acabados</option><option>Iluminación</option><option>Mobiliario</option><option>Mobiliario a medida</option><option>Decoración e instalaciones</option><option>Materiales</option><option>Equipamiento</option><option>Honorarios</option></select>
+    <select id="fCat" onchange="rC()"><option value="">Todas las categorías</option><option>Obra</option><option>Revestimientos y acabados</option><option>Iluminación</option><option>Mobiliario</option><option>Mobiliario a medida</option><option>Decoración e instalaciones</option><option>Materiales</option><option>Equipamiento</option><option>Arte</option><option>Honorarios</option></select>
     <select id="fSpace" onchange="rC()" style="width:130px;">
       <option value="">Todos los espacios</option>
     </select>
@@ -1066,7 +1066,7 @@ body.col-resizing *{cursor:col-resize !important;}
   <div class="ph"><div><h1>Estado de pagos</h1><p>Ítems con pago registrado · haz clic en › para editar cuotas y detalles</p></div></div>
   <div class="kr" id="pagadosKPI"></div>
   <div class="tb">
-    <select id="fPagCat" onchange="rPag()"><option value="">Todas las categorías</option><option>Obra</option><option>Revestimientos y acabados</option><option>Iluminación</option><option>Mobiliario</option><option>Mobiliario a medida</option><option>Decoración e instalaciones</option><option>Materiales</option><option>Equipamiento</option><option>Honorarios</option></select>
+    <select id="fPagCat" onchange="rPag()"><option value="">Todas las categorías</option><option>Obra</option><option>Revestimientos y acabados</option><option>Iluminación</option><option>Mobiliario</option><option>Mobiliario a medida</option><option>Decoración e instalaciones</option><option>Materiales</option><option>Equipamiento</option><option>Arte</option><option>Honorarios</option></select>
     <input type="text" id="fPagQ" placeholder="Buscar…" oninput="rPag()">
   </div>
   <div class="tc"><div class="ts"><table>
@@ -1485,7 +1485,7 @@ body.col-resizing *{cursor:col-resize !important;}
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const STAGES=['Sin iniciar','Cotizado','Pedido realizado','En producción','En tránsito','Entregado','Instalado'];
 const SS=['–','Cotiz.','Pedido','Produc.','Tráns.','Entreg.','Instal.'];
-const CAT_OPTS=['Obra','Revestimientos y acabados','Iluminación','Mobiliario','Mobiliario a medida','Decoración e instalaciones','Materiales','Equipamiento','Honorarios'];
+const CAT_OPTS=['Obra','Revestimientos y acabados','Iluminación','Mobiliario','Mobiliario a medida','Decoración e instalaciones','Materiales','Equipamiento','Arte','Honorarios'];
 const PAY_OPTS=['Pendiente','Pagado','Pagado parcialmente','Devuelto'];
 const DEL_OPTS=['Por pedir','Pedido confirmado','En fabricación','Por despachar','En tránsito','Entregado'];
 const INS_OPTS=['Pendiente','Instalado'];
@@ -1495,7 +1495,7 @@ const PM=['Transferencia bancaria','Tarjeta crédito','Tarjeta débito','Efectiv
 // HT is computed dynamically in rH() from Honorarios items
 const CAT_MAP={'Revestimientos':'Revestimientos y acabados','Construcción':'Obra','Muebles a medida':'Mobiliario a medida'};
 
-function catCls(c){return {'Obra':'b-obra','Revestimientos y acabados':'b-rev','Iluminación':'b-ilu','Mobiliario':'b-mob','Mobiliario a medida':'b-mea','Decoración e instalaciones':'b-dec','Honorarios':'b-hon','Materiales':'b-mat','Equipamiento':'b-equ'}[c]||'b-hon';}
+function catCls(c){return {'Obra':'b-obra','Revestimientos y acabados':'b-rev','Iluminación':'b-ilu','Mobiliario':'b-mob','Mobiliario a medida':'b-mea','Decoración e instalaciones':'b-dec','Honorarios':'b-hon','Materiales':'b-mat','Equipamiento':'b-equ','Arte':'b-art'}[c]||'b-hon';}
 function payCls(s){return {'Pendiente':'ps-Pendiente','Pagado':'ps-Pagado','Pagado parcialmente':'ps-Parcial','Devuelto':'ps-Devuelto'}[s]||'ps-Pendiente';}
 function delCls(s){return {'Por pedir':'ds-sin','Pedido confirmado':'ds-fab','En fabricación':'ds-fab','Por despachar':'ds-tra','En tránsito':'ds-tra','Entregado':'ds-ent'}[s]||'ds-sin';}
 function insCls(s){return s==='Instalado'?'is-Instalado':'is-Pendiente';}
