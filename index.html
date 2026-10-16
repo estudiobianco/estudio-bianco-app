@@ -821,7 +821,7 @@ body.col-resizing *{cursor:col-resize !important;}
         </select>
       </div>
       <div class="fg"><label>Etapa del proyecto</label>
-        <select id="npmStage" style="height:36px;font-size:13px;padding:0 10px;border:1px solid var(--bd2);border-radius:var(--rs);background:var(--surface);color:var(--tx);font-family:'DM Sans',sans-serif;"><option value="">Sin marcar</option><option value="reunion_inicial">Reunión inicial</option><option value="anteproyecto">Anteproyecto</option><option value="correccion_1">Primera corrección</option><option value="correccion_2">Segunda corrección</option><option value="entrega_final">Entrega final</option><option value="implementacion">Implementación</option><option value="cerrado">Proyecto cerrado</option></select>
+        <select id="npmStage" style="height:36px;font-size:13px;padding:0 10px;border:1px solid var(--bd2);border-radius:var(--rs);background:var(--surface);color:var(--tx);font-family:'DM Sans',sans-serif;"><option value="">Sin marcar</option><option value="reunion_inicial">Reunión de consulta</option><option value="anteproyecto">Anteproyecto</option><option value="correccion_1">Primera corrección</option><option value="correccion_2">Segunda corrección</option><option value="entrega_final">Entrega final</option><option value="implementacion">Implementación</option><option value="cerrado">Proyecto cerrado</option></select>
       </div>
       <div class="fg npm-full"><label>Fechas de las etapas <span style="font-weight:400;font-size:10px;color:var(--tx3);">(las ve el cliente en "Cómo va tu proyecto")</span></label><div id="npmEtapas" class="npm-etapas"></div></div>
       <div class="fg npm-full"><label>Color del proyecto</label>
@@ -2826,7 +2826,7 @@ function editProject(pid){
   document.getElementById('newProjModal').classList.add('show');
 }
 // Etapas del proceso del estudio (projects.stage / stage_dates): se muestran al cliente en su portal
-const ETAPAS_PROY=[['reunion_inicial','Reunión inicial'],['anteproyecto','Anteproyecto'],['correccion_1','Primera corrección'],['correccion_2','Segunda corrección'],['entrega_final','Entrega final'],['implementacion','Implementación']];
+const ETAPAS_PROY=[['reunion_inicial','Reunión de consulta'],['anteproyecto','Anteproyecto'],['correccion_1','Primera corrección'],['correccion_2','Segunda corrección'],['entrega_final','Entrega final'],['implementacion','Implementación']];
 function pintarEtapasNpm(f){var el=document.getElementById('npmEtapas');if(!el)return;el.innerHTML=ETAPAS_PROY.map(function(x){return '<label><span>'+x[1]+'</span><input type="date" data-et="'+x[0]+'" value="'+((f||{})[x[0]]||'')+'"></label>';}).join('');}
 function leerEtapasNpm(){var o={};document.querySelectorAll('#npmEtapas input[data-et]').forEach(function(i){if(i.value)o[i.getAttribute('data-et')]=i.value;});return o;}
 function closeNewProj(){document.getElementById('newProjModal').classList.remove('show');}
@@ -7544,7 +7544,7 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
       +'<div class="fp-g"><label>Título *</label><input type="text" data-f="title" value="'+e(d.title)+'" placeholder="Ej: Revisión de medidas y terminaciones"></div>'
       +'<div class="fp-g"><label>Resumen</label><textarea data-f="desc" style="height:96px;" placeholder="Qué se revisó, qué se decidió…">'+e(d.desc)+'</textarea></div>'
       +'<div class="fp-g"><label>Participantes</label><input type="text" data-f="part" value="'+e(x.part||'')+'" placeholder="Ej: Ankel, cliente, maestro"></div>'
-      +cvHTML(x.cliente_visible===true||(d.type==='Hito'&&x.cliente_visible!==false),'Aparece en "Avances de obra" del portal: solo la fecha, el título y el tipo, no el resumen.')
+      +cvHTML(x.cliente_visible===true||((d.type==='Hito'||d.type==='Reunión con cliente')&&x.cliente_visible!==false),'Hitos y visitas: en "Avances de obra" (fecha y título). Reuniones con cliente: en "Resumen de reuniones", con su resumen y compromisos.')
       +(d.commits?'<div class="fp-g"><label>Compromisos (registro anterior)</label><div class="sg-aviso" style="white-space:pre-wrap;color:var(--tx2);">'+e(d.commits)+'</div>'+(l?'<a href="#" style="font-size:12px;" onclick="sgAcuerdoDesdeTexto('+l.id+');return false;">Convertir en acuerdo con responsable y fecha</a>':'')+'</div>':'')
       +(l?htmlAdjuntos(l,'fotos','Fotos',true):'')
       +'<div class="fp-sec">Acuerdos</div>';
