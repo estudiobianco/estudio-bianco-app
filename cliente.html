@@ -192,6 +192,11 @@ footer b{color:var(--tx2);font-weight:700;}
 .bienv p{font-size:12px;color:var(--tx3);text-align:center;margin-top:14px;}
 .bienv .err{color:var(--dn);font-size:12.5px;margin-top:6px;display:none;}
 footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
+/* Fondo de líneas orgánicas */
+#ebFondo{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:.5;transition:opacity .9s ease;}
+body.en-portal #ebFondo{opacity:.28;}
+#app{position:relative;z-index:1;}
+.bienv{background:rgba(255,255,255,.86);border-radius:22px;padding:30px 28px 24px;box-shadow:0 0 40px 18px rgba(255,255,255,.8);}
 /* Resumen de pagos arriba del listado */
 .tot3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;background:var(--surface);border:1px solid var(--bd);border-radius:14px;padding:16px 18px 14px;margin-bottom:10px;}
 .tot3 .l{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3);}
@@ -298,6 +303,7 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
       +'<label for="bPin">Clave de 4 números que te dio Estudio Bianco</label><input id="bPin" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="one-time-code" placeholder="••••" style="text-align:center;letter-spacing:.5em;font-size:22px;"'+(bloq?' disabled':'')+' onkeydown="if(event.key===\'Enter\')ebClave()">'
       +'<div class="err" id="bErr"'+(err?' style="display:block;"':'')+'>'+e(err)+'</div><button onclick="ebClave()"'+(bloq?' disabled style="opacity:.5;"':'')+'>Entrar</button>'
       +'<p>Si no tienes la clave, pídesela a Estudio Bianco.</p></div>';
+    fondoLineas(false);
     setTimeout(function(){var i=document.getElementById('bPin');if(i&&!bloq)i.focus();},50);
   }
   window.ebClave=function(){
@@ -313,6 +319,7 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
       +'<label for="bNom">¿Cómo te llamas?</label><input id="bNom" maxlength="80" placeholder="Tu nombre" autocomplete="given-name" onkeydown="if(event.key===\'Enter\')ebEntrar()">'
       +'<div class="err" id="bErr">Escribe tu nombre para entrar.</div><button onclick="ebEntrar()">Entrar</button>'
       +'<p>Lo pedimos solo esta vez, para que el estudio sepa quién revisa el proyecto.</p></div>';
+    fondoLineas(false);
     setTimeout(function(){var i=document.getElementById('bNom');if(i)i.focus();},50);
   }
   window.ebEntrar=function(){
@@ -326,7 +333,49 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
   }
   function mensaje(t,p){document.getElementById('app').innerHTML='<div class="msg"><img class="logo" src="/logo-estudio-bianco.png" alt="Estudio Bianco" style="margin:0 auto 24px;"><h1>'+e(t)+'</h1><p>'+e(p)+'</p></div>';}
 
+  // ── Fondo de líneas orgánicas (inspirado en un mapa de ríos): entran desde los bordes hacia el centro
+  //    en unos 2 segundos y quedan quietas, beige y muy suaves. En el portal se ven aún más tenues.
+  function fondoLineas(enPortal){
+    document.body.classList.toggle('en-portal',!!enPortal);
+    if(document.getElementById('ebFondo'))return;
+    var NS='http://www.w3.org/2000/svg', W=1600, H=1000, sem=20261016;
+    function rnd(){sem=(sem*16807)%2147483647;return (sem-1)/2147483646;}
+    function curva(p){var d='M'+p[0][0].toFixed(1)+' '+p[0][1].toFixed(1);for(var i=0;i<p.length-1;i++){var a=p[i-1]||p[i],b=p[i],c=p[i+1],q=p[i+2]||c;d+=' C'+(b[0]+(c[0]-a[0])/6).toFixed(1)+' '+(b[1]+(c[1]-a[1])/6).toFixed(1)+' '+(c[0]-(q[0]-b[0])/6).toFixed(1)+' '+(c[1]-(q[1]-b[1])/6).toFixed(1)+' '+c[0].toFixed(1)+' '+c[1].toFixed(1);}return d;}
+    function rio(x,y,ang,pasos,paso){var p=[[x,y]];for(var i=0;i<pasos;i++){var ac=Math.atan2(H/2-y,W/2-x), dif=Math.atan2(Math.sin(ac-ang),Math.cos(ac-ang));ang+=(rnd()-.5)*1.15+dif*.1;x+=Math.cos(ang)*paso;y+=Math.sin(ang)*paso;p.push([x,y]);}return p;}
+    var svg=document.createElementNS(NS,'svg'); svg.id='ebFondo'; svg.setAttribute('viewBox','0 0 '+W+' '+H); svg.setAttribute('preserveAspectRatio','xMidYMid slice'); svg.setAttribute('aria-hidden','true');
+    var g=document.createElementNS(NS,'g'); g.setAttribute('fill','none'); g.setAttribute('stroke','#A99886'); g.setAttribute('stroke-linecap','round'); svg.appendChild(g);
+    var trazos=[], rios=[];
+    function linea(d,ancho,op,dur,ret){var el=document.createElementNS(NS,'path');el.setAttribute('d',d);el.setAttribute('stroke-width',ancho);el.setAttribute('opacity',op);g.appendChild(el);trazos.push([el,dur,ret]);}
+    // Ríos: 9 cauces desde los cuatro bordes, cada uno con 2 o 3 hebras paralelas como en el dibujo
+    var bordes=[[-40,.2],[-40,.55],[-40,.85],[1640,.3],[1640,.7],[.25,-40],[.7,-40],[.4,1040],[.8,1040]];
+    bordes.forEach(function(b,i){
+      var x=b[0]<0||b[0]>1?b[0]:b[0]*W, y=b[1]<0||b[1]>1?b[1]:b[1]*H, ang=Math.atan2(H/2-y,W/2-x)+(rnd()-.5)*.8;
+      var p=rio(x,y,ang,26+Math.floor(rnd()*14),28); rios.push(p);
+      var hebras=2+Math.floor(rnd()*2);
+      for(var h=0;h<hebras;h++){var off=p.map(function(q,k){return [q[0]+(rnd()-.5)*(4+h*5),q[1]+(rnd()-.5)*(4+h*5)];});linea(curva(off),h?1.3:2.2,h?.8:1,1.7+rnd()*.3,i*.05+h*.08);}
+    });
+    // Trazos finos y desordenados alrededor de los cauces
+    // racimos de rulos pegados a los cauces (como el follaje del dibujo)
+    for(var c=0;c<48;c++){
+      var r=rios[Math.floor(rnd()*rios.length)], q=r[Math.floor(rnd()*r.length)];
+      var cx=q[0]+(rnd()-.5)*90, cy=q[1]+(rnd()-.5)*90, nR=7+Math.floor(rnd()*7), ret=.45+rnd()*.85;
+      for(var k=0;k<nR;k++){
+        var x=cx+(rnd()-.5)*110, y=cy+(rnd()-.5)*110, ang=rnd()*6.283, giro=(rnd()<.5?-1:1), pts=[[x,y]];
+        for(var s=0;s<6+Math.floor(rnd()*8);s++){if(rnd()<.3)giro=-giro;ang+=giro*(.5+rnd()*1.1);var st=4+rnd()*6;x+=Math.cos(ang)*st;y+=Math.sin(ang)*st;pts.push([x,y]);}
+        linea(curva(pts),.9,.45+rnd()*.45,.6+rnd()*.4,ret+rnd()*.25);
+      }
+    }
+    document.body.insertBefore(svg,document.body.firstChild);
+    var quieto=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+    trazos.forEach(function(t){
+      if(quieto)return; var L=t[0].getTotalLength(); t[0].style.strokeDasharray=L; t[0].style.strokeDashoffset=L;
+      t[0].getBoundingClientRect();
+      t[0].style.transition='stroke-dashoffset '+t[1].toFixed(2)+'s cubic-bezier(.33,.0,.2,1) '+t[2].toFixed(2)+'s';
+    });
+    requestAnimationFrame(function(){trazos.forEach(function(t){t[0].style.strokeDashoffset='0';});});
+  }
   function pintar(){
+    fondoLineas(true);
     var its=D.items, sumable=function(it){return !fuera(it)&&est(it)!=='Rechazado';};
     var total=its.reduce(function(a,it){return a+(sumable(it)?sub(it):0);},0), pagado=its.reduce(function(a,it){return a+(sumable(it)?Math.min(+it.pagado||0,sub(it)):0);},0);
     var cuenta={'':its.length,'Por revisar':0,'Aprobado':0,'Cambios solicitados':0,'Rechazado':0};
