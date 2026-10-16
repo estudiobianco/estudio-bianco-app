@@ -820,6 +820,10 @@ body.col-resizing *{cursor:col-resize !important;}
           <option>En desarrollo</option><option>En obra</option><option>En entrega</option><option>Finalizado</option><option>En pausa</option>
         </select>
       </div>
+      <div class="fg"><label>Etapa del proyecto</label>
+        <select id="npmStage" style="height:36px;font-size:13px;padding:0 10px;border:1px solid var(--bd2);border-radius:var(--rs);background:var(--surface);color:var(--tx);font-family:'DM Sans',sans-serif;"><option value="">Sin marcar</option><option value="reunion_inicial">Reunión inicial</option><option value="anteproyecto">Anteproyecto</option><option value="correccion_1">Primera corrección</option><option value="correccion_2">Segunda corrección</option><option value="entrega_final">Entrega final</option><option value="implementacion">Implementación</option><option value="cerrado">Proyecto cerrado</option></select>
+      </div>
+      <div class="fg npm-full"><label>Fechas de las etapas <span style="font-weight:400;font-size:10px;color:var(--tx3);">(las ve el cliente en "Cómo va tu proyecto")</span></label><div id="npmEtapas" class="npm-etapas"></div></div>
       <div class="fg npm-full"><label>Color del proyecto</label>
         <div class="color-picker" id="colorPicker"></div>
       </div>
@@ -2798,6 +2802,8 @@ function openNewProj(){
   document.getElementById('npmStatus').value='En desarrollo';
   document.getElementById('npmNotes').value='';
   document.getElementById('npmOnedrive').value='';
+  document.getElementById('npmStage').value='';
+  pintarEtapasNpm({});
   document.querySelectorAll('.cp-dot').forEach((d,i)=>{d.classList.toggle('selected',i===0);});
   document.getElementById('newProjModal').classList.add('show');
   setTimeout(()=>document.getElementById('npmName').focus(),50);
@@ -2813,10 +2819,16 @@ function editProject(pid){
   document.getElementById('npmStatus').value=p.status||'En desarrollo';
   document.getElementById('npmNotes').value=p.notes||'';
   document.getElementById('npmOnedrive').value=p.onedrive||'';
+  document.getElementById('npmStage').value=p.stage||'';
+  pintarEtapasNpm(p.stageDates||{});
   const selColor=p.color||PROJ_COLORS[0];
   document.querySelectorAll('.cp-dot').forEach(d=>{d.classList.toggle('selected',d.dataset.color===selColor);});
   document.getElementById('newProjModal').classList.add('show');
 }
+// Etapas del proceso del estudio (projects.stage / stage_dates): se muestran al cliente en su portal
+const ETAPAS_PROY=[['reunion_inicial','Reunión inicial'],['anteproyecto','Anteproyecto'],['correccion_1','Primera corrección'],['correccion_2','Segunda corrección'],['entrega_final','Entrega final'],['implementacion','Implementación']];
+function pintarEtapasNpm(f){var el=document.getElementById('npmEtapas');if(!el)return;el.innerHTML=ETAPAS_PROY.map(function(x){return '<label><span>'+x[1]+'</span><input type="date" data-et="'+x[0]+'" value="'+((f||{})[x[0]]||'')+'"></label>';}).join('');}
+function leerEtapasNpm(){var o={};document.querySelectorAll('#npmEtapas input[data-et]').forEach(function(i){if(i.value)o[i.getAttribute('data-et')]=i.value;});return o;}
 function closeNewProj(){document.getElementById('newProjModal').classList.remove('show');}
 function saveNewProj(){
   const name=document.getElementById('npmName').value.trim();
@@ -2829,13 +2841,14 @@ function saveNewProj(){
     if(/^[\w.-]+\.[a-z]{2,}\//i.test(onedrive))onedrive='https://'+onedrive;
     else{alert('El link de OneDrive debe empezar con https:// (cópialo desde OneDrive con "Copiar vínculo").');return;}
   }
+  const stage=document.getElementById('npmStage').value||'', stageDates=leerEtapasNpm();
   let guardado=null;
   if(editingProjId){
     const p=projects.find(x=>x.id===editingProjId);
-    if(p){Object.assign(p,{name,client,addr:document.getElementById('npmAddr').value,startDate:document.getElementById('npmDate').value,status:document.getElementById('npmStatus').value,notes:document.getElementById('npmNotes').value,onedrive,color});guardado=p;}
+    if(p){Object.assign(p,{name,client,addr:document.getElementById('npmAddr').value,startDate:document.getElementById('npmDate').value,status:document.getElementById('npmStatus').value,notes:document.getElementById('npmNotes').value,onedrive,stage,stageDates,color});guardado=p;}
   }else{
     const id='p'+Date.now();
-    const newProj={id,name,client,addr:document.getElementById('npmAddr').value,startDate:document.getElementById('npmDate').value,status:document.getElementById('npmStatus').value,notes:document.getElementById('npmNotes').value,onedrive,color};
+    const newProj={id,name,client,addr:document.getElementById('npmAddr').value,startDate:document.getElementById('npmDate').value,status:document.getElementById('npmStatus').value,notes:document.getElementById('npmNotes').value,onedrive,stage,stageDates,color};
     projects.push(newProj);guardado=newProj;
     // Link to existing client if selected
     const linkedClientId=(document.getElementById('npmClientLink')||{}).value||'';
@@ -4492,8 +4505,8 @@ function renderGantt(){
   // Convertir proyecto app <-> nube
   // Estados del proyecto: En desarrollo, En obra, En entrega, En pausa, Finalizado ('Activo' era el valor antiguo)
   function estProy(s){ return (!s||s==='Activo')?'En desarrollo':s; }
-  function projToRow(p){ return { id:p.id, name:p.name, client:p.client||'', color:p.color||'#2A5C45', status:estProy(p.status), addr:p.addr||'', start_date:p.startDate||'', notes:p.notes||'', onedrive_url:p.onedrive||null, spaces:Array.isArray(p.spaces)?p.spaces:[] }; }
-  function projFromRow(x){ return { id:x.id, name:x.name, client:x.client||'', color:x.color||'#2A5C45', status:estProy(x.status), addr:x.addr||'', startDate:x.start_date||'', notes:x.notes||'', onedrive:x.onedrive_url||'', spaces:Array.isArray(x.spaces)?x.spaces:[] }; }
+  function projToRow(p){ return { id:p.id, name:p.name, client:p.client||'', color:p.color||'#2A5C45', status:estProy(p.status), addr:p.addr||'', start_date:p.startDate||'', notes:p.notes||'', onedrive_url:p.onedrive||null, spaces:Array.isArray(p.spaces)?p.spaces:[], stage:p.stage||null, stage_dates:(p.stageDates&&typeof p.stageDates==='object')?p.stageDates:{} }; }
+  function projFromRow(x){ return { id:x.id, name:x.name, client:x.client||'', color:x.color||'#2A5C45', status:estProy(x.status), addr:x.addr||'', startDate:x.start_date||'', notes:x.notes||'', onedrive:x.onedrive_url||'', spaces:Array.isArray(x.spaces)?x.spaces:[], stage:x.stage||'', stageDates:(x.stage_dates&&typeof x.stage_dates==='object')?x.stage_dates:{} }; }
 
   // Cargar la lista de proyectos desde la nube
   window.sbLoadProjects=function(cb){
@@ -4597,7 +4610,7 @@ function renderGantt(){
     fetch(URL+'/rest/v1/logs?project_id=eq.'+encodeURIComponent(pid)+'&select=*&order=date.desc',{ headers:H })
       .then(function(r){ return r.ok?r.json():null; })
       // Las láminas y renders del portal viven en logs pero tienen su propio módulo: no entran a la bitácora
-      .then(function(data){ if(data)data=data.filter(function(x){return x.category!=='lamina'&&x.category!=='render'&&x.category!=='visita'&&x.category!=='actividad'&&(x.category!=='cliente'||(typeof appMode!=='undefined'&&appMode==='admin'));}); cb(data&&data.length?data.map(logFromRow):null); })
+      .then(function(data){ if(data)data=data.filter(function(x){return x.category!=='lamina'&&x.category!=='render'&&x.category!=='visita'&&x.category!=='actividad';}); cb(data&&data.length?data.map(logFromRow):null); })
       .catch(function(){ cb(null); });
   };
   window.sbDeleteLog=function(pid,logId){
@@ -6989,7 +7002,7 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   function toast(t){try{tst(t);}catch(x){}}
   function esAdmin(){try{return appMode==='admin';}catch(x){return false;}}
   function autor(){return esAdmin()?'Ankel Rocha':'Equipo Estudio Bianco';}
-  function L(){try{var a=logs||[];return esAdmin()?a:a.filter(function(l){return l.category!=='cliente'&&l.category!=='actividad'&&l.category!=='visita';});}catch(x){return [];}}
+  function L(){try{var a=logs||[];return esAdmin()?a:a.filter(function(l){return l.category!=='actividad'&&l.category!=='visita';});}catch(x){return [];}}
   function IT(){try{return items||[];}catch(x){return [];}}
   function itemDe(id){return IT().find(function(r){return +r.id===+id;});}
   function logDe(id){return L().find(function(l){return +l.id===+id;});}
@@ -7418,12 +7431,16 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
       +'<div class="fp-g"><label>Ubicación</label><input type="text" data-f="loc" value="'+e(x.loc||'')+'" placeholder="Dirección o lugar"></div>'
       +'<div class="fp-g"><label>Notas</label><textarea data-f="desc">'+e(d.desc)+'</textarea></div>'
       +'<div class="fp-g"><label>Recordatorio</label><select data-f="rec">'+REC.map(function(t){return '<option'+(t===(x.rec||'Sin recordatorio')?' selected':'')+'>'+t+'</option>';}).join('')+'</select><div class="sg-aviso">Se guarda tu preferencia; la app todavía no envía avisos.</div></div>'
+      +cvHTML(x.cliente_visible===true,'Aparece en "Próximo" del portal del cliente mientras no haya pasado.')
       +(l?htmlComentarios(l):'');
     var deGoogle=l&&(l.category==='gcal'||(+l.id>=8e14&&x.gcalId));
     if(deGoogle){
       h='<div class="ing-aviso info" style="margin-bottom:12px;">Este evento viene de tu <b>Google Calendar</b>. Para cambiarlo, edítalo allá'+(x.gcalLink?' (<a href="'+e(x.gcalLink)+'" target="_blank" rel="noopener">abrir en Google Calendar</a>)':'')+'; la app se actualiza sola en la siguiente sincronización.</div>'+h;
       abrirPanel('Evento de Google Calendar',l.title||'Evento',h);
       [].forEach.call(document.querySelectorAll('#sgPBody [data-f]'),function(el){el.disabled=true;});
+      // Lo único que se puede cambiar de un evento de Google Calendar: si lo ve el cliente
+      var cv=document.querySelector('#sgPBody [data-f="cliente_visible"]');
+      if(cv){cv.disabled=false;cv.onchange=function(){ex(l).cliente_visible=cv.checked;persistir(l,cv.checked?'✓ El cliente verá esta reunión en su portal':'Oculta para el cliente');pintar();};}
       return;
     }
     h+='<div style="margin-top:14px;"><button class="fp-btn" onclick="sgGuardarEvento()">'+(l?'Guardar cambios':'Agregar evento')+'</button>'
@@ -7440,7 +7457,7 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
     var l=panelId!=null?logDe(panelId):null;
     if(!l)l=mgL({id:nuevoId(),type:'Evento',status:'Pendiente',extra:{autor:autor(),creado:new Date().toISOString()}});
     var x=ex(l); l.title=t; l.date=f; l.dueDate=f; l.responsible=val('responsible').trim(); l.itemId=+val('itemId')||0; l.desc=val('desc');
-    x.kind=val('kind'); x.start=ini; x.end=fin; x.loc=val('loc').trim(); x.rec=val('rec');
+    x.kind=val('kind'); x.start=ini; x.end=fin; x.loc=val('loc').trim(); x.rec=val('rec'); x.cliente_visible=cvVal();
     persistir(l,'✓ Evento guardado'); dirty=false; sgCerrar(true); st.ref=f; pintar();
   };
 
@@ -7455,15 +7472,20 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
       +'<div class="fp-row2"><div class="fp-g"><label>Responsable</label><input type="text" data-f="responsible" list="sgRespDL" value="'+e(l.responsible)+'"></div>'
       +'<div class="fp-g"><label>Estado</label><select data-f="status">'+EST_T.map(function(s){return '<option'+(s===est?' selected':'')+'>'+s+'</option>';}).join('')+'</select></div></div>'
       +'<div class="fp-g"><label>Notas</label><textarea data-f="desc">'+e(l.desc)+'</textarea></div>'
+      +cvHTML((l.extra||{}).cliente_visible!==false,'Aparece en "Avances de obra" del portal (sin las notas).')
       +'<button class="fp-btn" onclick="sgGuardarPartida()">Guardar cambios</button>';
     abrirPanel('Partida de obra',l.title||'Partida',h);
   };
   window.sgGuardarPartida=function(){
     var l=logDe(panelId); if(!l)return;
     var a=val('date'), b=val('dueDate'); if(a&&b&&b<a){alert('El término no puede ser anterior al inicio.');return;}
-    l.title=val('title').trim()||l.title; l.date=a; l.dueDate=b; l.responsible=val('responsible').trim(); l.desc=val('desc'); marcarEstado(l,val('status'));
+    l.title=val('title').trim()||l.title; l.date=a; l.dueDate=b; l.responsible=val('responsible').trim(); l.desc=val('desc'); marcarEstado(l,val('status')); ex(l).cliente_visible=cvVal();
     persistir(l,'✓ Partida guardada'); dirty=false; sgCerrar(true); pintar();
   };
+
+  // Casilla "Mostrar al cliente" (logs.extra.cliente_visible): decide qué ve el cliente en "Cómo va tu proyecto"
+  function cvHTML(on,ayuda){return '<label class="sg-cv"><input type="checkbox" data-f="cliente_visible"'+(on?' checked':'')+'><span><b>Mostrar al cliente</b><small>'+e(ayuda||'')+'</small></span></label>';}
+  function cvVal(){var c=document.querySelector('#sgPBody [data-f="cliente_visible"]');return c?!!c.checked:undefined;}
 
   // ═══ BITÁCORA ═══
   function acuerdosDe(id){return L().filter(function(x){return esTarea(x)&&(x.extra||{}).origen===id;});}
@@ -7522,6 +7544,7 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
       +'<div class="fp-g"><label>Título *</label><input type="text" data-f="title" value="'+e(d.title)+'" placeholder="Ej: Revisión de medidas y terminaciones"></div>'
       +'<div class="fp-g"><label>Resumen</label><textarea data-f="desc" style="height:96px;" placeholder="Qué se revisó, qué se decidió…">'+e(d.desc)+'</textarea></div>'
       +'<div class="fp-g"><label>Participantes</label><input type="text" data-f="part" value="'+e(x.part||'')+'" placeholder="Ej: Ankel, cliente, maestro"></div>'
+      +cvHTML(x.cliente_visible===true||(d.type==='Hito'&&x.cliente_visible!==false),'Aparece en "Avances de obra" del portal: solo la fecha, el título y el tipo, no el resumen.')
       +(d.commits?'<div class="fp-g"><label>Compromisos (registro anterior)</label><div class="sg-aviso" style="white-space:pre-wrap;color:var(--tx2);">'+e(d.commits)+'</div>'+(l?'<a href="#" style="font-size:12px;" onclick="sgAcuerdoDesdeTexto('+l.id+');return false;">Convertir en acuerdo con responsable y fecha</a>':'')+'</div>':'')
       +(l?htmlAdjuntos(l,'fotos','Fotos',true):'')
       +'<div class="fp-sec">Acuerdos</div>';
@@ -7546,7 +7569,7 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
     if(!l)l=mgL({id:nuevoId(),status:'Completado',extra:{autor:autor(),creado:new Date().toISOString()}});
     var x=ex(l);
     if(!nuevo){x.hist=(x.hist||[]).concat([{at:new Date().toISOString(),by:autor()}]);}
-    l.date=f; l.type=val('type'); l.title=t; l.desc=val('desc'); x.part=val('part').trim();
+    l.date=f; l.type=val('type'); l.title=t; l.desc=val('desc'); x.part=val('part').trim(); x.cliente_visible=cvVal();
     persistir(l,nuevo?'✓ Registro creado':'✓ Registro guardado'); dirty=false;
     if(nuevo){sgAbrirRegistro(l.id,true);} else sgCerrar(true);
     pintar();
@@ -8246,7 +8269,18 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
 #portalOv .bx{background:var(--surface);border-radius:14px;max-width:520px;width:100%;padding:22px 24px;box-shadow:var(--sh2);}
 #portalOv h3{font-family:'Fraunces',serif;font-weight:400;font-size:22px;margin:0 0 6px;}
 #portalOv p{font-size:13px;color:var(--tx2);margin:0 0 12px;line-height:1.5;}
-#portalOv .lk{display:flex;gap:6px;margin:12px 0;}
+#portalOv .lk{display:flex;gap:6px;margin:12px 0;align-items:center;}
+.sg-cv{display:flex;gap:9px;align-items:flex-start;background:#EEF5FB;border:1px solid #BCDCEF;border-radius:8px;padding:9px 11px;margin:4px 0 12px;cursor:pointer;}
+.sg-cv input{margin-top:3px;}
+.sg-cv b{display:block;font-size:12.5px;font-weight:600;color:#1F4C6B;}
+.sg-cv small{display:block;font-size:11px;color:var(--tx2);}
+.npm-etapas{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 10px;}
+.npm-etapas label{display:flex;flex-direction:column;font-size:11px;color:var(--tx2);gap:2px;}
+.npm-etapas input{height:30px;border:1px solid var(--bd2);border-radius:var(--rs);padding:0 6px;font-size:12px;font-family:inherit;}
+#portalOv .pl-l{display:block;font-size:12px;color:var(--tx2);margin:10px 0 -6px;}
+#portalOv .pl-base{font-size:12.5px;color:var(--tx3);white-space:nowrap;}
+#portalOv .pl-pin{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;margin:-4px 0 10px;}
+#portalOv .pl-pin b{font-size:18px;letter-spacing:.2em;font-family:'DM Mono',monospace;}
 #portalOv .lk input{flex:1;min-width:0;border:1px solid var(--bd2);border-radius:8px;padding:8px 10px;font-size:12.5px;font-family:'DM Mono',monospace;background:var(--s2);color:var(--tx);}
 #portalOv .bt{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:14px;}
 #portalOv .nota{font-size:12px;color:var(--tx3);border-top:1px solid var(--bd);padding-top:10px;margin-top:12px;}
@@ -8291,8 +8325,14 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   function nuevoToken(){var b=new Uint8Array(18);crypto.getRandomValues(b);return btoa(String.fromCharCode.apply(null,b)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
   function proyNombre(){try{var p=projects.find(function(x){return x.id===currentProjId;});return p?p.name:'';}catch(x){return '';}}
 
-  function leerToken(pid){return fetch(SB+'/rest/v1/projects?select=portal_token&id=eq.'+encodeURIComponent(pid),{headers:H}).then(function(r){return r.ok?r.json():Promise.reject(r.status);}).then(function(a){return a&&a[0]?a[0].portal_token||'':'';});}
+  // Dirección para los links con nombre (cuando se conecte el dominio propio pasa a https://clientes.estudiobianco.cl)
+  var BASE_CLIENTES='https://estudio-bianco-app.vercel.app';
+  function slugDe(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60);}
+  function pinNuevo(){var b=new Uint16Array(1);crypto.getRandomValues(b);return String(1000+(b[0]%9000));}
+  var portalDatos={};
+  function leerToken(pid){return fetch(SB+'/rest/v1/projects?select=portal_token,portal_slug,portal_pin&id=eq.'+encodeURIComponent(pid),{headers:H}).then(function(r){return r.ok?r.json():Promise.reject(r.status);}).then(function(a){portalDatos=a&&a[0]?a[0]:{};return portalDatos.portal_token||'';});}
   function guardarToken(pid,t){return fetch(SB+'/rest/v1/projects?id=eq.'+encodeURIComponent(pid),{method:'PATCH',headers:Object.assign({},H,{Prefer:'return=minimal'}),body:JSON.stringify({portal_token:t||null})}).then(function(r){if(!r.ok)return Promise.reject(r.status);});}
+  function guardarSlug(pid,slug,pin){return fetch(SB+'/rest/v1/projects?id=eq.'+encodeURIComponent(pid),{method:'PATCH',headers:Object.assign({},H,{Prefer:'return=minimal'}),body:JSON.stringify({portal_slug:slug||null,portal_pin:pin||null})}).then(function(r){if(r.ok)return;return r.text().then(function(t){return Promise.reject(/duplicate|23505|unique/i.test(t)?'repetido':r.status);});});}
 
   window.portalAbrir=function(){
     if(!currentProjId)return;
@@ -8301,21 +8341,55 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
     leerToken(pid).then(function(t){pintarModal(pid,t);}).catch(function(){bx.innerHTML='<h3>Portal del cliente</h3><p>No se pudo conectar. Revisa tu internet e intenta de nuevo.</p><div class="bt"><button class="btn" onclick="portalCerrar()">Cerrar</button></div>';});
   };
   function pintarModal(pid,t){
-    var bx=document.getElementById('portalBx'), nom=e(proyNombre());
-    if(!t){
-      bx.innerHTML='<h3>Portal del cliente</h3><p>Crea un link privado para que tu cliente vea el listado de <b>'+nom+'</b> con fotos y precios, y pueda aprobar, pedir cambios o descartar cada producto. No necesita cuenta ni contraseña.</p>'
-        +'<p>El cliente no ve honorarios, pagos, notas internas ni otros proyectos.</p>'
-        +'<div class="bt"><button class="btn" onclick="portalCerrar()">Cancelar</button><button class="btn prim" onclick="portalCrear()">Crear link</button></div>';
-      return;
+    var bx=document.getElementById('portalBx'), nom=e(proyNombre()), sl=portalDatos.portal_slug||'', pin=portalDatos.portal_pin||'';
+    var h='<h3>Portal del cliente</h3>';
+    if(sl&&pin){
+      var L=BASE_CLIENTES+'/'+sl;
+      h+='<p>Link de <b>'+nom+'</b>. Al entrar, tu cliente escribe la clave una sola vez y su equipo la recuerda. Tras 5 claves incorrectas el link se bloquea 15 minutos.</p>'
+        +'<div class="lk"><input id="portalLink" readonly value="'+e(L)+'" onclick="this.select()"><button class="btn prim" onclick="portalCopiar()">Copiar link</button></div>'
+        +'<div class="pl-pin">Clave: <b>'+e(pin)+'</b> <button class="btn" onclick="portalCopiarMsj()">Copiar mensaje con link y clave</button> <button class="btn" onclick="portalNuevaClave()">Cambiar clave</button></div>'
+        +'<div class="bt" style="justify-content:space-between;"><span><button class="btn" onclick="window.open(\''+e(L)+'\',\'_blank\')">Ver como cliente ↗</button> <button class="btn" onclick="portalEditarSlug()">Cambiar nombre del link</button></span><span><button class="btn" style="color:var(--dn);" onclick="portalQuitarSlug()">Desactivar</button> <button class="btn" onclick="portalCerrar()">Listo</button></span></div>';
+    }else{
+      h+='<p>Crea el link de <b>'+nom+'</b> para que tu cliente vea su listado con fotos y precios, apruebe o pida cambios, y vea cómo va su proyecto. No ve honorarios, pagos del estudio, notas internas ni otros proyectos.</p>'
+        +'<label class="pl-l">Nombre del link</label><div class="lk"><span class="pl-base">'+e(BASE_CLIENTES.replace(/^https?:\/\//,''))+'/</span><input id="plSlug" value="'+e(slugDe(proyNombre()))+'" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9-]/g,\'\')"></div>'
+        +'<label class="pl-l">Clave de 4 números</label><div class="lk"><input id="plPin" maxlength="4" inputmode="numeric" value="'+pinNuevo()+'" style="max-width:110px;text-align:center;letter-spacing:.3em;" oninput="this.value=this.value.replace(/\\D/g,\'\')"></div>'
+        +'<div class="bt"><button class="btn" onclick="portalCerrar()">Cancelar</button><button class="btn prim" onclick="portalCrearSlug()">Crear link</button></div>';
     }
-    var L=linkDe(t);
-    bx.innerHTML='<h3>Portal del cliente</h3><p>Este es el link privado de <b>'+nom+'</b>. Envíaselo a tu cliente por WhatsApp o correo. Cualquier persona que tenga el link puede ver el listado y responder.</p>'
-      +'<div class="lk"><input id="portalLink" readonly value="'+e(L)+'" onclick="this.select()"><button class="btn prim" onclick="portalCopiar()">Copiar</button></div>'
-      +'<div class="bt" style="justify-content:space-between;"><span><button class="btn" onclick="window.open(\''+e(L)+'\',\'_blank\')">Ver como cliente ↗</button></span><span><button class="btn" style="color:var(--dn);" onclick="portalDesactivar()">Desactivar link</button> <button class="btn" onclick="portalCerrar()">Listo</button></span></div>'
-      +'<div id="portalIng" class="nota" style="color:var(--tx2);">Cargando ingresos…</div>'
-      +'<div class="nota">Si desactivas el link, el anterior deja de funcionar. Puedes crear uno nuevo cuando quieras. Las respuestas del cliente aparecen en el listado y en la Bitácora.</div>';
+    if(t){
+      var LA=linkDe(t);
+      h+='<div class="nota" style="margin-top:14px;"><b>Link anterior (sin clave):</b> sigue funcionando para quien ya lo tiene. Cuando tu cliente use el link nuevo, desactívalo.<div class="lk" style="margin-top:6px;"><input readonly value="'+e(LA)+'" onclick="this.select()"><button class="btn" style="color:var(--dn);" onclick="portalDesactivar()">Desactivar</button></div></div>';
+    }
+    h+='<div id="portalIng" class="nota" style="color:var(--tx2);">Cargando ingresos…</div>';
+    bx.innerHTML=h;
     pintarIngresos(pid);
   }
+  window.portalCrearSlug=function(){
+    var pid=currentProjId, sl=slugDe(document.getElementById('plSlug').value), pin=(document.getElementById('plPin').value||'').replace(/\D/g,'');
+    if(sl.length<3){alert('El nombre del link debe tener al menos 3 letras o números.');return;}
+    if(['api','cliente','index','admin','app','www'].indexOf(sl)>=0){alert('Ese nombre está reservado. Usa otro, por ejemplo el apellido del cliente.');return;}
+    if(pin.length!==4){alert('La clave debe tener 4 números.');return;}
+    guardarSlug(pid,sl,pin).then(function(){portalDatos.portal_slug=sl;portalDatos.portal_pin=pin;pintarModal(pid,portalDatos.portal_token||'');tst('✓ Link creado');})
+      .catch(function(s){alert(s==='repetido'?'Ese nombre de link ya lo usa otro proyecto. Elige otro.':'No se pudo guardar ('+s+'). Intenta de nuevo.');});
+  };
+  window.portalNuevaClave=function(){
+    if(!confirm('¿Cambiar la clave? Tu cliente tendrá que escribir la nueva la próxima vez que entre.'))return;
+    var pid=currentProjId, pin=pinNuevo();
+    guardarSlug(pid,portalDatos.portal_slug,pin).then(function(){portalDatos.portal_pin=pin;pintarModal(pid,portalDatos.portal_token||'');tst('✓ Clave nueva: '+pin);}).catch(function(){alert('No se pudo cambiar la clave. Intenta de nuevo.');});
+  };
+  window.portalEditarSlug=function(){
+    var n=prompt('Nuevo nombre del link (solo letras, números y guiones):',portalDatos.portal_slug||''); if(n===null)return;
+    var sl=slugDe(n), pid=currentProjId; if(sl.length<3){alert('Debe tener al menos 3 letras o números.');return;}
+    guardarSlug(pid,sl,portalDatos.portal_pin).then(function(){portalDatos.portal_slug=sl;pintarModal(pid,portalDatos.portal_token||'');tst('✓ Link actualizado');})
+      .catch(function(s){alert(s==='repetido'?'Ese nombre de link ya lo usa otro proyecto.':'No se pudo guardar.');});
+  };
+  window.portalQuitarSlug=function(){
+    if(!confirm('¿Desactivar este link? Tu cliente ya no podrá entrar con él.'))return;
+    var pid=currentProjId; guardarSlug(pid,'','').then(function(){portalDatos.portal_slug='';portalDatos.portal_pin='';pintarModal(pid,portalDatos.portal_token||'');tst('Link desactivado');}).catch(function(){alert('No se pudo desactivar.');});
+  };
+  window.portalCopiarMsj=function(){
+    var txt='Hola, este es el link de tu proyecto en Estudio Bianco: '+BASE_CLIENTES+'/'+portalDatos.portal_slug+'\nTu clave es: '+portalDatos.portal_pin;
+    try{navigator.clipboard.writeText(txt).then(function(){tst('✓ Mensaje copiado, pégalo en WhatsApp o en un correo');});}catch(x){prompt('Copia este mensaje:',txt);}
+  };
   // Historial de ingresos al portal (en la ventana del link)
   function pintarIngresos(pid){
     fetch(SB+'/rest/v1/logs?select=id,date,responsible,extra&project_id=eq.'+encodeURIComponent(pid)+'&category=eq.visita&order=id.desc&limit=30',{headers:H})
@@ -8403,13 +8477,11 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   function exDe(l){try{return typeof l.extra==='string'?JSON.parse(l.extra||'{}'):(l.extra||{});}catch(x){return {};}}
   function respuestasDe(itemId){return ultimas.filter(function(l){return l.category!=='visita'&&+l.item_id===+itemId;});}
   window.portalCom=function(r){
-    if(!esAdm())return ''; // los comentarios del cliente solo los ve la administración
     var rs=respuestasDe(r.id); if(!rs.length)return '';
     var conTexto=rs.filter(function(l){return (l.description||'').trim();}), ult=rs[0];
     return '<button class="pc-badge'+(conTexto.length?' txt':'')+'" title="'+e((ult.responsible||'Cliente')+': '+(ult.description||String(ult.title||'').replace(/^Cliente: /,'')))+'" onclick="event.stopPropagation();portalIr('+r.id+',0)">💬 '+(conTexto.length||rs.length)+'</button>';
   };
   window.portalComsHTML=function(itemId){
-    if(!esAdm())return '';
     var rs=respuestasDe(itemId); if(!rs.length)return '';
     return '<div class="pc-box" id="pcBox"><div class="pc-t">💬 Comentarios del cliente</div>'+rs.slice(0,12).map(function(l){
       var x=exDe(l), dec=x.decision||(x.compra?'Registró su compra':'');
