@@ -135,8 +135,11 @@ footer b{color:var(--tx2);font-weight:700;}
 .dph .zoom{position:absolute;right:10px;bottom:10px;font-size:11.5px;background:rgba(255,255,255,.92);border:1px solid var(--bd);border-radius:99px;padding:3px 10px;color:var(--tx2);}
 .gal{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
 @media (max-width:640px){.gal{grid-template-columns:1fr;}}
-.g-t{position:relative;aspect-ratio:3/2;border-radius:10px;overflow:hidden;background:#D9D2C9;}
-.g-t img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in;transition:transform .5s ease;}
+.g-t{position:relative;aspect-ratio:15/7;border-radius:10px;overflow:hidden;background:#2B241F;}
+/* Formato de las imágenes: 15:7 (ej. 3000 x 1400 px). La foto se ve completa; si viene en otro formato, el espacio que sobra se rellena con la misma foto difuminada */
+.g-t img{position:relative;z-index:1;width:100%;height:100%;object-fit:contain;display:block;cursor:zoom-in;transition:transform .5s ease;}
+.g-bg{position:absolute;inset:-24px;background-position:center;background-size:cover;filter:blur(20px) brightness(.75);}
+.g-est,.g-ab,.g-pie{z-index:2;}
 .g-t:hover img{transform:scale(1.03);}
 .g-pdf{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#5B4A3E;font-size:13px;cursor:pointer;}
 .g-pdf b{font-size:34px;letter-spacing:.05em;}
@@ -593,7 +596,7 @@ details.sv-det[open] summary h3::after{content:' ▴';}
     arr.forEach(function(d){
       var es_=est(d), nC=(D.respuestas||[]).filter(function(x){return x.docId===d.id&&x.comentario;}).length;
       var bdg=es_==='Aprobado'?'<span class="g-est ok">✓ Aprobado</span>':es_==='Rechazado'?'<span class="g-est no">✕ Rechazado</span>':es_==='Cambios solicitados'?'<span class="g-est ca">✎ Cambios pedidos</span>':'';
-      h+='<div class="g-t">'+(d.pdf?'<div class="g-pdf" onclick="ebVerDoc('+d.id+')"><b>PDF</b>Abrir documento</div>':'<img src="'+e(d.url)+'" alt="'+e(d.titulo)+'" loading="lazy" onclick="ebVerDoc('+d.id+')">')
+      h+='<div class="g-t">'+(d.pdf?'<div class="g-pdf" onclick="ebVerDoc('+d.id+')"><b>PDF</b>Abrir documento</div>':'<div class="g-bg" style="background-image:url(\''+e(d.url)+'\')"></div><img src="'+e(d.url)+'" alt="'+e(d.titulo)+'" loading="lazy" onclick="ebVerDoc('+d.id+')">')
         +bdg
         +'<div class="g-ab"><button class="g-ap'+(es_==='Aprobado'?' on':'')+'" onclick="ebR('+d.id+',\'Aprobado\',1)" title="Aprobar">✓ Aprobar</button><button class="g-re'+(es_==='Rechazado'?' on':'')+'" onclick="ebR('+d.id+',\'Rechazado\',1)" title="Rechazar">✕ Rechazar</button></div>'
         +'<div class="g-pie"><div class="g-tx" onclick="ebVerDoc('+d.id+')"><b>'+e(d.titulo)+'</b><span>'+[d.espacio,d.version>1?'Versión '+d.version:'',d.fecha?fechaCorta(d.fecha):''].filter(Boolean).map(e).join(' · ')+(d.nota?' · 📝 nota del estudio':'')+(nC?' · 💬 '+nC:'')+'</span></div>'
