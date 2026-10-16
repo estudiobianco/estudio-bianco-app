@@ -1177,11 +1177,12 @@ body.col-resizing *{cursor:col-resize !important;}
 <div class="page" id="page-honorarios">
   <div class="ph"><div><h1>Honorarios I — Diseño y gestión</h1><p>Pagos recibidos y resumen de ítems de honorarios · Estudio Bianco Spa</p></div></div>
   <div class="kr" id="honKPI"></div>
+  <div class="tc" id="servicioBox" style="padding:16px 18px;"></div>
   <div class="pw"><div class="pm"><span id="progLabel"></span><span id="progPct"></span></div><div class="ptr"><div class="pf" id="progFill" style="width:0%"></div></div></div>
   <div class="tc" id="honItemsTc">
     <div class="tch"><h2>Ítems de honorarios</h2><p>Todos los ítems con categoría "Honorarios" del listado general</p></div>
     <div class="ts"><table>
-      <thead><tr><th style="width:26px"></th><th style="min-width:200px">Ítem</th><th style="width:120px">Proveedor</th><th style="width:88px">Total</th><th style="width:115px">Est. pago</th><th style="width:95px">Pagado</th><th style="width:95px">Saldo</th></tr></thead>
+      <thead><tr><th style="width:26px"></th><th style="min-width:200px">Cuota</th><th style="width:120px">Proveedor</th><th style="width:88px">Total</th><th style="width:125px">Vence</th><th style="width:115px">Est. pago</th><th style="width:95px">Pagado</th><th style="width:95px">Saldo</th></tr></thead>
       <tbody id="honItemsBody"></tbody>
     </table></div>
   </div>
@@ -2392,10 +2393,10 @@ function rH(){
     const pc=payCls(r.payStatus);
     const pid='honi-'+r.id,bid='honib-'+r.id;
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td><button class="xb" id="${bid}" onclick="tE('${pid}','${bid}')">›</button></td><td style="font-weight:500;">${es(r.item)}</td><td style="color:var(--tx2);font-size:11.5px;">${es(r.supplier)}</td><td class="mono" style="text-align:right;">${t>0?fm(t):'—'}</td><td><select onchange="uI(${r.id},'payStatus',this.value)" style="font-size:10.5px;">${PAY_OPTS.map(s=>`<option${s===r.payStatus?' selected':''}>${s}</option>`).join('')}</select></td><td class="mono" style="text-align:right;color:var(--ac);">${tpd>0?fm(tpd):'—'}</td><td class="mono" style="text-align:right;color:var(--dn);">${tpn>0?fm(tpn):'—'}</td>`;
+    tr.innerHTML=`<td><button class="xb" id="${bid}" onclick="tE('${pid}','${bid}')">›</button></td><td style="font-weight:500;">${es(r.item)}</td><td style="color:var(--tx2);font-size:11.5px;">${es(r.supplier)}</td><td class="mono" style="text-align:right;">${t>0?fm(t):'—'}</td><td><input type="date" value="${r.vence||''}" onchange="uI(${r.id},'vence',this.value)" title="Fecha en que vence esta cuota (la ve el cliente)" style="font-size:11px;"></td><td><select onchange="uI(${r.id},'payStatus',this.value)" style="font-size:10.5px;">${PAY_OPTS.map(s=>`<option${s===r.payStatus?' selected':''}>${s}</option>`).join('')}</select></td><td class="mono" style="text-align:right;color:var(--ac);">${tpd>0?fm(tpd):'—'}</td><td class="mono" style="text-align:right;color:var(--dn);">${tpn>0?fm(tpn):'—'}</td>`;
     hib.appendChild(tr);
     const ep=document.createElement('tr');ep.id=pid;ep.className='xp';
-    ep.innerHTML=`<td colspan="7"><div class="xi"><div class="xtit">Cuotas — ${es(r.item)}</div><table class="ptbl"><thead><tr><th style="width:75px">Cuota</th><th style="width:75px">%</th><th style="width:105px">Monto ($)</th><th style="width:110px">Fecha pago</th><th style="width:140px">Medio de pago</th><th>Nota</th></tr></thead><tbody>${buildPayRows(r.id,'uIQ')}</tbody></table><div class="pay-sum"><div class="psi"><div class="psl">Total pagado</div><div class="psv g">${fm(tpd)}</div></div><div class="psi"><div class="psl">Saldo</div><div class="psv r">${fm(tpn)}</div></div></div></div></td>`;
+    ep.innerHTML=`<td colspan="8"><div class="xi"><div class="xtit">Cuotas — ${es(r.item)}</div><table class="ptbl"><thead><tr><th style="width:75px">Cuota</th><th style="width:75px">%</th><th style="width:105px">Monto ($)</th><th style="width:110px">Fecha pago</th><th style="width:140px">Medio de pago</th><th>Nota</th></tr></thead><tbody>${buildPayRows(r.id,'uIQ')}</tbody></table><div class="pay-sum"><div class="psi"><div class="psl">Total pagado</div><div class="psv g">${fm(tpd)}</div></div><div class="psi"><div class="psl">Saldo</div><div class="psv r">${fm(tpn)}</div></div></div></div></td>`;
     hib.appendChild(ep);
   });
   // Pagos recibidos
@@ -2409,6 +2410,7 @@ function rH(){
   document.getElementById('progLabel').textContent=fm(tot)+' de '+fm(HT);
   document.getElementById('progPct').textContent=pct+'%';
   restoreP();
+  try{if(typeof window.ebServicio==='function')window.ebServicio();}catch(e){}
 }
 function uPg(id,f,v){const p=pagos.find(x=>x.id===id);if(p){p[f]=v;rH();sAll();}}
 function dPg(id){if(confirm('¿Eliminar este pago?')){pagos=pagos.filter(x=>x.id!==id);rH();sAll();}}
@@ -4526,7 +4528,7 @@ function renderGantt(){
       est_delivery:r.estDelivery||'', actual_delivery:r.actualDelivery||'',
       install_date:r.installDate||'', track_note:r.trackNote||'',
       lead_unit:r.leadUnit||'semanas', date_history:JSON.stringify(r.dateHistory||[]),
-      order_num:r.orderNum||'', ship_cost:+r.shipCost||0, delivery_resp:r.deliveryResp||'', ship_link:r.shipLink||'',
+      order_num:r.orderNum||'', ship_cost:+r.shipCost||0, vence:r.vence||'', delivery_resp:r.deliveryResp||'', ship_link:r.shipLink||'',
       image_url:r.imageUrl||'',
       opt_group:r.optGroup||'', opt_sel:r.optSel?'1':'', opt_rec:r.optRec?'1':'', client_note:r.clientNote||'', sort_order:(r.sortOrder==null||r.sortOrder==='')?null:+r.sortOrder
     };
@@ -4551,7 +4553,7 @@ function renderGantt(){
       estDelivery:x.est_delivery||'', actualDelivery:x.actual_delivery||'',
       installDate:x.install_date||'', trackNote:x.track_note||'',
       leadUnit:x.lead_unit||'semanas', dateHistory:(function(){try{return JSON.parse(x.date_history||'[]');}catch(e){return [];}})(),
-      orderNum:x.order_num||'', shipCost:+x.ship_cost||0, deliveryResp:x.delivery_resp||'', shipLink:x.ship_link||'',
+      orderNum:x.order_num||'', shipCost:+x.ship_cost||0, vence:x.vence||'', deliveryResp:x.delivery_resp||'', shipLink:x.ship_link||'',
       imageUrl:x.image_url||'',
       optGroup:x.opt_group||'', optSel:x.opt_sel==='1', optRec:x.opt_rec==='1', clientNote:x.client_note||'', sortOrder:x.sort_order==null?null:+x.sort_order
     };
@@ -8963,5 +8965,64 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
 })();
 </script>
 
+<script>
+// ══ SERVICIO PARA EL PORTAL DEL CLIENTE ══
+// Cotización del estudio (PDF en el almacenamiento privado 'servicio') y "qué incluye" (tabla servicio).
+// Solo la administradora puede leerlo o cambiarlo; el cliente abre la cotización con un link temporal que genera el servidor del portal.
+(function(){
+  var SB='https://iucjhzsnlotojvpyjcfo.supabase.co';
+  var KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1Y2poenNubG90b2p2cHlqY2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMTIzMTYsImV4cCI6MjA5NDY4ODMxNn0.PKLG4LS1EjgfHE0GXAnyxWuEUhlZy5s7TWxe8luvuik';
+  var H={apikey:KEY,'Content-Type':'application/json'}, datos={};
+  function e(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function ruta(p){return String(p).split('/').map(encodeURIComponent).join('/');}
+  function cargar(pid){return fetch(SB+'/rest/v1/servicio?select=*&project_id=eq.'+encodeURIComponent(pid),{headers:H}).then(function(r){return r.ok?r.json():Promise.reject(r.status);}).then(function(a){datos[pid]=a[0]||{project_id:pid,cotizacion_path:'',cotizacion_nombre:'',incluye:'',mostrar:true};return datos[pid];});}
+  function guardar(pid,campos){Object.assign(datos[pid],campos);return fetch(SB+'/rest/v1/servicio?on_conflict=project_id',{method:'POST',headers:Object.assign({},H,{Prefer:'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(Object.assign({project_id:pid,updated_at:new Date().toISOString()},campos))}).then(function(r){if(!r.ok)return Promise.reject(r.status);});}
+  window.ebServicio=function(){
+    var box=document.getElementById('servicioBox'); if(!box||!currentProjId)return; var pid=currentProjId;
+    if(!datos[pid]){box.innerHTML='<span style="color:var(--tx3);font-size:12px;">Cargando datos del servicio…</span>';cargar(pid).then(function(){if(pid===currentProjId)window.ebServicio();}).catch(function(){box.innerHTML='<span style="color:var(--dn);font-size:12px;">No se pudieron cargar los datos del servicio.</span>';});return;}
+    var d=datos[pid];
+    box.innerHTML='<div class="sv-h"><h2>Para el portal del cliente</h2><label class="sv-ck"><input type="checkbox"'+(d.mostrar!==false?' checked':'')+' onchange="ebSvMostrar(this.checked)"> Mostrar "Detalles de tu servicio" en su portal</label></div>'
+      +'<div class="sv-g"><div><label class="sv-l">Cotización del estudio (PDF)</label><div class="sv-f">'
+      +(d.cotizacion_path?'<span class="sv-pdf">📄 '+e(d.cotizacion_nombre||'Cotización')+'</span><button class="btn" onclick="ebSvVer()">Ver</button><button class="btn" style="color:var(--dn);" onclick="ebSvQuitar()">Quitar</button>':'<span style="color:var(--tx3);font-size:12.5px;">Sin cotización</span>')
+      +'<label class="btn">'+(d.cotizacion_path?'Cambiar':'Subir PDF')+'<input type="file" accept="application/pdf" style="display:none;" onchange="ebSvSubir(this)"></label></div>'
+      +'<small>Se guarda en un espacio privado: el cliente la abre con un link temporal y nadie más puede verla.</small></div>'
+      +'<div><label class="sv-l">Qué incluye el servicio</label><textarea rows="4" placeholder="Ej: Diseño de living, comedor y dormitorio principal: anteproyecto, 2 correcciones, láminas de muebles a medida y listado de compras. Incluye gestión de compras y 3 visitas de obra." onchange="ebSvIncluye(this.value)">'+e(d.incluye||'')+'</textarea></div></div>'
+      +'<small>Las cuotas que ve el cliente son los ítems de honorarios de abajo: su nombre, monto, fecha en que vence y si están pagadas.</small>';
+  };
+  window.ebSvMostrar=function(v){guardar(currentProjId,{mostrar:!!v}).then(function(){tst(v?'✓ Se muestra en el portal':'Oculto en el portal');}).catch(function(){alert('No se pudo guardar.');});};
+  window.ebSvIncluye=function(v){guardar(currentProjId,{incluye:v}).then(function(){tst('✓ Guardado');}).catch(function(){alert('No se pudo guardar.');});};
+  window.ebSvSubir=function(inp){
+    var f=inp.files&&inp.files[0]; if(!f)return; var pid=currentProjId, d=datos[pid];
+    if(f.size>15*1024*1024){alert('El PDF pesa más de 15 MB.');return;}
+    var nombre=f.name.replace(/[^\w.\-áéíóúñÁÉÍÓÚÑ ]+/g,'').slice(0,80)||'cotizacion.pdf', path=pid+'/'+Date.now()+'-'+nombre.replace(/\s+/g,'-'), viejo=d.cotizacion_path;
+    tst('Subiendo cotización…');
+    fetch(SB+'/storage/v1/object/servicio/'+ruta(path),{method:'POST',headers:{apikey:KEY,'Content-Type':'application/pdf','x-upsert':'true'},body:f})
+      .then(function(r){if(!r.ok)return Promise.reject(r.status);return guardar(pid,{cotizacion_path:path,cotizacion_nombre:nombre});})
+      .then(function(){if(viejo)fetch(SB+'/storage/v1/object/servicio/'+ruta(viejo),{method:'DELETE',headers:{apikey:KEY}}).catch(function(){});tst('✓ Cotización subida');window.ebServicio();})
+      .catch(function(s){alert('No se pudo subir la cotización ('+s+').');});
+  };
+  window.ebSvVer=function(){
+    var d=datos[currentProjId]; if(!d||!d.cotizacion_path)return;
+    fetch(SB+'/storage/v1/object/sign/servicio/'+ruta(d.cotizacion_path),{method:'POST',headers:H,body:JSON.stringify({expiresIn:600})})
+      .then(function(r){return r.ok?r.json():Promise.reject(r.status);}).then(function(j){window.open(SB+'/storage/v1'+j.signedURL,'_blank');}).catch(function(){alert('No se pudo abrir la cotización.');});
+  };
+  window.ebSvQuitar=function(){
+    var pid=currentProjId, d=datos[pid]; if(!d.cotizacion_path||!confirm('¿Quitar la cotización? El cliente ya no la verá.'))return; var viejo=d.cotizacion_path;
+    guardar(pid,{cotizacion_path:'',cotizacion_nombre:''}).then(function(){fetch(SB+'/storage/v1/object/servicio/'+ruta(viejo),{method:'DELETE',headers:{apikey:KEY}}).catch(function(){});window.ebServicio();}).catch(function(){alert('No se pudo quitar.');});
+  };
+})();
+</script>
+<style>
+#servicioBox .sv-h{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+#servicioBox h2{font-size:15px;margin:0;}
+#servicioBox .sv-ck{font-size:12.5px;color:var(--tx2);display:flex;gap:6px;align-items:center;cursor:pointer;}
+#servicioBox .sv-g{display:grid;grid-template-columns:1fr 1.4fr;gap:16px;margin-bottom:8px;}
+#servicioBox .sv-l{display:block;font-size:11.5px;color:var(--tx2);margin-bottom:6px;font-weight:600;}
+#servicioBox .sv-f{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px;}
+#servicioBox .sv-pdf{font-size:12.5px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#servicioBox textarea{width:100%;border:1px solid var(--bd2);border-radius:var(--rs);padding:8px 10px;font-family:inherit;font-size:12.5px;resize:vertical;}
+#servicioBox small{font-size:11px;color:var(--tx3);display:block;}
+@media (max-width:800px){#servicioBox .sv-g{grid-template-columns:1fr;}}
+</style>
 </body>
 </html>

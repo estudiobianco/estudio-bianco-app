@@ -326,7 +326,47 @@ details.mas[open] summary::after{content:'▴';}
 .pr .t{white-space:nowrap;}
 /* Opción elegida y recomendada en celeste (pedido de Ankel) */
 .card.op.sel{border:1.5px solid #8EC3E6!important;box-shadow:0 0 0 4px #E4F1FA,0 6px 22px rgba(47,120,168,.10)!important;}
-.gsub b .st,.recb .st{color:#3B8FD0;}</style>
+.gsub b .st,.recb .st{color:#3B8FD0;}/* Cómo va tu proyecto: servicio, novedades y carta Gantt */
+details.sv-det summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;}
+details.sv-det summary::-webkit-details-marker{display:none;}
+details.sv-det summary h3{margin:0;}
+details.sv-det summary h3::after{content:' ▾';font-size:14px;color:#8A8077;}
+details.sv-det[open] summary h3::after{content:' ▴';}
+.sv-res{font-size:13px;color:#6F655C;}
+.sv-c{margin-top:14px;display:flex;flex-direction:column;gap:12px;}
+.sv-inc span{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#8A8077;margin-bottom:4px;}
+.sv-inc p{font-size:13.5px;white-space:pre-line;}
+.sv-cot{align-self:flex-start;display:inline-flex;gap:8px;align-items:center;border:1px solid #CBBFAF;border-radius:6px;padding:8px 14px;color:#5B4A3E;text-decoration:none;font-weight:500;font-size:13.5px;background:#FBF9F5;}
+.sv-cot small{color:#8A8077;font-weight:400;}
+.sv-t{width:100%;border-collapse:collapse;font-size:13px;}
+.sv-t th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#8A8077;font-weight:600;padding:6px 8px;border-bottom:1px solid #E8DED4;}
+.sv-t td{padding:9px 8px;border-bottom:1px solid #F1ECE6;}
+.sv-t .n{text-align:right;white-space:nowrap;}
+.sv-t tfoot td{font-weight:600;border-bottom:0;}
+.sv-ok{color:#5B4A3E;font-weight:600;}
+.sv-pe{color:#8A8077;}
+.sv-atr{color:#B4483C;font-weight:600;}
+.nov-acc{background:#E8DED4;border-radius:6px;padding:10px 12px;font-size:13px;cursor:pointer;margin-bottom:10px;}
+.nov-sub{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#8A8077;margin:12px 0 6px;}
+.nov{list-style:none;display:flex;flex-direction:column;}
+.nov li{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid #F1ECE6;font-size:13px;}
+.nov li b{font-weight:500;}
+.nov li span{color:#8A8077;font-size:12px;white-space:nowrap;}
+.gt-w{position:relative;--gt-n:190px;padding-top:22px;}
+.gt-ax{position:absolute;top:0;left:var(--gt-n);right:0;height:18px;}
+.gt-ax span{position:absolute;font-size:11px;color:#8A8077;text-transform:capitalize;transform:translateX(2px);}
+.gt-r{display:flex;align-items:center;min-height:42px;border-top:1px solid #F1ECE6;}
+.gt-n{width:var(--gt-n);flex:none;padding-right:10px;}
+.gt-n b{display:block;font-size:13px;font-weight:600;}
+.gt-n span{font-size:11px;color:#8A8077;}
+.gt-t{position:relative;flex:1;height:42px;}
+.gt-t i{position:absolute;top:0;bottom:0;width:1px;background:#F1ECE6;}
+.gt-b{position:absolute;top:14px;height:14px;border-radius:7px;background:#E8DED4;overflow:hidden;}
+.gt-b div{height:100%;background:#8A8077;border-radius:7px;}
+.gt-b.ok div{background:#5B4A3E;}
+.gt-hoy{position:absolute;top:16px;bottom:0;width:0;border-left:1.5px dashed #3B8FD0;}
+.gt-hoy span{position:absolute;top:-16px;left:-12px;font-size:10px;color:#3B8FD0;font-weight:600;}
+@media (max-width:600px){.gt-w{--gt-n:110px;}.gt-n b{font-size:12px;}.nov li{flex-direction:column;gap:0;}}</style>
 </head>
 <body>
 <div class="wrap" id="app"><div class="msg">Cargando tu proyecto…</div></div>
@@ -547,35 +587,68 @@ details.mas[open] summary::after{content:'▴';}
     var sg=D.seguimiento||{}, et=sg.etapa||'', fe=sg.fechas||{}, cerrado=et==='cerrado', idx=cerrado?ETAPAS.length:ETAPAS.map(function(x){return x[0];}).indexOf(et);
     var its=D.items.filter(function(it){return !fuera(it)&&est(it)!=='Rechazado';});
     var hoyS=new Date().toLocaleDateString('sv-SE',{timeZone:'America/Santiago'});
-    // La etapa siempre queda marcada: si el estudio no la eligió, se deduce de las fechas (o es la primera)
     if(idx<0){idx=0;ETAPAS.forEach(function(x,i){if(fe[x[0]]&&fe[x[0]]<=hoyS)idx=i;});}
-    var h='<p class="sub" style="margin:0 0 18px;">Un resumen de cómo avanza tu proyecto. Lo vamos actualizando a medida que avanzamos.</p>';
-    h+='<div class="av-sec"><h3>Etapas</h3><div class="etapas">'+ETAPAS.map(function(x,i){var st=i<idx?'hecha':(i===idx?'actual':'');return '<div class="et '+st+'"><span class="et-p">'+(st==='hecha'?'✓':(i+1))+'</span><b>'+x[1]+'</b>'+(fe[x[0]]?'<small>'+e(fechaCorta(fe[x[0]]))+'</small>':'')+(st==='actual'?'<em>Estamos aquí</em>':'')+'</div>';}).join('')+'</div>'
-      +(cerrado?'<p class="meta" style="margin-top:10px;">✓ Tu proyecto está terminado. ¡Gracias por confiar en nosotros!</p>':'')+'</div>';
-    var prox=[], agenda=sg.proximas||[];
-    if(agenda[0])prox.push('<li><b>📅 Próxima reunión: '+e(agenda[0].titulo)+'</b><span>'+e(fechaLarga(agenda[0].fecha))+(agenda[0].hora?' · '+e(agenda[0].hora):'')+(agenda[0].lugar?' · '+e(agenda[0].lugar):'')+'</span></li>');
-    var enCamino=its.filter(function(it){return (it.pedido||it.entrega!=='Por pedir')&&it.entrega!=='Entregado';}).sort(function(a,b){return (a.llega||'9999').localeCompare(b.llega||'9999');});
-    var sig=enCamino.filter(function(it){return it.llega&&it.llega>=hoyS;})[0];
-    if(sig)prox.push('<li><b>🚚 Próxima entrega: '+e(sig.item)+'</b><span>Llega aprox. el '+e(fechaLarga(sig.llega))+'</span></li>');
-    var porRev=its.filter(function(it){return est(it)==='Por revisar';}).length;
-    if(porRev)prox.push('<li class="clic" onclick="ebF(\'Por revisar\');ebV(\'compras\')"><b>✋ Esperamos tu respuesta en '+porRev+' producto'+(porRev===1?'':'s')+'</b><span>Toca aquí para revisarlos</span></li>');
-    h+='<div class="av-sec"><h3>Próximo</h3>'+(prox.length?'<ul class="prox">'+prox.join('')+'</ul>':'<p class="meta">Por ahora no hay nada pendiente de tu parte.</p>')+'</div>';
-    if(agenda.length)h+='<div class="av-sec"><h3>Agenda de reuniones</h3><div class="obra">'+agenda.map(function(r){return '<div class="ob"><span class="ob-f">'+e(fechaCorta(r.fecha))+(r.hora?'<br>'+e(r.hora):'')+'</span><div><b>'+e(r.titulo)+'</b><small>'+e(fechaLarga(r.fecha))+(r.lugar?' · '+e(r.lugar):'')+'</small></div></div>';}).join('')+'</div></div>';
-    var recibidos=its.filter(function(it){return it.entrega==='Entregado';}), nPed=enCamino.length+recibidos.length;
-    if(nPed)h+='<div class="av-sec"><h3>Entregas de productos <small>'+recibidos.length+' de '+nPed+' recibidos</small></h3><div class="ents">'
-      +enCamino.map(function(it){var atr=it.llega&&it.llega<hoyS;return '<div class="en'+(atr?' atr':'')+'"><div><b>'+e(it.item)+'</b><span>'+e(it.espacio||'')+'</span></div><em>'+(it.llega?(atr?'Atrasado · era el '+e(fechaCorta(it.llega)):'Llega aprox. '+e(fechaCorta(it.llega))):'Fecha por confirmar')+'</em></div>';}).join('')
-      +recibidos.map(function(it){return '<div class="en ok"><div><b>'+e(it.item)+'</b><span>'+e(it.espacio||'')+'</span></div><em>✓ Llegó'+(it.llego?' el '+e(fechaCorta(it.llego)):'')+'</em></div>';}).join('')+'</div></div>';
-    var av=sg.avances||[];
-    if(av.length)h+='<div class="av-sec"><h3>Avances de obra</h3><div class="obra">'+av.map(function(a){return '<div class="ob'+(a.estado==='Terminado'?' hecha':'')+'"><span class="ob-f">'+e(fechaCorta(a.fecha))+(a.hasta?' – '+e(fechaCorta(a.hasta)):'')+'</span><div><b>'+e(a.titulo)+'</b><small>'+[a.tipo,a.estado].filter(Boolean).map(e).join(' · ')+'</small></div></div>';}).join('')+'</div></div>';
-    var reus=sg.reuniones||[];
-    if(reus.length)h+='<div class="av-sec"><h3>Resumen de reuniones</h3>'+reus.map(function(r){return '<div class="reu"><span class="rf">'+e(fechaLarga(r.fecha))+'</span><b>'+e(r.titulo)+'</b>'+(r.resumen?'<div class="rt">'+e(r.resumen)+'</div>':'')+(r.acuerdos?'<div class="ra"><b style="display:inline;font-size:12.5px;">Acuerdos:</b> '+e(r.acuerdos)+'</div>':'')+'</div>';}).join('')+'</div>';
-    // Datos del proyecto y a quién contactar
+    var h='';
+    // 1. Datos del proyecto y contactos
     var P=D.proyecto||{}, cts=D.contactos||[];
     var dat=[['Proyecto',P.nombre],['Cliente',P.cliente],['Dirección',P.direccion],['Inicio',P.inicio?fechaCorta(P.inicio):'']].filter(function(x){return x[1];});
-    h+='<div class="av-sec"><h3>Datos del proyecto y contactos</h3>'+(dat.length?'<div class="datos">'+dat.map(function(x){return '<div><span>'+x[0]+'</span>'+e(x[1])+'</div>';}).join('')+'</div>':'')
+    h+='<div class="av-sec"><h3>Datos del proyecto</h3>'+(dat.length?'<div class="datos">'+dat.map(function(x){return '<div><span>'+x[0]+'</span>'+e(x[1])+'</div>';}).join('')+'</div>':'')
       +(cts.length?'<p class="meta" style="margin:14px 0 4px;">¿Tienes alguna duda? Escríbenos directo a quien corresponda:</p><div class="contactos">'+cts.map(function(c){return '<div class="ct"><small>'+e(c.area)+'</small><b>'+e(c.nombre)+'</b>'+(c.telefono?'<a href="tel:'+e(String(c.telefono).replace(/[^\d+]/g,''))+'">☎ '+e(c.telefono)+'</a>':'')+(c.correo?'<a href="mailto:'+e(c.correo)+'">✉ '+e(c.correo)+'</a>':'')+'</div>';}).join('')+'</div>':'')+'</div>';
+    // 2. Etapas
+    h+='<div class="av-sec"><h3>Etapas</h3><div class="etapas">'+ETAPAS.map(function(x,i){var st=i<idx?'hecha':(i===idx?'actual':'');return '<div class="et '+st+'"><span class="et-p">'+(st==='hecha'?'✓':(i+1))+'</span><b>'+x[1]+'</b>'+(fe[x[0]]?'<small>'+e(fechaCorta(fe[x[0]]))+'</small>':'')+(st==='actual'?'<em>Estamos aquí</em>':'')+'</div>';}).join('')+'</div>'
+      +(cerrado?'<p class="meta" style="margin-top:10px;">✓ Tu proyecto está terminado. ¡Gracias por confiar en nosotros!</p>':'')+'</div>';
+    // 3. Detalles de tu servicio (plegable)
+    var sv=D.servicio;
+    if(sv){
+      var nPend=(sv.cuotas||[]).filter(function(c){return !c.pagada;}).length;
+      h+='<details class="av-sec sv-det"'+(svAbierto?' open':'')+' ontoggle="svAbierto=this.open"><summary><h3>Detalles de tu servicio</h3><span class="sv-res">'+(sv.total?'Pagado '+m(sv.pagado)+' de '+m(sv.total)+(sv.saldo>0?' · pendiente '+m(sv.saldo):' · al día ✓'):'Ver detalle')+'</span></summary><div class="sv-c">'
+        +(sv.incluye?'<div class="sv-inc"><span>Qué incluye</span><p>'+e(sv.incluye)+'</p></div>':'')
+        +(sv.cotizacion?'<a class="sv-cot" href="'+e(sv.cotizacion)+'" target="_blank" rel="noopener">📄 Ver cotización'+(sv.cotizacionNombre?' <small>'+e(sv.cotizacionNombre)+'</small>':'')+'</a>':'')
+        +((sv.cuotas||[]).length?'<table class="sv-t"><thead><tr><th>Cuota</th><th>Monto</th><th>Vence</th><th>Estado</th></tr></thead><tbody>'+sv.cuotas.map(function(c){var atr=!c.pagada&&c.vence&&c.vence<hoyS;return '<tr><td>'+e(c.concepto)+'</td><td class="n">'+m(c.monto)+'</td><td>'+(c.vence?e(fechaCorta(c.vence)):'—')+'</td><td>'+(c.pagada?'<span class="sv-ok">✓ Pagada'+(c.fechaPago?' el '+e(fechaCorta(c.fechaPago)):'')+'</span>':(atr?'<span class="sv-atr">Vencida</span>':'<span class="sv-pe">Pendiente</span>'))+'</td></tr>';}).join('')
+          +'</tbody><tfoot><tr><td>Total</td><td class="n">'+m(sv.total)+'</td><td colspan="2">Pagado '+m(sv.pagado)+' · Saldo '+m(sv.saldo)+'</td></tr></tfoot></table>':'')
+        +'</div></details>';
+    }
+    // 4. Últimas novedades (lo que viene y lo último que pasó)
+    var viene=[], ultimo=[];
+    (sg.proximas||[]).slice(0,3).forEach(function(r){viene.push({f:r.fecha,t:'📅 '+r.titulo,s:fechaLarga(r.fecha)+(r.hora?' · '+r.hora:'')+(r.lugar?' · '+r.lugar:'')});});
+    its.filter(function(it){return it.entrega!=='Entregado'&&it.llega&&it.llega>=hoyS;}).sort(function(a,b){return a.llega.localeCompare(b.llega);}).slice(0,2).forEach(function(it){viene.push({f:it.llega,t:'🚚 Llega '+it.item,s:'aprox. el '+fechaLarga(it.llega)});});
+    var porRev=its.filter(function(it){return est(it)==='Por revisar';}).length;
+    its.filter(function(it){return it.llego;}).forEach(function(it){ultimo.push({f:it.llego,t:'✓ Llegó '+it.item});});
+    its.filter(function(it){return it.pedido&&!it.llego;}).forEach(function(it){ultimo.push({f:it.pedido,t:'🛒 Pedido: '+it.item});});
+    (D.documentos||[]).forEach(function(d){if(d.fecha)ultimo.push({f:d.fecha,t:(d.tipo==='lamina'?'📐 Nueva lámina: ':'🖼 Nuevo render: ')+d.titulo});});
+    (sg.reuniones||[]).forEach(function(r){ultimo.push({f:r.fecha,t:'🗓 Reunión: '+r.titulo});});
+    (sg.avances||[]).forEach(function(a){ultimo.push({f:a.fecha,t:'🏗 '+a.titulo});});
+    ((sv&&sv.cuotas)||[]).forEach(function(c){if(c.pagada&&c.fechaPago)ultimo.push({f:c.fechaPago,t:'💳 Recibimos tu pago: '+c.concepto});});
+    ultimo=ultimo.filter(function(x){return x.f&&x.f<=hoyS;}).sort(function(a,b){return b.f.localeCompare(a.f);}).slice(0,8);
+    h+='<div class="av-sec"><h3>Últimas novedades</h3>'
+      +(porRev?'<div class="nov-acc" onclick="ebF(\'Por revisar\');ebV(\'compras\')">✋ Esperamos tu respuesta en '+porRev+' producto'+(porRev===1?'':'s')+' · <u>revisar ahora</u></div>':'')
+      +(viene.length?'<div class="nov-sub">Lo que viene</div><ul class="nov">'+viene.map(function(x){return '<li><b>'+e(x.t)+'</b><span>'+e(x.s)+'</span></li>';}).join('')+'</ul>':'')
+      +(ultimo.length?'<div class="nov-sub">Lo último</div><ul class="nov">'+ultimo.map(function(x){return '<li><b>'+e(x.t)+'</b><span>'+e(fechaLarga(x.f))+'</span></li>';}).join('')+'</ul>':'')
+      +(!porRev&&!viene.length&&!ultimo.length?'<p class="meta">Pronto verás aquí las novedades de tu proyecto.</p>':'')+'</div>';
+    // 5. Bitácora del proyecto: reuniones (con resumen) y avances de obra, por fecha
+    var bit=[];
+    (sg.reuniones||[]).forEach(function(r){bit.push({f:r.fecha,tipo:'Reunión',t:r.titulo,res:r.resumen,acu:r.acuerdos});});
+    (sg.avances||[]).forEach(function(a){bit.push({f:a.fecha,hasta:a.hasta,tipo:a.tipo,t:a.titulo,estado:a.estado});});
+    bit.sort(function(a,b){return String(b.f).localeCompare(String(a.f));});
+    if(bit.length)h+='<div class="av-sec"><h3>Bitácora del proyecto</h3>'+bit.map(function(b){return '<div class="reu"><span class="rf">'+e(fechaLarga(b.f))+(b.hasta?' – '+e(fechaCorta(b.hasta)):'')+' · '+e(b.tipo)+(b.estado?' · '+e(b.estado):'')+'</span><b>'+e(b.t)+'</b>'+(b.res?'<div class="rt">'+e(b.res)+'</div>':'')+(b.acu?'<div class="ra"><b style="display:inline;font-size:12.5px;">Acuerdos:</b> '+e(b.acu)+'</div>':'')+'</div>';}).join('')+'</div>';
+    // 6. Entrega de productos: carta Gantt general, una barra por espacio
+    var esp={};
+    its.forEach(function(it){if(!(it.pedido||it.entrega!=='Por pedir'))return;var k=it.espacio||'Otros';var x=esp[k]=esp[k]||{n:0,ok:0,ini:'',fin:''};x.n++;if(it.entrega==='Entregado')x.ok++;var a=it.pedido||'',b=it.llego||it.llega||'';if(a&&(!x.ini||a<x.ini))x.ini=a;if(b&&(!x.fin||b>x.fin))x.fin=b;});
+    var ks=Object.keys(esp);
+    if(ks.length){
+      var fs=[];ks.forEach(function(k){if(esp[k].ini)fs.push(esp[k].ini);if(esp[k].fin)fs.push(esp[k].fin);});fs.push(hoyS);fs.sort();
+      var d0=new Date(fs[0].slice(0,7)+'-01T12:00:00'), dl=new Date(fs[fs.length-1]+'T12:00:00'); var d1=new Date(dl.getFullYear(),dl.getMonth()+1,1,12);
+      var span=Math.max(1,d1-d0), pos=function(f){return Math.max(0,Math.min(100,(new Date(f+'T12:00:00')-d0)/span*100));};
+      var meses=[], c=new Date(d0); while(c<d1){meses.push({l:c.toLocaleDateString('es-CL',{month:'short'}).replace('.',''),x:pos(c.toLocaleDateString('sv-SE'))});c=new Date(c.getFullYear(),c.getMonth()+1,1,12);}
+      var totN=0,totOk=0; ks.forEach(function(k){totN+=esp[k].n;totOk+=esp[k].ok;});
+      h+='<div class="av-sec"><h3>Entrega de productos <small>'+totOk+' de '+totN+' recibidos</small></h3><div class="gt-w"><div class="gt-ax">'+meses.map(function(mm){return '<span style="left:'+mm.x+'%">'+e(mm.l)+'</span>';}).join('')+'</div>'
+        +ks.sort().map(function(k){var x=esp[k], a=x.ini||hoyS, b=x.fin||a, l=pos(a), w=Math.max(2,pos(b)-l), pct=Math.round(x.ok/x.n*100);
+          return '<div class="gt-r"><div class="gt-n"><b>'+e(k)+'</b><span>'+x.ok+' de '+x.n+' recibidos'+(x.fin?'':' · fechas por confirmar')+'</span></div><div class="gt-t">'+meses.map(function(mm){return '<i style="left:'+mm.x+'%"></i>';}).join('')+'<div class="gt-b'+(pct===100?' ok':'')+'" style="left:'+l+'%;width:'+w+'%;"><div style="width:'+pct+'%;"></div></div></div></div>';}).join('')
+        +'<div class="gt-hoy" style="left:calc(var(--gt-n) + (100% - var(--gt-n)) * '+(pos(hoyS)/100).toFixed(4)+')"><span>Hoy</span></div></div></div>';
+    }
     return h;
   }
+  var svAbierto=false;
   window.ebV=function(v){vista=v;try{localStorage.setItem('ebc_vista',v);}catch(x){}pintar();window.scrollTo(0,0);};
   // Proveedores en lista tipo acordeón: el nombre y al abrir, sus datos
   function htmlProveedores(){
