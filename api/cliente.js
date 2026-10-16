@@ -17,7 +17,9 @@ const CAMPOS_ITEM = 'id,cat,item,supplier,qty,unit,space,specs,product_url,image
 const CAMPOS_PROY = 'id,name,client,status,stage,stage_dates,addr,start_date';
 // A quién puede escribir el cliente (sección "Datos del proyecto y contactos" del portal)
 const CONTACTOS = [
-  { area: 'Diseño y proyecto', nombre: 'Ankel Rocha', correo: 'hola@estudiobianco.cl', telefono: '' }
+  { area: 'Dirección de diseño', nombre: 'Ankel Rocha', correo: 'hola@estudiobianco.cl', telefono: '', para: 'Propuesta de diseño, decisiones y aprobaciones.' },
+  { area: 'Coordinación técnica', nombre: 'Javiera Farías', correo: 'oficina@estudiobianco.cl', telefono: '', para: 'Levantamiento, medidas, despachos y coordinación con proveedores.' },
+  { area: 'Administración y pagos', nombre: 'Felipe Romo', correo: 'administracion@estudiobianco.cl', telefono: '', para: 'Cuotas, boletas, facturas y transferencias.' }
 ];
 
 function llave() { return process.env.SUPABASE_SERVICE_KEY || ''; }
