@@ -165,10 +165,13 @@ footer b{color:var(--tx2);font-weight:700;}
 .card.rec{box-shadow:0 0 0 1px #EBD38C;}
 /* Bienvenida */
 .bienv{max-width:420px;margin:8vh auto 0;display:flex;flex-direction:column;}
-.bienv label{font-size:13px;color:var(--tx2);margin-bottom:6px;}
+.bienv label{font-size:13px;color:var(--tx2);margin-bottom:6px;text-align:center;}
+.bienv .err{text-align:center;}
+.bienv input{text-align:center;}
 .bienv input{border:1px solid var(--bd2);border-radius:12px;padding:13px 14px;font-size:16px;font-family:inherit;color:var(--tx);}
-.bienv input:focus{outline:none;border-color:var(--az);}
-.bienv button{margin-top:12px;background:var(--az);color:#fff;border:0;border-radius:12px;padding:13px;font-size:15px;font-weight:500;cursor:pointer;font-family:inherit;}
+.bienv input:focus{outline:none;border-color:#8B7D6E;}
+.bienv button:hover{background:#776A5D;}
+.bienv button{margin-top:12px;background:#8B7D6E;color:#fff;border:0;border-radius:12px;padding:13px;font-size:15px;font-weight:500;cursor:pointer;font-family:inherit;}
 .bienv p{font-size:12px;color:var(--tx3);text-align:center;margin-top:14px;}
 .bienv .err{color:var(--dn);font-size:12.5px;margin-top:6px;display:none;}
 footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
@@ -273,7 +276,8 @@ footer{margin-top:40px;color:var(--tx3);font-size:12px;text-align:center;}
   function pedirClave(err,bloq){
     document.getElementById('app').innerHTML='<div class="bienv"><div class="priv" style="border:0;justify-content:center;margin-bottom:28px;"><span>Plataforma privada · Estudio Bianco®</span></div>'
       +'<img class="logo" src="/logo-estudio-bianco.png" alt="Estudio Bianco®" style="margin:0 auto 26px;"><div class="eyebrow" style="text-align:center;">Tu proyecto</div>'
-      +'<h1 style="text-align:center;margin-bottom:18px;">Ingresa tu clave</h1>'
+      +'<h1 style="text-align:center;margin-bottom:8px;">¡Te damos la bienvenida a tu portal de cliente!</h1>'
+      +'<p style="text-align:center;color:var(--tx2);font-size:15px;margin:0 0 22px;">Nos alegra verte acá.</p>'
       +'<label for="bPin">Clave de 4 números que te dio Estudio Bianco</label><input id="bPin" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="one-time-code" placeholder="••••" style="text-align:center;letter-spacing:.5em;font-size:22px;"'+(bloq?' disabled':'')+' onkeydown="if(event.key===\'Enter\')ebClave()">'
       +'<div class="err" id="bErr"'+(err?' style="display:block;"':'')+'>'+e(err)+'</div><button onclick="ebClave()"'+(bloq?' disabled style="opacity:.5;"':'')+'>Entrar</button>'
       +'<p>Si no tienes la clave, pídesela a Estudio Bianco.</p></div>';
