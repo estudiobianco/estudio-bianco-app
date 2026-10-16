@@ -14,7 +14,11 @@
 const SB_URL = 'https://iucjhzsnlotojvpyjcfo.supabase.co';
 const DECISIONES = ['Aprobado', 'Cambios solicitados', 'Rechazado', 'Por revisar', '']; // 'Por revisar' = deshacer la respuesta
 const CAMPOS_ITEM = 'id,cat,item,supplier,qty,unit,space,specs,product_url,image_url,delivery_status,client_status,opt_group,opt_sel,opt_rec,sort_order,client_note,order_date,est_delivery,actual_delivery,order_num,delivery_resp,ship_cost,pay_status,p1amt,p2amt,p3amt,p4amt';
-const CAMPOS_PROY = 'id,name,client,status,stage,stage_dates';
+const CAMPOS_PROY = 'id,name,client,status,stage,stage_dates,addr,start_date';
+// A quién puede escribir el cliente (sección "Datos del proyecto y contactos" del portal)
+const CONTACTOS = [
+  { area: 'Diseño y proyecto', nombre: 'Ankel Rocha', correo: 'hola@estudiobianco.cl', telefono: '' }
+];
 
 function llave() { return process.env.SUPABASE_SERVICE_KEY || ''; }
 function H(extra) { const k = llave(); return Object.assign({ apikey: k, Authorization: 'Bearer ' + k, 'Content-Type': 'application/json' }, extra || {}); }
@@ -71,18 +75,20 @@ function pagadoDe(x) {
 // "Cómo va tu proyecto": etapa, próximas reuniones marcadas para el cliente y avances de obra.
 // Solo sale lo que el estudio marcó "Mostrar al cliente"; las partidas de obra y los hitos salen salvo que se desmarquen.
 async function seguimientoDe(p) {
-  const ls = (await sb('logs?select=id,date,due_date,type,title,status,category,extra&project_id=eq.' + encodeURIComponent(p.id) + '&or=(category.is.null,category.not.in.(cliente,visita,actividad,lamina,render))&order=date')) || [];
-  const hoy = hoySantiago(), proximas = [], avances = [];
+  const ls = (await sb('logs?select=id,date,due_date,type,title,status,category,extra,description,commits&project_id=eq.' + encodeURIComponent(p.id) + '&or=(category.is.null,category.not.in.(cliente,visita,actividad,lamina,render))&order=date')) || [];
+  const hoy = hoySantiago(), proximas = [], avances = [], reuniones = [];
   ls.forEach(l => {
     let x = {}; try { x = l.extra ? JSON.parse(l.extra) : {}; } catch (e) {}
     const obra = l.type === '🏗 Partida de obra' || l.type === 'Hito';
-    const visible = x.cliente_visible === true || (obra && x.cliente_visible !== false);
+    const reunionCliente = l.type === 'Reunión con cliente';
+    const visible = x.cliente_visible === true || ((obra || reunionCliente) && x.cliente_visible !== false);
     if (!visible) return;
+    if (l.type !== 'Evento' && /reuni/i.test(l.type || '')) { reuniones.push({ fecha: l.date || '', titulo: l.title || 'Reunión', resumen: String(l.description || '').slice(0, 4000), acuerdos: String(l.commits || '').slice(0, 2000) }); return; }
     if (l.type === 'Evento') { if ((l.date || '') >= hoy) proximas.push({ fecha: l.date, hora: x.start || '', titulo: l.title || 'Reunión', lugar: x.loc || '' }); return; }
     if (l.type === 'Tarea' || l.type === 'Compromiso') return;
     avances.push({ fecha: l.date || '', hasta: obra && l.due_date && l.due_date !== l.date ? l.due_date : '', tipo: l.type === '🏗 Partida de obra' ? 'Partida de obra' : (l.type || ''), titulo: l.title || '', estado: /Completad|Hecho|Terminad/i.test(l.status || '') ? 'Terminado' : (obra ? 'En curso o programado' : '') });
   });
-  return { etapa: p.stage || '', fechas: p.stage_dates || {}, proximas: proximas.slice(0, 5), avances: avances.reverse().slice(0, 40) };
+  return { etapa: p.stage || '', fechas: p.stage_dates || {}, proximas: proximas.slice(0, 8), avances: avances.reverse().slice(0, 40), reuniones: reuniones.reverse().slice(0, 20) };
 }
 
 function hoySantiago() {
@@ -215,7 +221,8 @@ module.exports = async function handler(req, res) {
       const resp = (await sb('logs?select=id,date,title,description,responsible,item_id,extra&project_id=eq.' + encodeURIComponent(p.id) + '&category=eq.cliente&order=id.desc&limit=200')) || [];
       return res.status(200).json({
         ok: true,
-        proyecto: { nombre: p.name || '', cliente: p.client || '' },
+        proyecto: { nombre: p.name || '', cliente: p.client || '', direccion: p.addr || '', inicio: p.start_date || '' },
+        contactos: CONTACTOS,
         seguimiento: await seguimientoDe(p),
         items: items.map(x => ({
           id: x.id, cat: x.cat || '', item: x.item || '', proveedor: x.supplier || '', cant: x.qty || 1, precio: x.unit || 0, despacho: +x.ship_cost || 0,
