@@ -14,7 +14,7 @@
 const SB_URL = 'https://iucjhzsnlotojvpyjcfo.supabase.co';
 const DECISIONES = ['Aprobado', 'Cambios solicitados', 'Rechazado', 'Por revisar', '']; // 'Por revisar' = deshacer la respuesta
 const CAMPOS_ITEM = 'id,cat,item,supplier,qty,unit,space,specs,product_url,image_url,delivery_status,client_status,opt_group,opt_sel,opt_rec,sort_order,client_note,order_date,est_delivery,actual_delivery,order_num,delivery_resp,ship_cost,pay_status,p1amt,p2amt,p3amt,p4amt';
-const CAMPOS_PROY = 'id,name,client,status,stage,stage_dates,addr,start_date';
+const CAMPOS_PROY = 'id,name,client,status,stage,stage_dates,addr,start_date,facturacion,requisitos';
 // A quién puede escribir el cliente (sección "Datos del proyecto y contactos" del portal)
 const CONTACTOS = [
   { area: 'Dirección de diseño', nombre: 'Ankel Rocha', correo: 'hola@estudiobianco.cl', telefono: '', para: 'Propuesta de diseño, decisiones y aprobaciones.' },
@@ -253,7 +253,7 @@ module.exports = async function handler(req, res) {
       const resp = (await sb('logs?select=id,date,title,description,responsible,item_id,extra&project_id=eq.' + encodeURIComponent(p.id) + '&category=eq.cliente&order=id.desc&limit=200')) || [];
       return res.status(200).json({
         ok: true,
-        proyecto: { nombre: p.name || '', cliente: p.client || '', direccion: p.addr || '', inicio: p.start_date || '' },
+        proyecto: { nombre: p.name || '', cliente: p.client || '', direccion: p.addr || '', inicio: p.start_date || '', facturacion: p.facturacion || '', requisitos: p.requisitos || '' },
         contactos: CONTACTOS,
         seguimiento: await seguimientoDe(p),
         servicio: await servicioDe(p),
