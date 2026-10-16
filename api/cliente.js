@@ -16,6 +16,7 @@ const DECISIONES = ['Aprobado', 'Cambios solicitados', 'Rechazado', 'Por revisar
 const CAMPOS_ITEM = 'id,cat,item,supplier,qty,unit,space,specs,product_url,image_url,delivery_status,client_status,opt_group,opt_sel,opt_rec,sort_order,client_note,order_date,est_delivery,actual_delivery,order_num,delivery_resp,ship_cost,pay_status,p1amt,p2amt,p3amt,p4amt';
 const CAMPOS_PROY = 'id,name,client,status,stage,stage_dates,addr,start_date,facturacion,requisitos';
 // A quién puede escribir el cliente (sección "Datos del proyecto y contactos" del portal)
+const DCTO_TRANSF = 0.05; // descuento por pago con transferencia en los honorarios del estudio
 const CONTACTOS = [
   { area: 'Dirección de diseño', nombre: 'Ankel Rocha', correo: 'hola@estudiobianco.cl', telefono: '', para: 'Supervisión de propuestas de diseño, decisiones y aprobaciones de clientes.' },
   { area: 'Coordinación técnica', nombre: 'Javiera Farías', correo: 'oficina@estudiobianco.cl', telefono: '', para: 'Levantamiento, desarrollo técnico de propuestas y coordinación con proveedores.' },
@@ -83,9 +84,11 @@ async function servicioDe(p) {
   const cuotas = hon.map(x => {
     const tot = (+x.qty || 1) * (+x.unit || 0);
     const pp = ['p1amt', 'p2amt', 'p3amt', 'p4amt'].reduce((a, k) => a + (+x[k] || 0), 0);
-    const pagada = x.pay_status === 'Pagado' || (pp > 0 && pp >= tot);
+    // Pagar por transferencia tiene 5% de descuento: pagar desde el 94% del valor cuenta como pagada (redondeos)
+    const montoDcto = Math.round(tot * (1 - DCTO_TRANSF));
+    const pagada = x.pay_status === 'Pagado' || (pp > 0 && pp >= tot * 0.94);
     const fechas = [x.p1date, x.p2date, x.p3date, x.p4date].filter(f => /^\d{4}-\d{2}-\d{2}$/.test(f || '') && f > '2000').sort();
-    return { concepto: x.item || 'Cuota', monto: tot, vence: x.vence || '', pagada: pagada, pagado: pagada ? tot : Math.min(pp, tot), fechaPago: fechas.length ? fechas[fechas.length - 1] : '' };
+    return { concepto: x.item || 'Etapa', monto: tot, montoDcto: montoDcto, vence: x.vence || '', pagada: pagada, pagado: pagada ? (pp > 0 ? pp : tot) : Math.min(pp, tot), fechaPago: fechas.length ? fechas[fechas.length - 1] : '' };
   });
   let cotizacion = '';
   if (sv && sv.cotizacion_path) {
@@ -93,7 +96,10 @@ async function servicioDe(p) {
     if (r.ok) { const j = await r.json(); if (j.signedURL) cotizacion = SB_URL + '/storage/v1' + j.signedURL; }
   }
   const total = cuotas.reduce((a, c) => a + c.monto, 0), pagado = cuotas.reduce((a, c) => a + c.pagado, 0);
-  return { incluye: sv ? sv.incluye || '' : '', cotizacion: cotizacion, cotizacionNombre: sv ? sv.cotizacion_nombre || '' : '', cuotas: cuotas, total: total, pagado: pagado, saldo: Math.max(0, total - pagado) };
+  // Lo que falta: etapas no pagadas, a precio normal y con el descuento por transferencia
+  const pend = cuotas.filter(c => !c.pagada);
+  const saldo = pend.reduce((a, c) => a + c.monto - c.pagado, 0), saldoDcto = pend.reduce((a, c) => a + Math.max(0, c.montoDcto - c.pagado), 0);
+  return { incluye: sv ? sv.incluye || '' : '', cotizacion: cotizacion, cotizacionNombre: sv ? sv.cotizacion_nombre || '' : '', cuotas: cuotas, total: total, pagado: pagado, saldo: saldo, saldoDcto: saldoDcto, dcto: DCTO_TRANSF };
 }
 
 // Cuánto está pagado de cada producto: lo registrado por el estudio o, si lo pagó el cliente, el total
