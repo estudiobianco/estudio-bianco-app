@@ -34,7 +34,10 @@ function tokenValido(k) { return typeof k === 'string' && /^[A-Za-z0-9_-]{20,64}
 
 async function proyectoDe(k) {
   if (!tokenValido(k)) return null;
-  const p = await sb('projects?select=' + CAMPOS_PROY + '&portal_token=eq.' + encodeURIComponent(k) + '&limit=1');
+  // Los links viven en la tabla portal_links (solo la administradora y este servidor la leen)
+  const l = await sb('portal_links?select=project_id&token=eq.' + encodeURIComponent(k) + '&limit=1');
+  if (!l || !l[0]) return null;
+  const p = await sb('projects?select=' + CAMPOS_PROY + '&id=eq.' + encodeURIComponent(l[0].project_id) + '&limit=1');
   return p && p[0] ? p[0] : null;
 }
 
@@ -44,8 +47,11 @@ function slugValido(s) { return typeof s === 'string' && /^[a-z0-9][a-z0-9-]{2,6
 async function acceso(q) {
   if (q.k) { const p = await proyectoDe(q.k); return p ? { p: p } : { cod: 404 }; }
   if (!slugValido(q.s)) return { cod: 404 };
-  const r = await sb('projects?select=' + CAMPOS_PROY + ',portal_pin&portal_slug=eq.' + encodeURIComponent(q.s) + '&limit=1');
-  if (!r || !r[0] || !/^\d{4}$/.test(r[0].portal_pin || '')) return { cod: 404 };
+  const lk = await sb('portal_links?select=project_id,pin&slug=eq.' + encodeURIComponent(q.s) + '&limit=1');
+  if (!lk || !lk[0] || !/^\d{4}$/.test(lk[0].pin || '')) return { cod: 404 };
+  const r = await sb('projects?select=' + CAMPOS_PROY + '&id=eq.' + encodeURIComponent(lk[0].project_id) + '&limit=1');
+  if (!r || !r[0]) return { cod: 404 };
+  r[0].portal_pin = lk[0].pin;
   const est = ((await sb('portal_intentos?select=fallos,bloqueado_hasta&slug=eq.' + encodeURIComponent(q.s))) || [])[0];
   if (est && est.bloqueado_hasta && new Date(est.bloqueado_hasta) > new Date()) return { cod: 429 };
   const pin = String(q.pin || '').replace(/\D/g, '');
