@@ -324,7 +324,9 @@ details.mas[open] summary::after{content:'▴';}
 .card.op .acts button{padding:11px 6px;font-size:14px;}
 @media (max-width:820px){.grid.g-op{gap:8px;}.card.op .ph{height:150px;}.card.op .bd{padding:9px 10px 11px;}.cab{flex-direction:column;gap:2px;}.cab .nm{font-size:15px;}.cab .t{font-size:15px;padding-top:0;}.card.op .acts button{font-size:11px;padding:7px 0;}.gt{font-size:21px;}.gsub{margin-left:0;font-size:12px;}.gsep{display:none;}}.pr .u{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
 .pr .t{white-space:nowrap;}
-</style>
+/* Opción elegida y recomendada en celeste (pedido de Ankel) */
+.card.op.sel{border:1.5px solid #8EC3E6!important;box-shadow:0 0 0 4px #E4F1FA,0 6px 22px rgba(47,120,168,.10)!important;}
+.gsub b .st,.recb .st{color:#3B8FD0;}</style>
 </head>
 <body>
 <div class="wrap" id="app"><div class="msg">Cargando tu proyecto…</div></div>
@@ -465,7 +467,7 @@ details.mas[open] summary::after{content:'▴';}
         vaciar();
         var todos=its.filter(function(x){return x.grupo===b.g;});
         var rec=todos.find(function(x){return x.recomendada;});
-        h+='<div class="grp"><div class="gh2"><span class="ng">'+todos.length+' opciones</span><span class="gsep"></span><b class="gt">'+e(b.g)+'</b><span class="gsub">Elige una'+(rec?' · <b>★ Te recomendamos la Opción '+(todos.indexOf(rec)+1)+'</b>':'')+' · el total incluye la que tiene el borde destacado.</span></div><div class="grid g-op">'
+        h+='<div class="grp"><div class="gh2"><span class="ng">'+todos.length+' opciones</span><span class="gsep"></span><b class="gt">'+e(b.g)+'</b><span class="gsub">Elige una'+(rec?' · <b><span class="st">★</span> Te recomendamos la Opción '+(todos.indexOf(rec)+1)+'</b>':'')+' · el total incluye la que tiene el borde celeste.</span></div><div class="grid g-op">'
           +b.its.map(function(it){return tarjeta(it,todos.indexOf(it)+1);}).join('')+'</div></div>';
       });
       vaciar();
@@ -517,7 +519,7 @@ details.mas[open] summary::after{content:'▴';}
     var ico=(nota?'<span class="ic" title="El estudio dejó una nota">📝 Nota</span>':'')+(nComs?'<span class="ic" title="Comentarios">💬 '+nComs+'</span>':'')+(it.compra&&it.compra.fecha?'<span class="ic" title="Comprado">🛒</span>':'')+entr;
     var precio=+it.precio>0?m(sub(it)):'Por cotizar';
     var h='<div class="card'+(nOp?' op':'')+(it.grupo?(it.elegida?' sel':' alt'):'')+(it.recomendada?' rec':'')+'"><div class="ph">'+(it.imagen?'<img src="'+e(it.imagen)+'" alt="" loading="lazy">':'Sin imagen')
-      +'<div class="bdgs"><span class="badge b-'+e(cls)+'">'+(es_==='Aprobado'?'✓ Aprobado':es_==='Rechazado'?'Descartado':es_==='Cambios solicitados'?'Cambios pedidos':'Por revisar')+'</span>'+(it.recomendada?'<span class="recb">★ Recomendada</span>':'')+'</div></div><div class="bd">';
+      +'<div class="bdgs"><span class="badge b-'+e(cls)+'">'+(es_==='Aprobado'?'✓ Aprobado':es_==='Rechazado'?'Descartado':es_==='Cambios solicitados'?'Cambios pedidos':'Por revisar')+'</span>'+(it.recomendada?'<span class="recb"><span class="st">★</span> Recomendada</span>':'')+'</div></div><div class="bd">';
     if(nOp)h+='<div class="opn">Opción '+nOp+' de '+nTot+(it.elegida?' · en el total':' · alternativa')+'</div>'
       +'<div class="cab"><div><div class="nm" title="'+e(it.item)+'">'+e(it.item)+'</div><div class="esp">'+e(it.espacio||'')+'</div></div><div class="t">'+precio+'</div></div>';
     else h+='<div class="nm" title="'+e(it.item)+'">'+e(it.item)+'</div><div class="pr"><span class="u">'+e(it.espacio||'')+'</span><span class="t">'+precio+'</span></div>';
