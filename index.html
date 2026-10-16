@@ -1,6 +1,117 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+<script>
+/* ══ INICIO DE SESIÓN (Supabase Auth) ══
+   Cada persona entra con su correo y contraseña. El rol (admin o trabajador) viene de la tabla perfiles
+   y no se puede cambiar desde la app. Todas las llamadas a la base de datos van con el token de la sesión,
+   así la base de datos sabe quién pide y aplica sus permisos. */
+(function(){
+  var SBU='https://iucjhzsnlotojvpyjcfo.supabase.co';
+  var ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1Y2poenNubG90b2p2cHlqY2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMTIzMTYsImV4cCI6MjA5NDY4ODMxNn0.PKLG4LS1EjgfHE0GXAnyxWuEUhlZy5s7TWxe8luvuik';
+  var of=window.fetch.bind(window), ses=null, renovando=null;
+  try{ses=JSON.parse(localStorage.getItem('eb_sesion')||'null');}catch(e){ses=null;}
+  function guardar(s){ses=s;try{if(s)localStorage.setItem('eb_sesion',JSON.stringify(s));else localStorage.removeItem('eb_sesion');}catch(e){}}
+  function auth(path,body){return of(SBU+'/auth/v1/'+path,{method:'POST',headers:{apikey:ANON,'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json().then(function(j){if(!r.ok)throw j;return j;});});}
+  function deRespuesta(j){return {access_token:j.access_token,refresh_token:j.refresh_token,expires_at:j.expires_at||Math.floor(Date.now()/1000)+(j.expires_in||3600),uid:j.user&&j.user.id,email:j.user&&j.user.email};}
+  function asegurar(){
+    if(!ses)return Promise.resolve(null);
+    if(ses.expires_at*1000-Date.now()>60000)return Promise.resolve(ses);
+    if(!renovando)renovando=auth('token?grant_type=refresh_token',{refresh_token:ses.refresh_token})
+      .then(function(j){var s=deRespuesta(j);s.rol=ses.rol;s.nombre=ses.nombre;guardar(s);return s;})
+      .catch(function(){guardar(null);mostrarLogin('Tu sesión expiró. Vuelve a entrar.');return null;})
+      .then(function(s){renovando=null;return s;});
+    return renovando;
+  }
+  // Toda llamada a la base de datos (y al almacenamiento de imágenes) lleva el token de la sesión
+  window.fetch=function(u,o){
+    var url=String(u&&u.url||u);
+    if(url.indexOf(SBU)!==0||url.indexOf('/auth/v1/')>=0)return of(u,o);
+    return asegurar().then(function(s){
+      if(s){o=Object.assign({},o||{});var h=new Headers(o.headers||{});h.set('apikey',ANON);h.set('Authorization','Bearer '+s.access_token);o.headers=h;}
+      return of(u,o);
+    });
+  };
+  window.EB_SESION=function(){return ses;};
+  window.ebToken=function(){return asegurar().then(function(s){return s?s.access_token:null;});};
+
+  function perfil(s){return of(SBU+'/rest/v1/perfiles?select=rol,nombre,email&user_id=eq.'+encodeURIComponent(s.uid),{headers:{apikey:ANON,Authorization:'Bearer '+s.access_token}}).then(function(r){return r.ok?r.json():[];}).then(function(a){return a&&a[0]||null;});}
+  // Javiera: al entrar se borran las copias locales de proyectos que hayan quedado de antes en su navegador
+  function limpiarLocal(){try{Object.keys(localStorage).forEach(function(k){if(/^ar6_p.+_(items|logs|pagos|cots|global)/.test(k)||k==='ar5_logs'||k==='ar6_crm')localStorage.removeItem(k);});}catch(e){}}
+
+  // ── Pantalla de inicio de sesión ──
+  function mostrarLogin(msg){
+    var ov=document.getElementById('ebLogin');
+    if(!ov){ov=document.createElement('div');ov.id='ebLogin';document.body.appendChild(ov);}
+    ov.innerHTML='<div class="ebl-box"><img src="/logo-estudio-bianco-t.png" alt="Estudio Bianco" class="ebl-logo"><div class="ebl-t">Gestión de proyectos</div>'
+      +'<label for="eblMail">Correo</label><input id="eblMail" type="email" autocomplete="username" placeholder="tu@estudiobianco.cl">'
+      +'<label for="eblPass">Contraseña</label><input id="eblPass" type="password" autocomplete="current-password" onkeydown="if(event.key===\'Enter\')ebEntrar()">'
+      +'<div class="ebl-err" id="eblErr"'+(msg?' style="display:block;"':'')+'>'+(msg||'')+'</div><button id="eblBtn" onclick="ebEntrar()">Entrar</button>'
+      +'<p>Plataforma privada · Estudio Bianco®</p></div>';
+    ov.style.display='flex';
+    setTimeout(function(){var i=document.getElementById('eblMail');if(i)i.focus();},50);
+  }
+  window.ebEntrar=function(){
+    var mail=(document.getElementById('eblMail').value||'').trim(), pass=document.getElementById('eblPass').value||'', err=document.getElementById('eblErr'), b=document.getElementById('eblBtn');
+    function falla(t){err.textContent=t;err.style.display='block';b.disabled=false;b.textContent='Entrar';}
+    if(!mail||!pass)return falla('Escribe tu correo y tu contraseña.');
+    b.disabled=true;b.textContent='Entrando…';
+    auth('token?grant_type=password',{email:mail,password:pass}).then(function(j){
+      var s=deRespuesta(j);
+      return perfil(s).then(function(p){
+        if(!p)return falla('Tu usuario no tiene un perfil asignado. Pídele a Ankel que lo active.');
+        s.rol=p.rol;s.nombre=p.nombre||'';
+        var antes=''; try{antes=localStorage.getItem('eb_ultimo_usuario')||'';}catch(e){}
+        if(p.rol!=='admin'&&antes!==s.uid)limpiarLocal();
+        guardar(s);
+        try{localStorage.setItem('eb_ultimo_usuario',s.uid);localStorage.setItem('ar6_mode',p.rol==='admin'?'admin':'worker');}catch(e){}
+        location.reload();
+      });
+    }).catch(function(e){falla(e&&/invalid/i.test(e.error_description||e.msg||e.error||'')?'Correo o contraseña incorrectos.':'No se pudo entrar. Revisa tu conexión e intenta de nuevo.');});
+  };
+  window.ebSalir=function(){
+    var s=ses; guardar(null); try{localStorage.removeItem('ar6_mode');}catch(e){}
+    if(s)of(SBU+'/auth/v1/logout',{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+s.access_token}}).catch(function(){}).then(function(){location.reload();}); else location.reload();
+  };
+  // Ventana de la cuenta (reemplaza el cambio de modo con PIN)
+  window.ebCuenta=function(){
+    var ov=document.getElementById('ebCuentaOv');
+    if(!ov){ov=document.createElement('div');ov.id='ebCuentaOv';ov.onclick=function(e){if(e.target===ov)ov.style.display='none';};document.body.appendChild(ov);}
+    ov.innerHTML='<div class="ebl-box" style="max-width:340px;"><div class="ebl-t" style="margin-bottom:6px;">'+(ses&&ses.nombre?ses.nombre:'Sesión')+'</div><p style="margin:0 0 14px;">'+(ses?ses.email:'')+'<br>'+(ses&&ses.rol==='admin'?'Administradora':'Trabajadora')+'</p>'
+      +'<button onclick="ebSalir()">Cerrar sesión</button><button class="sec" onclick="document.getElementById(\'ebCuentaOv\').style.display=\'none\'">Volver</button></div>';
+    ov.style.display='flex';
+  };
+
+  document.addEventListener('DOMContentLoaded',function(){
+    // El modo lo decide el rol del usuario, no un PIN
+    window.openAccessModal=function(){ if(ses)window.ebCuenta(); else mostrarLogin(''); };
+    window.selectMode=function(){};
+    if(!ses){mostrarLogin('');return;}
+    var m=ses.rol==='admin'?'admin':'worker';
+    try{if(localStorage.getItem('ar6_mode')!==m){localStorage.setItem('ar6_mode',m);location.reload();return;}}catch(e){}
+    // Revisa el rol en la nube por si cambió
+    asegurar().then(function(s){if(!s)return;perfil(s).then(function(p){if(!p){window.ebSalir();return;}if(p.rol!==s.rol){s.rol=p.rol;s.nombre=p.nombre;guardar(s);try{localStorage.setItem('ar6_mode',p.rol==='admin'?'admin':'worker');}catch(e){}location.reload();}});});
+    var etq=function(){['homeModeB','navModeB'].forEach(function(id){var el=document.getElementById(id);if(el){el.textContent=(ses.rol==='admin'?'🔑 ':'👷 ')+(ses.nombre||'Cuenta');el.title='Tu cuenta · cerrar sesión';}});};
+    etq(); setTimeout(etq,1500);
+  });
+})();
+</script>
+<style>
+#ebLogin,#ebCuentaOv{position:fixed;inset:0;z-index:10000;background:#EFEDE9;display:none;align-items:center;justify-content:center;padding:16px;}
+#ebCuentaOv{background:rgba(40,32,26,.35);}
+.ebl-box{background:#fff;border:1px solid #E3DED7;border-radius:12px;padding:30px 28px 22px;width:100%;max-width:380px;display:flex;flex-direction:column;font-family:'DM Sans',sans-serif;color:#3B3029;box-shadow:0 10px 40px rgba(60,48,40,.08);}
+.ebl-logo{height:46px;margin:0 auto 10px;display:block;}
+.ebl-t{text-align:center;font-family:'Fraunces',Georgia,serif;font-size:20px;margin-bottom:18px;}
+.ebl-box label{font-size:12px;color:#6F655C;margin:8px 0 4px;}
+.ebl-box input{height:42px;border:1px solid #CBBFAF;border-radius:6px;padding:0 12px;font-size:15px;font-family:inherit;color:#3B3029;}
+.ebl-box input:focus{outline:none;border-color:#5B4A3E;}
+.ebl-box button{margin-top:14px;height:44px;border:0;border-radius:6px;background:#5B4A3E;color:#fff;font-size:15px;font-weight:500;cursor:pointer;font-family:inherit;}
+.ebl-box button.sec{background:#fff;color:#5B4A3E;border:1px solid #CBBFAF;margin-top:8px;}
+.ebl-box button:disabled{opacity:.6;}
+.ebl-box p{text-align:center;font-size:11px;color:#A69C91;margin-top:14px;letter-spacing:.06em;}
+.ebl-err{display:none;color:#B4483C;font-size:12.5px;margin-top:8px;}
+</style>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estudio Bianco — Gestión de Proyectos</title>
@@ -8330,9 +8441,11 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   function slugDe(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,60);}
   function pinNuevo(){var b=new Uint16Array(1);crypto.getRandomValues(b);return String(1000+(b[0]%9000));}
   var portalDatos={};
-  function leerToken(pid){return fetch(SB+'/rest/v1/projects?select=portal_token,portal_slug,portal_pin&id=eq.'+encodeURIComponent(pid),{headers:H}).then(function(r){return r.ok?r.json():Promise.reject(r.status);}).then(function(a){portalDatos=a&&a[0]?a[0]:{};return portalDatos.portal_token||'';});}
-  function guardarToken(pid,t){return fetch(SB+'/rest/v1/projects?id=eq.'+encodeURIComponent(pid),{method:'PATCH',headers:Object.assign({},H,{Prefer:'return=minimal'}),body:JSON.stringify({portal_token:t||null})}).then(function(r){if(!r.ok)return Promise.reject(r.status);});}
-  function guardarSlug(pid,slug,pin){return fetch(SB+'/rest/v1/projects?id=eq.'+encodeURIComponent(pid),{method:'PATCH',headers:Object.assign({},H,{Prefer:'return=minimal'}),body:JSON.stringify({portal_slug:slug||null,portal_pin:pin||null})}).then(function(r){if(r.ok)return;return r.text().then(function(t){return Promise.reject(/duplicate|23505|unique/i.test(t)?'repetido':r.status);});});}
+  // Los links viven en la tabla portal_links, que solo puede leer la administradora
+  function leerToken(pid){return fetch(SB+'/rest/v1/portal_links?select=token,slug,pin&project_id=eq.'+encodeURIComponent(pid),{headers:H}).then(function(r){return r.ok?r.json():Promise.reject(r.status);}).then(function(a){var x=a&&a[0]?a[0]:{};portalDatos={portal_token:x.token||'',portal_slug:x.slug||'',portal_pin:x.pin||''};return portalDatos.portal_token;});}
+  function guardarLink(pid,campos){return fetch(SB+'/rest/v1/portal_links?on_conflict=project_id',{method:'POST',headers:Object.assign({},H,{Prefer:'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(Object.assign({project_id:pid,updated_at:new Date().toISOString()},campos))}).then(function(r){if(r.ok)return;return r.text().then(function(t){return Promise.reject(/duplicate|23505|unique/i.test(t)?'repetido':r.status);});});}
+  function guardarToken(pid,t){return guardarLink(pid,{token:t||null});}
+  function guardarSlug(pid,slug,pin){return guardarLink(pid,{slug:slug||null,pin:pin||null});}
 
   window.portalAbrir=function(){
     if(!currentProjId)return;
@@ -8625,7 +8738,8 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   function sesGuardar(keep){
     if(!ses)return; clearTimeout(sesT);
     var row={id:ses.id,project_id:ses.pid,date:ses.date,type:'Nota general',title:'Sesión de trabajo de Javiera',description:'',commits:'',responsible:'Javiera',due_date:'',status:'Completada',amount:0,category:'actividad',item_id:null,extra:JSON.stringify(ses.x),source:'app'};
-    try{fetch(SB+'/rest/v1/logs?on_conflict=project_id,id',{method:'POST',keepalive:!!keep,headers:Object.assign({},H,{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify([row])}).catch(function(){});}catch(x){}
+    // Se guarda por una función del servidor: la trabajadora puede registrar su sesión, pero no leer el registro
+    try{fetch(SB+'/rest/v1/rpc/registrar_actividad',{method:'POST',keepalive:!!keep,headers:Object.assign({},H,{'Content-Type':'application/json'}),body:JSON.stringify({p:{id:row.id,project_id:row.project_id,date:row.date,extra:row.extra}})}).catch(function(){});}catch(x){}
   }
   function sesTocar(pagina,cambio){
     if(esAdm()||!currentProjId)return;
