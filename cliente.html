@@ -312,10 +312,30 @@ details.mas[open] summary::after{content:'▴';}
 .et.hecha .et-p,.et.actual .et-p{color:#fff;}
 .et .et-ok{position:absolute;right:-4px;bottom:-3px;width:15px;height:15px;border-radius:50%;background:#fff;color:#5B4A3E;border:1px solid #5B4A3E;font-size:9px;font-style:normal;font-weight:700;display:flex;align-items:center;justify-content:center;}
 .et.sel{box-shadow:inset 0 0 0 1.5px #8EC3E6;}
-.et-d{margin-top:12px;padding:12px 14px;border-radius:10px;background:#F4F1EC;border-left:3px solid #8EC3E6;}
+/* Proceso de diseño: línea que une las etapas, círculos café y cuadro con foto */
+.proc h3.h-up{text-transform:uppercase;letter-spacing:.2em;font-weight:400;font-size:17px;margin-bottom:18px;}
+.proc .etapas{position:relative;gap:6px;}
+.proc .etapas::before{content:'';position:absolute;left:8.33%;right:8.33%;top:36px;height:1px;background:#E2DAD0;}
+.proc .et{position:relative;z-index:1;padding:14px 4px 14px;background:transparent;box-shadow:none;}
+.proc .et:hover{background:#F6F2ED;}
+.proc .et.sel:not(.actual){background:#F6F2ED;}
+.proc .et.actual,.proc .et.actual:hover{background:#EFE8E0;}
+.proc .et .et-p{width:44px;height:44px;border:1.5px solid #E2DAD0;background:#fff;color:#A39A91;margin-bottom:8px;}
+.proc .et .et-p svg{width:20px;height:20px;}
+.proc .et.hecha .et-p,.proc .et.actual .et-p{background:#4A3B30;border-color:#4A3B30;color:#fff;}
+.proc .et .et-ok{width:18px;height:18px;right:-6px;bottom:-4px;border:1px solid #4A3B30;color:#4A3B30;font-size:10px;font-weight:400;}
+.proc .et b{font-size:14px;font-weight:400;color:#3A2F27;}
+.proc .et:not(.hecha):not(.actual) b{color:#A39A91;}
+.proc .et small{font-size:12px;color:#8A8077;margin-top:3px;}
+.proc .et em{letter-spacing:.18em;font-size:10.5px;font-weight:600;color:#4A3B30;margin-top:6px;}
+.et-d{margin-top:16px;display:flex;align-items:stretch;border-radius:10px;background:#EFE8E0;overflow:hidden;}
 .et-d:empty{display:none;}
-.et-d b{display:block;font-size:13px;font-weight:600;margin-bottom:3px;}
-.et-d p{margin:0;font-size:13px;line-height:1.55;color:var(--tx2);}
+.et-d .et-dt{flex:1;padding:22px 26px;}
+.et-d b{display:block;font-size:12px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:#4A3B30;margin-bottom:6px;}
+.et-d p{margin:0;font-size:14.5px;line-height:1.6;color:#3A2F27;}
+.et-d .et-img{width:34%;flex-shrink:0;min-height:150px;}
+.et-d .et-img img{width:100%;height:100%;object-fit:cover;display:block;}
+@media (max-width:700px){.proc .etapas::before{display:none;}.et-d{flex-direction:column;}.et-d .et-img{width:100%;height:150px;}.et-d .et-dt{padding:16px 18px;}.et-d p{font-size:13.5px;}}
 @media (max-width:600px){.ph{height:130px;}.bd{padding:8px 9px 10px;}.nm{font-size:12.5px;}.acts button{font-size:11px;padding:7px 0;white-space:nowrap;letter-spacing:-.01em;}.ic{font-size:10px;}.recb{font-size:9.5px;padding:2px 6px;}.badge{font-size:9.5px;padding:2px 6px;}}
 /* Reuniones, agenda, datos y contactos */
 .reu{border-top:1px solid #E8DED4;padding:12px 0;}
@@ -648,7 +668,7 @@ details.sv-det[open] summary h3::after{content:' ▴';}
     'Estamos preparando toda la documentación técnica y las cotizaciones finales que tu proyecto necesita para pasar a la implementación y cumplir el plazo de 60 días. Te enviaremos todo por correo para formalizar la entrega y, una vez recibido, partimos de inmediato con la implementación.',
     'Es la etapa de compras, fabricación e instalación. Para avanzar sin atrasos te pedimos tener organizado tu flujo de pagos: los proveedores trabajan con abonos y saldos en fechas fijas, y cumplirlos a tiempo es clave para respetar los plazos de entrega.'
   ];
-  function etTexto(i){if(i<0||i>=ETAPAS.length)return '';return '<b>'+ETAPAS[i][1]+'</b><p>'+ET_TXT[i]+'</p>';}
+  function etTexto(i){if(i<0||i>=ETAPAS.length)return '';return '<div class="et-dt"><b>'+ETAPAS[i][1]+'</b><p>'+ET_TXT[i]+'</p></div><div class="et-img"><img src="/proceso.jpg" alt="" onerror="this.parentNode.remove()"></div>';}
   window.ebEt=function(i){var w=document.getElementById('etw'),d=document.getElementById('etd');if(!w||!d)return;w.querySelectorAll('.et').forEach(function(n,k){n.classList.toggle('sel',k===i);});d.innerHTML=etTexto(i);};
   function fechaLarga(d){if(!d)return '';var x=new Date(String(d).slice(0,10)+'T12:00:00');return isNaN(x)?d:x.toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long'});}
   function htmlAvance(){
@@ -666,7 +686,7 @@ details.sv-det[open] summary h3::after{content:' ▴';}
       +(cts.length?'<div class="av-sec"><h3>Equipo Estudio Bianco</h3><p class="meta" style="margin:0 0 8px;">Para que tu consulta llegue más rápido, escríbele directo a quien corresponda:</p><div class="contactos">'+cts.map(function(c){return '<div class="ct"><small>'+e(c.area)+'</small><b>'+e(c.nombre)+'</b>'+(c.para?'<span class="ct-para">'+e(c.para)+'</span>':'')+(c.telefono?'<a href="tel:'+e(String(c.telefono).replace(/[^\d+]/g,''))+'">☎ '+e(c.telefono)+'</a>':'')+(c.correo?'<a href="mailto:'+e(c.correo)+'">✉ '+e(c.correo)+'</a>':'')+'</div>';}).join('')+'</div></div>':'');
     // 2. Proceso de diseño: cada etapa con su ícono; abajo la explicación de la etapa en curso (o de la que el cliente toque)
     var etIni=cerrado?ETAPAS.length-1:idx;
-    h+='<div class="av-sec"><h3>Proceso de diseño</h3><div class="etapas" id="etw">'+ETAPAS.map(function(x,i){var st=i<idx?'hecha':(i===idx?'actual':'');return '<div class="et '+st+(i===etIni?' sel':'')+'" onclick="ebEt('+i+')" role="button" tabindex="0"><span class="et-p">'+ET_ICO[i]+(st==='hecha'?'<i class="et-ok">✓</i>':'')+'</span><b>'+x[1]+'</b>'+(fe[x[0]]?'<small>'+e(fechaCorta(fe[x[0]]))+'</small>':'')+(st==='actual'?'<em>Estamos aquí</em>':'')+'</div>';}).join('')+'</div>'
+    h+='<div class="av-sec proc"><h3 class="h-up">Proceso de diseño</h3><div class="etapas" id="etw">'+ETAPAS.map(function(x,i){var st=i<idx?'hecha':(i===idx?'actual':'');return '<div class="et '+st+(i===etIni?' sel':'')+'" onclick="ebEt('+i+')" role="button" tabindex="0"><span class="et-p">'+ET_ICO[i]+(st==='hecha'?'<i class="et-ok">✓</i>':'')+'</span><b>'+x[1]+'</b>'+(fe[x[0]]?'<small>'+e(fechaCorta(fe[x[0]]))+'</small>':'')+(st==='actual'?'<em>Estamos aquí</em>':'')+'</div>';}).join('')+'</div>'
       +'<div class="et-d" id="etd">'+etTexto(etIni)+'</div>'
       +(cerrado?'<p class="meta" style="margin-top:10px;">✓ Tu proyecto está terminado. ¡Gracias por confiar en nosotros!</p>':'')+'</div>';
     // 3. Detalles de tu servicio (plegable)
