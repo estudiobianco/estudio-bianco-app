@@ -279,6 +279,16 @@ details.mas[open] summary::after{content:'▴';}
 .et.actual{background:#E8DED4;}
 .et.actual .et-p,.et.hecha .et-p{background:#5B4A3E;border-color:#5B4A3E;}
 .et em{color:#5B4A3E;}
+.et{cursor:pointer;transition:background .2s,box-shadow .2s;}
+.et:hover{background:#F4F1EC;}
+.et .et-p{position:relative;width:38px;height:38px;color:#5B4A3E;}
+.et.hecha .et-p,.et.actual .et-p{color:#fff;}
+.et .et-ok{position:absolute;right:-4px;bottom:-3px;width:15px;height:15px;border-radius:50%;background:#fff;color:#5B4A3E;border:1px solid #5B4A3E;font-size:9px;font-style:normal;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.et.sel{box-shadow:inset 0 0 0 1.5px #8EC3E6;}
+.et-d{margin-top:12px;padding:12px 14px;border-radius:10px;background:#F4F1EC;border-left:3px solid #8EC3E6;}
+.et-d:empty{display:none;}
+.et-d b{display:block;font-size:13px;font-weight:600;margin-bottom:3px;}
+.et-d p{margin:0;font-size:13px;line-height:1.55;color:var(--tx2);}
 @media (max-width:600px){.ph{height:130px;}.bd{padding:8px 9px 10px;}.nm{font-size:12.5px;}.acts button{font-size:11px;padding:7px 0;white-space:nowrap;letter-spacing:-.01em;}.ic{font-size:10px;}.recb{font-size:9.5px;padding:2px 6px;}.badge{font-size:9.5px;padding:2px 6px;}}
 /* Reuniones, agenda, datos y contactos */
 .reu{border-top:1px solid #E8DED4;padding:12px 0;}
@@ -295,6 +305,8 @@ details.mas[open] summary::after{content:'▴';}
 .ct b{display:block;margin:2px 0 4px;}
 .ct a{color:#5B4A3E;display:block;text-decoration:none;}
 .ct a:hover{text-decoration:underline;}
+.ct a{font-size:12.5px;overflow-wrap:anywhere;}
+.ct .ct-para{display:block;font-size:12px;line-height:1.4;color:#8A8077;margin:-2px 0 6px;}
 @media (max-width:600px){.datos{grid-template-columns:1fr;}}
 /* Tarjetas alineadas: misma estructura siempre (2 líneas de nombre, fila de íconos reservada) */
 .bdgs{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:6px;flex-wrap:wrap;}
@@ -582,6 +594,25 @@ details.sv-det[open] summary h3::after{content:' ▴';}
   window.ebDet=function(el,id){if(el.open)detAbiertos[id]=1;else delete detAbiertos[id];};
   // ── "Cómo va tu proyecto": etapas, lo próximo, entregas de productos y avances de obra ──
   var ETAPAS=[['reunion_inicial','Reunión de consulta'],['anteproyecto','Anteproyecto'],['correccion_1','Primera corrección'],['correccion_2','Segunda corrección'],['entrega_final','Entrega final'],['implementacion','Implementación']];
+  function svgI(p){return '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+p+'</svg>';}
+  var ET_ICO=[
+    svgI('<path d="M4 9h12v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 3.5v2.5M12 3.5v2.5"/><path d="M5 21h10"/>'),
+    svgI('<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/>'),
+    svgI('<path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/>'),
+    svgI('<path d="M7 21l1-4 9-9 3 3-9 9z"/><path d="M15 10l3 3"/><path d="M6 2.5v5M3.5 5h5"/><path d="M11 3.5v2M10 4.5h2"/>'),
+    svgI('<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/>'),
+    svgI('<path d="M13.5 10.5l-8.8 8.8a1.6 1.6 0 0 0 2.3 2.3l8.8-8.8"/><path d="M10.5 7.5l4-4 1.8 1.8 2.2-.8 1.8 1.8-.8 2.2 1.8 1.8-4 4z"/>')
+  ];
+  var ET_TXT=[
+    'Nos conocemos, revisamos tu espacio y lo que necesitas resolver. Con eso preparamos tu cotización.',
+    'Te presentamos la primera propuesta de distribución, estilo y materiales para que la revises con calma.',
+    'Ajustamos la propuesta según tus comentarios y afinamos muebles, colores y terminaciones.',
+    'Cerramos las últimas definiciones para dejar todo listo antes de la entrega.',
+    'Estamos preparando toda la documentación técnica y las cotizaciones finales que tu proyecto necesita para pasar a la implementación y cumplir el plazo de 60 días. Te enviaremos todo por correo para formalizar la entrega y, una vez recibido, partimos de inmediato con la implementación.',
+    'Es la etapa de compras, fabricación e instalación. Para avanzar sin atrasos te pedimos tener organizado tu flujo de pagos: los proveedores trabajan con abonos y saldos en fechas fijas, y cumplirlos a tiempo es clave para respetar los plazos de entrega.'
+  ];
+  function etTexto(i){if(i<0||i>=ETAPAS.length)return '';return '<b>'+ETAPAS[i][1]+'</b><p>'+ET_TXT[i]+'</p>';}
+  window.ebEt=function(i){var w=document.getElementById('etw'),d=document.getElementById('etd');if(!w||!d)return;w.querySelectorAll('.et').forEach(function(n,k){n.classList.toggle('sel',k===i);});d.innerHTML=etTexto(i);};
   function fechaLarga(d){if(!d)return '';var x=new Date(String(d).slice(0,10)+'T12:00:00');return isNaN(x)?d:x.toLocaleDateString('es-CL',{weekday:'long',day:'numeric',month:'long'});}
   function htmlAvance(){
     var sg=D.seguimiento||{}, et=sg.etapa||'', fe=sg.fechas||{}, cerrado=et==='cerrado', idx=cerrado?ETAPAS.length:ETAPAS.map(function(x){return x[0];}).indexOf(et);
@@ -593,9 +624,12 @@ details.sv-det[open] summary h3::after{content:' ▴';}
     var P=D.proyecto||{}, cts=D.contactos||[];
     var dat=[['Proyecto',P.nombre],['Cliente',P.cliente],['Dirección',P.direccion],['Inicio',P.inicio?fechaCorta(P.inicio):'']].filter(function(x){return x[1];});
     h+='<div class="av-sec"><h3>Datos del proyecto</h3>'+(dat.length?'<div class="datos">'+dat.map(function(x){return '<div><span>'+x[0]+'</span>'+e(x[1])+'</div>';}).join('')+'</div>':'')
-      +(cts.length?'<p class="meta" style="margin:14px 0 4px;">¿Tienes alguna duda? Escríbenos directo a quien corresponda:</p><div class="contactos">'+cts.map(function(c){return '<div class="ct"><small>'+e(c.area)+'</small><b>'+e(c.nombre)+'</b>'+(c.telefono?'<a href="tel:'+e(String(c.telefono).replace(/[^\d+]/g,''))+'">☎ '+e(c.telefono)+'</a>':'')+(c.correo?'<a href="mailto:'+e(c.correo)+'">✉ '+e(c.correo)+'</a>':'')+'</div>';}).join('')+'</div>':'')+'</div>';
-    // 2. Etapas
-    h+='<div class="av-sec"><h3>Etapas</h3><div class="etapas">'+ETAPAS.map(function(x,i){var st=i<idx?'hecha':(i===idx?'actual':'');return '<div class="et '+st+'"><span class="et-p">'+(st==='hecha'?'✓':(i+1))+'</span><b>'+x[1]+'</b>'+(fe[x[0]]?'<small>'+e(fechaCorta(fe[x[0]]))+'</small>':'')+(st==='actual'?'<em>Estamos aquí</em>':'')+'</div>';}).join('')+'</div>'
+      +'</div>'
+      +(cts.length?'<div class="av-sec"><h3>Equipo Estudio Bianco</h3><p class="meta" style="margin:0 0 8px;">Para que tu consulta llegue más rápido, escríbele directo a quien corresponda:</p><div class="contactos">'+cts.map(function(c){return '<div class="ct"><small>'+e(c.area)+'</small><b>'+e(c.nombre)+'</b>'+(c.para?'<span class="ct-para">'+e(c.para)+'</span>':'')+(c.telefono?'<a href="tel:'+e(String(c.telefono).replace(/[^\d+]/g,''))+'">☎ '+e(c.telefono)+'</a>':'')+(c.correo?'<a href="mailto:'+e(c.correo)+'">✉ '+e(c.correo)+'</a>':'')+'</div>';}).join('')+'</div></div>':'');
+    // 2. Proceso de diseño: cada etapa con su ícono; abajo la explicación de la etapa en curso (o de la que el cliente toque)
+    var etIni=cerrado?ETAPAS.length-1:idx;
+    h+='<div class="av-sec"><h3>Proceso de diseño</h3><div class="etapas" id="etw">'+ETAPAS.map(function(x,i){var st=i<idx?'hecha':(i===idx?'actual':'');return '<div class="et '+st+(i===etIni?' sel':'')+'" onclick="ebEt('+i+')" role="button" tabindex="0"><span class="et-p">'+ET_ICO[i]+(st==='hecha'?'<i class="et-ok">✓</i>':'')+'</span><b>'+x[1]+'</b>'+(fe[x[0]]?'<small>'+e(fechaCorta(fe[x[0]]))+'</small>':'')+(st==='actual'?'<em>Estamos aquí</em>':'')+'</div>';}).join('')+'</div>'
+      +'<div class="et-d" id="etd">'+etTexto(etIni)+'</div>'
       +(cerrado?'<p class="meta" style="margin-top:10px;">✓ Tu proyecto está terminado. ¡Gracias por confiar en nosotros!</p>':'')+'</div>';
     // 3. Detalles de tu servicio (plegable)
     var sv=D.servicio;
