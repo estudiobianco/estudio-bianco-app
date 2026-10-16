@@ -1109,6 +1109,7 @@ body.col-resizing *{cursor:col-resize !important;}
     <div><h1>Seguimiento</h1><p id="sgSub">Pendientes, calendario y bitácora del proyecto</p></div>
     <div style="display:flex;gap:8px;align-items:center;" id="sgAcciones"></div>
   </div>
+  <div class="tc" id="procBox" style="padding:14px 18px;margin-bottom:14px;"></div>
   <div class="sg-tabs" id="sgTabs">
     <button class="sg-tab act" data-t="pend" onclick="sgTab('pend')">Pendientes</button>
     <button class="sg-tab" data-t="cal" onclick="sgTab('cal')">Calendario</button>
@@ -9109,6 +9110,38 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
 })();
 </script>
 
+<script>
+// ══ PROCESO DE DISEÑO (lo ve el cliente en "Cómo va tu proyecto") ══
+// Se edita en Seguimiento: tocar la etapa en que van y anotar la fecha de cada una
+(function(){
+  var ET=[['reunion_inicial','Reunión de consulta'],['anteproyecto','Anteproyecto'],['correccion_1','Primera corrección'],['correccion_2','Segunda corrección'],['entrega_final','Entrega final'],['implementacion','Implementación'],['cerrado','Proyecto cerrado']];
+  function es2(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+  function proy(){return (typeof projects!=='undefined'&&currentProjId)?projects.find(function(x){return x.id===currentProjId;}):null;}
+  window.ebProceso=function(){
+    var box=document.getElementById('procBox'), p=proy(); if(!box)return; if(!p){box.innerHTML='';return;}
+    var st=p.stage||'', fe=p.stageDates||{}, idx=ET.map(function(x){return x[0];}).indexOf(st);
+    box.innerHTML='<div class="pr-h"><h2>Proceso de diseño</h2><span>Lo ve el cliente en su portal. Toca la etapa en que van y anota la fecha de cada una.</span></div><div class="pr-g">'
+      +ET.map(function(x,i){var c=i<idx?'hecha':(i===idx?'act':'');return '<div class="pr-e '+c+'"><button onclick="ebProcEtapa(\''+x[0]+'\')" title="Marcar como etapa actual">'+(i<idx?'✓ ':'')+x[1]+(i===idx?'<small>Estamos aquí</small>':'')+'</button><input type="date" value="'+es2(fe[x[0]]||'')+'" onchange="ebProcFecha(\''+x[0]+'\',this.value)" title="Fecha de esta etapa"></div>';}).join('')+'</div>';
+  };
+  function guardar(p){try{svProjects(projects);}catch(e){}try{if(typeof window.sbSaveProject==='function')window.sbSaveProject(p);}catch(e){}window.ebProceso();try{tst('✓ Proceso de diseño actualizado');}catch(e){}}
+  window.ebProcEtapa=function(k){var p=proy();if(!p)return;p.stage=(p.stage===k)?'':k;guardar(p);};
+  window.ebProcFecha=function(k,v){var p=proy();if(!p)return;p.stageDates=Object.assign({},p.stageDates||{});if(v)p.stageDates[k]=v;else delete p.stageDates[k];guardar(p);};
+  if(typeof window.go==='function'){var _g=window.go;window.go=function(id){var r=_g.apply(this,arguments);if(id==='seguimiento'){try{window.ebProceso();}catch(x){}}return r;};}
+})();
+</script>
+<style>
+#procBox .pr-h{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px;}
+#procBox .pr-h h2{font-size:15px;margin:0;}
+#procBox .pr-h span{font-size:12px;color:var(--tx3);}
+#procBox .pr-g{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;}
+#procBox .pr-e{display:flex;flex-direction:column;gap:4px;}
+#procBox .pr-e button{border:1px solid var(--bd2);background:var(--surface);border-radius:var(--rs);padding:8px 6px;font-size:12px;font-family:inherit;cursor:pointer;color:var(--tx2);min-height:46px;line-height:1.25;}
+#procBox .pr-e button small{display:block;font-size:10.5px;font-weight:600;margin-top:2px;}
+#procBox .pr-e.hecha button{background:#EFE8E0;color:#4A3B30;border-color:#E2DAD0;}
+#procBox .pr-e.act button{background:#4A3B30;color:#fff;border-color:#4A3B30;font-weight:600;}
+#procBox .pr-e input{font-size:11px;padding:4px;border:1px solid var(--bd2);border-radius:var(--rs);width:100%;}
+@media (max-width:900px){#procBox .pr-g{grid-template-columns:repeat(4,minmax(0,1fr));}}
+</style>
 <script>
 // ══ SERVICIO PARA EL PORTAL DEL CLIENTE ══
 // Cotización del estudio (PDF en el almacenamiento privado 'servicio') y "qué incluye" (tabla servicio).
