@@ -70,6 +70,30 @@ function negar(res, a) {
   return res.status(404).json({ ok: false, error: 'Este link no es válido o fue desactivado.' });
 }
 
+// "Detalles de tu servicio": qué incluye, la cotización (link temporal de 1 hora) y las cuotas de honorarios
+async function servicioDe(p) {
+  const id = encodeURIComponent(p.id);
+  const sv = ((await sb('servicio?select=*&project_id=eq.' + id)) || [])[0];
+  if (sv && sv.mostrar === false) return null;
+  const hon = (await sb('items?select=id,item,qty,unit,pay_status,p1amt,p2amt,p3amt,p4amt,p1date,p2date,p3date,p4date,vence,sort_order&project_id=eq.' + id + '&cat=eq.Honorarios')) || [];
+  if (!sv && !hon.length) return null;
+  hon.sort((a, b) => (a.sort_order == null ? a.id : a.sort_order) - (b.sort_order == null ? b.id : b.sort_order));
+  const cuotas = hon.map(x => {
+    const tot = (+x.qty || 1) * (+x.unit || 0);
+    const pp = ['p1amt', 'p2amt', 'p3amt', 'p4amt'].reduce((a, k) => a + (+x[k] || 0), 0);
+    const pagada = x.pay_status === 'Pagado' || (pp > 0 && pp >= tot);
+    const fechas = [x.p1date, x.p2date, x.p3date, x.p4date].filter(f => /^\d{4}-\d{2}-\d{2}$/.test(f || '') && f > '2000').sort();
+    return { concepto: x.item || 'Cuota', monto: tot, vence: x.vence || '', pagada: pagada, pagado: pagada ? tot : Math.min(pp, tot), fechaPago: fechas.length ? fechas[fechas.length - 1] : '' };
+  });
+  let cotizacion = '';
+  if (sv && sv.cotizacion_path) {
+    const r = await fetch(SB_URL + '/storage/v1/object/sign/servicio/' + sv.cotizacion_path.split('/').map(encodeURIComponent).join('/'), { method: 'POST', headers: H(), body: JSON.stringify({ expiresIn: 3600 }) });
+    if (r.ok) { const j = await r.json(); if (j.signedURL) cotizacion = SB_URL + '/storage/v1' + j.signedURL; }
+  }
+  const total = cuotas.reduce((a, c) => a + c.monto, 0), pagado = cuotas.reduce((a, c) => a + c.pagado, 0);
+  return { incluye: sv ? sv.incluye || '' : '', cotizacion: cotizacion, cotizacionNombre: sv ? sv.cotizacion_nombre || '' : '', cuotas: cuotas, total: total, pagado: pagado, saldo: Math.max(0, total - pagado) };
+}
+
 // Cuánto está pagado de cada producto: lo registrado por el estudio o, si lo pagó el cliente, el total
 function pagadoDe(x) {
   const tot = (+x.qty || 1) * (+x.unit || 0) + (+x.ship_cost || 0);
@@ -230,6 +254,7 @@ module.exports = async function handler(req, res) {
         proyecto: { nombre: p.name || '', cliente: p.client || '', direccion: p.addr || '', inicio: p.start_date || '' },
         contactos: CONTACTOS,
         seguimiento: await seguimientoDe(p),
+        servicio: await servicioDe(p),
         items: items.map(x => ({
           id: x.id, cat: x.cat || '', item: x.item || '', proveedor: x.supplier || '', cant: x.qty || 1, precio: x.unit || 0, despacho: +x.ship_cost || 0,
           espacio: x.space || '', specs: x.specs || '', link: x.product_url || '', imagen: x.image_url || '',
