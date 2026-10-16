@@ -1,6 +1,6 @@
 // Estudio Bianco · Portal del cliente (Vercel Serverless Function)
 //
-// GET  /api/cliente?k=<link privado del proyecto>
+// GET  /api/cliente?k=<link privado del proyecto>   o   /api/cliente?s=<nombre del link> con la clave en el encabezado x-clave
 //   -> { ok, proyecto:{nombre,cliente}, items:[...], respuestas:[...] }
 //   Solo los productos de ESE proyecto, sin honorarios, pagos ni notas internas.
 //
@@ -13,7 +13,8 @@
 
 const SB_URL = 'https://iucjhzsnlotojvpyjcfo.supabase.co';
 const DECISIONES = ['Aprobado', 'Cambios solicitados', 'Rechazado', 'Por revisar', '']; // 'Por revisar' = deshacer la respuesta
-const CAMPOS_ITEM = 'id,cat,item,supplier,qty,unit,space,specs,product_url,image_url,delivery_status,client_status,opt_group,opt_sel,opt_rec,sort_order,client_note,order_date,est_delivery,order_num,delivery_resp,ship_cost';
+const CAMPOS_ITEM = 'id,cat,item,supplier,qty,unit,space,specs,product_url,image_url,delivery_status,client_status,opt_group,opt_sel,opt_rec,sort_order,client_note,order_date,est_delivery,actual_delivery,order_num,delivery_resp,ship_cost,pay_status,p1amt,p2amt,p3amt,p4amt';
+const CAMPOS_PROY = 'id,name,client,status,stage,stage_dates';
 
 function llave() { return process.env.SUPABASE_SERVICE_KEY || ''; }
 function H(extra) { const k = llave(); return Object.assign({ apikey: k, Authorization: 'Bearer ' + k, 'Content-Type': 'application/json' }, extra || {}); }
@@ -29,8 +30,59 @@ function tokenValido(k) { return typeof k === 'string' && /^[A-Za-z0-9_-]{20,64}
 
 async function proyectoDe(k) {
   if (!tokenValido(k)) return null;
-  const p = await sb('projects?select=id,name,client,status&portal_token=eq.' + encodeURIComponent(k) + '&limit=1');
+  const p = await sb('projects?select=' + CAMPOS_PROY + '&portal_token=eq.' + encodeURIComponent(k) + '&limit=1');
   return p && p[0] ? p[0] : null;
+}
+
+// Link con nombre (clientes.../tulio-pulgar) + clave de 4 numeros.
+// Tras 5 claves incorrectas, ese link queda bloqueado 15 minutos (evita probar las 10.000 combinaciones).
+function slugValido(s) { return typeof s === 'string' && /^[a-z0-9][a-z0-9-]{2,60}$/.test(s); }
+async function acceso(q) {
+  if (q.k) { const p = await proyectoDe(q.k); return p ? { p: p } : { cod: 404 }; }
+  if (!slugValido(q.s)) return { cod: 404 };
+  const r = await sb('projects?select=' + CAMPOS_PROY + ',portal_pin&portal_slug=eq.' + encodeURIComponent(q.s) + '&limit=1');
+  if (!r || !r[0] || !/^\d{4}$/.test(r[0].portal_pin || '')) return { cod: 404 };
+  const est = ((await sb('portal_intentos?select=fallos,bloqueado_hasta&slug=eq.' + encodeURIComponent(q.s))) || [])[0];
+  if (est && est.bloqueado_hasta && new Date(est.bloqueado_hasta) > new Date()) return { cod: 429 };
+  const pin = String(q.pin || '').replace(/\D/g, '');
+  if (!pin) return { cod: 401 };
+  if (pin !== r[0].portal_pin) {
+    const f = (est ? est.fallos : 0) + 1, bloquea = f >= 5;
+    await sb('portal_intentos?on_conflict=slug', { method: 'POST', headers: H({ Prefer: 'resolution=merge-duplicates,return=minimal' }), body: JSON.stringify({ slug: q.s, fallos: bloquea ? 0 : f, bloqueado_hasta: bloquea ? new Date(Date.now() + 15 * 60000).toISOString() : null, updated_at: new Date().toISOString() }) });
+    return { cod: bloquea ? 429 : 401, mala: true, quedan: bloquea ? 0 : 5 - f };
+  }
+  if (est && (est.fallos || est.bloqueado_hasta)) await sb('portal_intentos?slug=eq.' + encodeURIComponent(q.s), { method: 'PATCH', headers: H({ Prefer: 'return=minimal' }), body: JSON.stringify({ fallos: 0, bloqueado_hasta: null, updated_at: new Date().toISOString() }) });
+  const p = r[0]; delete p.portal_pin; return { p: p };
+}
+function negar(res, a) {
+  if (a.cod === 429) return res.status(429).json({ ok: false, bloqueado: true, error: 'Hubo demasiados intentos con una clave incorrecta. Intenta de nuevo en 15 minutos.' });
+  if (a.cod === 401) return res.status(401).json({ ok: false, pin: true, error: a.mala ? 'La clave no es correcta.' + (a.quedan ? ' Te quedan ' + a.quedan + ' intento' + (a.quedan === 1 ? '' : 's') + '.' : '') : '' });
+  return res.status(404).json({ ok: false, error: 'Este link no es válido o fue desactivado.' });
+}
+
+// Cuánto está pagado de cada producto: lo registrado por el estudio o, si lo pagó el cliente, el total
+function pagadoDe(x) {
+  const tot = (+x.qty || 1) * (+x.unit || 0) + (+x.ship_cost || 0);
+  const pp = ['p1amt', 'p2amt', 'p3amt', 'p4amt'].reduce((a, k) => a + (+x[k] || 0), 0);
+  if (pp > 0) return Math.min(pp, tot);
+  return (x.pay_status === 'Pagado' || x.delivery_resp === 'Cliente') ? tot : 0;
+}
+
+// "Cómo va tu proyecto": etapa, próximas reuniones marcadas para el cliente y avances de obra.
+// Solo sale lo que el estudio marcó "Mostrar al cliente"; las partidas de obra y los hitos salen salvo que se desmarquen.
+async function seguimientoDe(p) {
+  const ls = (await sb('logs?select=id,date,due_date,type,title,status,category,extra&project_id=eq.' + encodeURIComponent(p.id) + '&or=(category.is.null,category.not.in.(cliente,visita,actividad,lamina,render))&order=date')) || [];
+  const hoy = hoySantiago(), proximas = [], avances = [];
+  ls.forEach(l => {
+    let x = {}; try { x = l.extra ? JSON.parse(l.extra) : {}; } catch (e) {}
+    const obra = l.type === '🏗 Partida de obra' || l.type === 'Hito';
+    const visible = x.cliente_visible === true || (obra && x.cliente_visible !== false);
+    if (!visible) return;
+    if (l.type === 'Evento') { if ((l.date || '') >= hoy) proximas.push({ fecha: l.date, hora: x.start || '', titulo: l.title || 'Reunión', lugar: x.loc || '' }); return; }
+    if (l.type === 'Tarea' || l.type === 'Compromiso') return;
+    avances.push({ fecha: l.date || '', hasta: obra && l.due_date && l.due_date !== l.date ? l.due_date : '', tipo: l.type === '🏗 Partida de obra' ? 'Partida de obra' : (l.type || ''), titulo: l.title || '', estado: /Completad|Hecho|Terminad/i.test(l.status || '') ? 'Terminado' : (obra ? 'En curso o programado' : '') });
+  });
+  return { etapa: p.stage || '', fechas: p.stage_dates || {}, proximas: proximas.slice(0, 5), avances: avances.reverse().slice(0, 40) };
 }
 
 function hoySantiago() {
@@ -148,8 +200,10 @@ module.exports = async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const p = await proyectoDe((req.query || {}).k);
-      if (!p) return res.status(404).json({ ok: false, error: 'Este link no es válido o fue desactivado.' });
+      const q = req.query || {};
+      const a = await acceso({ k: q.k, s: q.s, pin: req.headers['x-clave'] });
+      if (!a.p) return negar(res, a);
+      const p = a.p;
       const items = (await sb('items?select=' + CAMPOS_ITEM + '&project_id=eq.' + encodeURIComponent(p.id) + '&cat=neq.Honorarios&order=id')) || [];
       // mismo orden manual que en la app del estudio (sin orden guardado, el de creación)
       items.sort((a, b) => (a.sort_order == null ? a.id : a.sort_order) - (b.sort_order == null ? b.id : b.sort_order));
@@ -162,11 +216,13 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({
         ok: true,
         proyecto: { nombre: p.name || '', cliente: p.client || '' },
+        seguimiento: await seguimientoDe(p),
         items: items.map(x => ({
           id: x.id, cat: x.cat || '', item: x.item || '', proveedor: x.supplier || '', cant: x.qty || 1, precio: x.unit || 0, despacho: +x.ship_cost || 0,
           espacio: x.space || '', specs: x.specs || '', link: x.product_url || '', imagen: x.image_url || '',
           entrega: x.delivery_status || 'Por pedir', estado: x.client_status || '',
-          compra: x.order_date ? { fecha: x.order_date, entrega: x.est_delivery || '', orden: x.order_num || '', por: x.delivery_resp === 'Cliente' ? 'cliente' : 'estudio' } : null, grupo: x.opt_group || '', elegida: x.opt_sel === '1', recomendada: x.opt_rec === '1', nota: x.client_note || ''
+          compra: x.order_date ? { fecha: x.order_date, entrega: x.est_delivery || '', orden: x.order_num || '', por: x.delivery_resp === 'Cliente' ? 'cliente' : 'estudio' } : null, grupo: x.opt_group || '', elegida: x.opt_sel === '1', recomendada: x.opt_rec === '1', nota: x.client_note || '',
+          pagado: pagadoDe(x), llega: x.est_delivery || '', llego: x.actual_delivery || '', pedido: x.order_date || ''
         })),
         proveedores: provs,
         documentos: docs,
@@ -180,8 +236,9 @@ module.exports = async function handler(req, res) {
     if (req.method === 'POST') {
       let b = req.body || {};
       if (typeof b === 'string') { try { b = JSON.parse(b); } catch (e) { b = {}; } }
-      const p = await proyectoDe(b.k);
-      if (!p) return res.status(404).json({ ok: false, error: 'Este link no es válido o fue desactivado.' });
+      const a = await acceso({ k: b.k, s: b.s, pin: b.pin });
+      if (!a.p) return negar(res, a);
+      const p = a.p;
       if (b.accion === 'visita') return await visita(p, limpio(b.nombre, 80), req, res);
       if (b.accion === 'fin') return await terminar(p, limpio(b.nombre, 80) || 'Cliente', res);
       if (b.accion === 'compra') return await compra(p, b, res);
