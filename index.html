@@ -1576,6 +1576,7 @@ function sAll(){
     var el=document.getElementById('saveStatus');if(el){el.textContent='Guardado';el.style.color='var(--ac)';clearTimeout(window._st);window._st=setTimeout(function(){el.textContent='';},3000);}
   }catch(e){}
   if(typeof window.sbSave==='function'){try{window.sbSave(currentProjId,items);}catch(e){}}
+  if(typeof window.sbSavePagos==='function'){try{window.sbSavePagos(currentProjId,pagos);}catch(e){}}
 }
 function manualSave(){sAll();updateBackupInfo();tst('Datos guardados');}
 function saveGlobal(){gd.lastReview=document.getElementById('lastRevGlobal').value;sv('ar5_global',gd);document.getElementById('lastRevLabel').textContent=gd.lastReview?'('+fd(gd.lastReview)+')'  :'';}
@@ -2423,7 +2424,7 @@ function rH(){
   try{if(typeof window.ebServicio==='function')window.ebServicio();}catch(e){}
 }
 function uPg(id,f,v){const p=pagos.find(x=>x.id===id);if(p){p[f]=v;rH();sAll();}}
-function dPg(id){if(confirm('¿Eliminar este pago?')){pagos=pagos.filter(x=>x.id!==id);rH();sAll();}}
+function dPg(id){if(confirm('¿Eliminar este pago?')){pagos=pagos.filter(x=>x.id!==id);if(typeof window.sbDelPago==='function')window.sbDelPago(currentProjId,id);rH();sAll();}}
 function addHon(){const date=document.getElementById('honDate').value,amount=parseFloat(document.getElementById('honAmt').value)||0,note=document.getElementById('honNote').value||'Transferencia manual',dt=document.getElementById('honDocType').value,dn=document.getElementById('honDocNum').value;if(!date||amount<=0){alert('Ingresa fecha y monto.');return;}pagos.push({id:nip++,date,amount,note,source:'manual',docType:dt,docNum:dn});['honDate','honAmt','honDocType','honDocNum','honNote'].forEach(id=>{document.getElementById(id).value='';});rH();sAll();tst('Pago agregado: '+fm(amount));}
 function setSB(m,t){const el=document.getElementById('honSB');el.textContent=m;el.className='sb '+t;}
 async function handleComp(file){if(!file)return;setSB('Leyendo comprobante con Claude…','loading');try{const b64=await t64(file);const isImg=file.type.startsWith('image/');const block=isImg?{type:'image',source:{type:'base64',media_type:file.type,data:b64}}:{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}};const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,messages:[{role:'user',content:[block,{type:'text',text:'Comprobante transferencia chilena. Extrae fecha (YYYY-MM-DD), monto pesos entero, glosa. Solo JSON: {"date":"YYYY-MM-DD","amount":123456,"note":"texto"} null si no lees.'}]}]})});const data=await resp.json();const text=(data.content||[]).map(c=>c.text||'').join('');const parsed=JSON.parse(text.replace(/```json|```/g,'').trim());if(!parsed.amount){setSB('No se pudo leer el monto. Agrégalo manualmente.','err');return;}const date=parsed.date||new Date().toISOString().split('T')[0];pagos.push({id:nip++,date,amount:parsed.amount,note:parsed.note||file.name,source:'comprobante',docType:'',docNum:''});rH();sAll();setSB('✓ Pago de '+fm(parsed.amount)+' del '+fd(date)+' agregado.','ok');document.getElementById('honFile').value='';tst('Comprobante leído: '+fm(parsed.amount));}catch(e){setSB('Error: '+e.message,'err');}}
@@ -2867,6 +2868,19 @@ function openProject(pid){
             if(typeof nil!=='undefined')nil=Math.max(0,...logs.map(function(l){return l.id;}))+1;
             try{var _pg=document.getElementById('page-gestion');if(_pg&&_pg.classList.contains('active'))rGP();}catch(e){}
           }
+        });
+      }
+      // Pagos recibidos de honorarios: la nube manda; los que solo estaban en este navegador se suben
+      if(typeof window.sbLoadPagos==='function'){
+        window.sbLoadPagos(_openPid,function(cp){
+          if(currentProjId!==_openPid||!cp)return;
+          var ids={}; cp.forEach(function(p){ids[p.id]=1;});
+          var soloLocal=pagos.filter(function(p){return !ids[p.id];});
+          pagos=cp.concat(soloLocal).map(mgP);
+          nip=Math.max(0,...pagos.map(function(p){return +p.id||0;}))+1;
+          try{localStorage.setItem('ar6_p'+_openPid+'_pagos',JSON.stringify(pagos));}catch(e){}
+          if(soloLocal.length)window.sbSavePagos(_openPid,pagos);
+          try{var _ph=document.getElementById('page-honorarios');if(_ph&&_ph.classList.contains('active'))rH();}catch(e){}
         });
       }
       window.sbLoad(pid,function(cloud){
@@ -4582,7 +4596,55 @@ function renderGantt(){
     else { el.textContent='\u26a0 Sin conexión'; el.style.color='var(--wn)'; }
   }
 
-  // GUARDAR (debounce 0.8s): upsert seguro por (project_id,id) — NUNCA borra, solo actualiza/agrega
+  // ── GUARDADO SEGURO ──────────────────────────────────────────────────
+  // La app recuerda cómo estaba cada fila la última vez que la vio en la nube ("base").
+  // Al guardar solo sube los CAMPOS que cambiaron en este computador, así no pisa lo que
+  // otra persona, el cliente desde el portal o Claude cambiaron mientras tanto.
+  var BASE={items:{},logs:{},projects:{},pagos:{}}, BASE_OK={items:{},logs:{},pagos:{}};
+  function bk(pid,id){return pid+'|'+id;}
+  function igual(a,b){return JSON.stringify(a==null?null:a)===JSON.stringify(b==null?null:b);}
+  function recordar(tabla,pid,rows){(rows||[]).forEach(function(r){BASE[tabla][bk(pid,r.id)]=Object.assign({},r);});}
+  // Compara con la base: filas nuevas (sin base) y filas con campos cambiados
+  function cambios(tabla,pid,rows){
+    var nuevas=[], parches=[];
+    rows.forEach(function(r){
+      var b=BASE[tabla][bk(pid,r.id)];
+      if(!b){nuevas.push(r);return;}
+      var c={}, n=0;
+      Object.keys(r).forEach(function(f){if(f!=='id'&&f!=='project_id'&&!igual(r[f],b[f])){c[f]=r[f];n++;}});
+      if(n)parches.push({row:r,campos:c});
+    });
+    return {nuevas:nuevas,parches:parches};
+  }
+  // PATCH de a 4 en paralelo; si la fila ya no existe en la nube se vuelve a crear completa
+  function aplicarParches(tabla,pid,parches,filtro){
+    var i=0, errores=0;
+    function uno(){
+      if(i>=parches.length)return Promise.resolve();
+      var p=parches[i++];
+      return fetch(URL+'/rest/v1/'+tabla+'?'+filtro(p.row),{method:'PATCH',headers:Object.assign({},H,{'Prefer':'return=representation'}),body:JSON.stringify(p.campos)})
+        .then(function(r){
+          if(!r.ok){errores++;return;}
+          return r.json().then(function(a){
+            if(a&&a.length){var b=BASE[tabla][bk(pid,p.row.id)];if(b)Object.assign(b,p.campos);return;}
+            return fetch(URL+'/rest/v1/'+tabla+'?on_conflict='+(tabla==='projects'?'id':'project_id,id'),{method:'POST',headers:Object.assign({},H,{'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(p.row)})
+              .then(function(r2){if(r2.ok)recordar(tabla,pid,[p.row]);else errores++;});
+          });
+        }).catch(function(){errores++;}).then(uno);
+    }
+    return Promise.all([uno(),uno(),uno(),uno()]).then(function(){return errores;});
+  }
+  // Si este computador nunca leyó el proyecto de la nube, primero lee la base
+  function asegurarBase(tabla,pid,conv){
+    if(BASE_OK[tabla][pid])return Promise.resolve();
+    return fetch(URL+'/rest/v1/'+tabla+'?project_id=eq.'+encodeURIComponent(pid)+'&select=*',{headers:H})
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(d){if(d){recordar(tabla,pid,d.map(conv));BASE_OK[tabla][pid]=true;}})
+      .catch(function(){});
+  }
+  window.__ebBase=BASE;
+
+  // GUARDAR (debounce 0.8s): solo sube lo que cambió. NUNCA borra.
   window.sbSave=function(pid,its){
     if(!pid||!its) return;
     clearTimeout(_t);
@@ -4594,8 +4656,28 @@ function renderGantt(){
     var snapshot=its.map(function(r){return toRow(r,pid);});
     _t=setTimeout(function(){
       if(!snapshot.length){ setStatus('ok'); return; }
-      setStatus('saving');
-      // UPSERT: actualiza los que existen, inserta los nuevos, sin borrar nada
+      asegurarBase('items',pid,function(x){return toRow(fromRow(x),pid);}).then(function(){
+        var c=cambios('items',pid,snapshot);
+        if(!c.nuevas.length&&!c.parches.length){ setStatus('ok'); return; }
+        setStatus('saving');
+        var pNuevas=c.nuevas.length?subirNuevas(c.nuevas):Promise.resolve(0);
+        pNuevas.then(function(e1){
+          return aplicarParches('items',pid,c.parches,function(r){return 'project_id=eq.'+encodeURIComponent(pid)+'&id=eq.'+encodeURIComponent(r.id);}).then(function(e2){setStatus((e1||e2)?'err':'ok');});
+        });
+      });
+      // Productos nuevos: se insertan completos
+      function subirNuevas(rows){
+        return doUpsert(rows).then(function(r){
+          if(r.ok){ recordar('items',pid,rows); return 0; }
+          return r.text().then(function(t){
+            if(/lead_unit|date_history|order_num|delivery_resp|ship_link|opt_group|opt_sel|opt_rec|client_note|sort_order/.test(t)){
+              var strip=rows.map(function(x){ var y=Object.assign({},x); if(/lead_unit|date_history/.test(t)){delete y.lead_unit; delete y.date_history;} delete y.order_num; delete y.delivery_resp; delete y.ship_link; delete y.opt_group; delete y.opt_sel; delete y.opt_rec; delete y.client_note; delete y.sort_order; return y; });
+              return doUpsert(strip).then(function(r2){ if(r2.ok){recordar('items',pid,rows);return 0;} return 1; });
+            }
+            return 1;
+          });
+        }).catch(function(){return 1;});
+      }
       function doUpsert(rows){
         return fetch(URL+'/rest/v1/items?on_conflict=project_id,id',{
           method:'POST',
@@ -4603,22 +4685,12 @@ function renderGantt(){
           body:JSON.stringify(rows)
         });
       }
-      doUpsert(snapshot).then(function(r){
-        if(r.ok){ setStatus('ok'); return; }
-        // Si falla por columnas nuevas inexistentes (lead_unit/date_history), reintentar sin ellas
-        return r.text().then(function(t){
-          if(/lead_unit|date_history|order_num|delivery_resp|ship_link|opt_group|opt_sel|opt_rec|client_note|sort_order/.test(t)){
-            var strip=snapshot.map(function(x){ var y=Object.assign({},x); if(/lead_unit|date_history/.test(t)){delete y.lead_unit; delete y.date_history;} delete y.order_num; delete y.delivery_resp; delete y.ship_link; delete y.opt_group; delete y.opt_sel; delete y.opt_rec; delete y.client_note; delete y.sort_order; return y; });
-            return doUpsert(strip).then(function(r2){ setStatus(r2.ok?'ok':'err'); });
-          }
-          setStatus('err');
-        });
-      }).catch(function(){ setStatus('err'); });
     },800);
   };
   // BORRAR UN ITEM específico de la nube (cuando el usuario borra un item en la app)
   window.sbDeleteItem=function(pid,itemId){
     if(!pid||itemId==null) return;
+    delete BASE.items[bk(pid,itemId)];
     fetch(URL+'/rest/v1/items?project_id=eq.'+encodeURIComponent(pid)+'&id=eq.'+encodeURIComponent(itemId),{
       method:'DELETE', headers:H
     }).catch(function(){});
@@ -4628,7 +4700,11 @@ function renderGantt(){
   window.sbLoad=function(pid,cb){
     fetch(URL+'/rest/v1/items?project_id=eq.'+encodeURIComponent(pid)+'&select=*&order=id',{ headers:H })
       .then(function(r){ return r.ok?r.json():null; })
-      .then(function(data){ cb(data&&data.length?data.map(fromRow):null); })
+      .then(function(data){
+        // La base es lo que hay en la nube en este momento
+        if(data){BASE_OK.items[pid]=true;recordar('items',pid,data.map(function(x){return toRow(fromRow(x),pid);}));}
+        cb(data&&data.length?data.map(fromRow):null);
+      })
       .catch(function(){ cb(null); });
   };
 
@@ -4642,15 +4718,24 @@ function renderGantt(){
   window.sbLoadProjects=function(cb){
     fetch(URL+'/rest/v1/projects?select=*&order=created_at',{ headers:H })
       .then(function(r){ return r.ok?r.json():null; })
-      .then(function(data){ cb(data&&data.length?data.map(projFromRow):null); })
+      .then(function(data){
+        if(data)data.forEach(function(x){BASE.projects[bk('',x.id)]=projToRow(projFromRow(x));});
+        cb(data&&data.length?data.map(projFromRow):null);
+      })
       .catch(function(){ cb(null); });
   };
-  // Guardar/actualizar un proyecto en la nube
+  // Guardar/actualizar un proyecto en la nube: si ya existe, solo los campos que cambiaron
   window.sbSaveProject=function(p){
-    fetch(URL+'/rest/v1/projects?on_conflict=id',{
-      method:'POST', headers:Object.assign({},H,{'Prefer':'resolution=merge-duplicates'}),
-      body:JSON.stringify(projToRow(p))
-    }).catch(function(){});
+    var row=projToRow(p);
+    if(!BASE.projects[bk('',row.id)]){
+      fetch(URL+'/rest/v1/projects?on_conflict=id',{
+        method:'POST', headers:Object.assign({},H,{'Prefer':'resolution=merge-duplicates'}),
+        body:JSON.stringify(row)
+      }).then(function(r){if(r.ok)BASE.projects[bk('',row.id)]=Object.assign({},row);}).catch(function(){});
+      return;
+    }
+    var c=cambios('projects','',[row]);
+    if(c.parches.length)aplicarParches('projects','',c.parches,function(r){return 'id=eq.'+encodeURIComponent(r.id);});
   };
 
   // ── CLIENTES (crm_clients): la nube es la referencia; localStorage queda de respaldo ──
@@ -4719,12 +4804,18 @@ function renderGantt(){
     if(window.__logsNoItemId){snap=snap.map(function(x){var c={};Object.keys(x).forEach(function(k){if(k!=='item_id')c[k]=x[k];});return c;});}
     _lt=setTimeout(function(){
       if(!snap.length)return;
+      // Guardado seguro: solo los registros nuevos o los campos que cambiaron
+      asegurarBase('logs',pid,function(x){var r=logToRow(logFromRow(x),pid);if(window.__logsNoItemId)delete r.item_id;return r;}).then(function(){
+        var c=cambios('logs',pid,snap);
+        if(c.nuevas.length)_post(c.nuevas,false);
+        if(c.parches.length)aplicarParches('logs',pid,c.parches,function(r){return 'project_id=eq.'+encodeURIComponent(pid)+'&id=eq.'+encodeURIComponent(r.id);});
+      });
       function _post(rows,retried){
         fetch(URL+'/rest/v1/logs?on_conflict=project_id,id',{
           method:'POST', headers:Object.assign({},H,{'Prefer':'resolution=merge-duplicates'}),
           body:JSON.stringify(rows)
         }).then(function(r){
-          if(r.ok)return;
+          if(r.ok){recordar('logs',pid,rows);return;}
           // Tolerancia: si la columna item_id aun no existe en Supabase, reintentar sin ella
           if(!retried&&rows.length&&('item_id' in rows[0])){
             window.__logsNoItemId=true;
@@ -4733,18 +4824,21 @@ function renderGantt(){
           }
         }).catch(function(){});
       }
-      _post(snap,false);
     },900);
   };
   window.sbLoadLogs=function(pid,cb){
     fetch(URL+'/rest/v1/logs?project_id=eq.'+encodeURIComponent(pid)+'&select=*&order=date.desc',{ headers:H })
       .then(function(r){ return r.ok?r.json():null; })
       // Las láminas y renders del portal viven en logs pero tienen su propio módulo: no entran a la bitácora
-      .then(function(data){ if(data)data=data.filter(function(x){return x.category!=='lamina'&&x.category!=='render'&&x.category!=='visita'&&x.category!=='actividad';}); cb(data&&data.length?data.map(logFromRow):null); })
+      .then(function(data){
+        // Base del guardado seguro: todos los registros que hay en la nube (aunque no se muestren)
+        if(data){BASE_OK.logs[pid]=true;recordar('logs',pid,data.map(function(x){var r=logToRow(logFromRow(x),pid);if(window.__logsNoItemId)delete r.item_id;return r;}));}
+        if(data)data=data.filter(function(x){return x.category!=='lamina'&&x.category!=='render'&&x.category!=='visita'&&x.category!=='actividad';}); cb(data&&data.length?data.map(logFromRow):null); })
       .catch(function(){ cb(null); });
   };
   window.sbDeleteLog=function(pid,logId){
     if(!pid||logId==null)return;
+    delete BASE.logs[bk(pid,logId)];
     fetch(URL+'/rest/v1/logs?project_id=eq.'+encodeURIComponent(pid)+'&id=eq.'+encodeURIComponent(logId),{
       method:'DELETE', headers:H
     }).catch(function(){});
@@ -4772,6 +4866,36 @@ function renderGantt(){
     fetch(URL+'/rest/v1/supplier_payments?project_id=eq.'+encodeURIComponent(pid)+'&id=eq.'+encodeURIComponent(payId),{
       method:'DELETE', headers:H
     }).catch(function(){});
+  };
+
+  // ── PAGOS RECIBIDOS DE HONORARIOS (tabla pagos, solo administradora) ──
+  // Antes vivían solo en el navegador; ahora la nube es la referencia
+  function esAdm(){try{return appMode==='admin';}catch(e){return false;}}
+  function pagoToRow(p,pid){return {id:+p.id,project_id:pid,date:p.date||'',amount:+p.amount||0,note:p.note||'',doc_type:p.docType||'',doc_num:p.docNum||'',source:p.source||'manual'};}
+  function pagoFromRow(x){return {id:+x.id,date:x.date||'',amount:+x.amount||0,note:x.note||'',source:x.source||'manual',docType:x.doc_type||'',docNum:x.doc_num||''};}
+  window.sbLoadPagos=function(pid,cb){
+    if(!esAdm()){cb(null);return;}
+    fetch(URL+'/rest/v1/pagos?project_id=eq.'+encodeURIComponent(pid)+'&select=*&order=date',{headers:H})
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(d){if(d){BASE_OK.pagos[pid]=true;recordar('pagos',pid,d.map(function(x){return pagoToRow(pagoFromRow(x),pid);}));}cb(d?d.map(pagoFromRow):null);})
+      .catch(function(){cb(null);});
+  };
+  var _pt=null;
+  window.sbSavePagos=function(pid,arr){
+    if(!pid||!arr||!esAdm())return;
+    clearTimeout(_pt);
+    var snap=arr.map(function(p){return pagoToRow(p,pid);});
+    _pt=setTimeout(function(){
+      if(!BASE_OK.pagos[pid])return; // aún no se leyó la nube: no subir nada a ciegas
+      var c=cambios('pagos',pid,snap);
+      if(c.nuevas.length)fetch(URL+'/rest/v1/pagos?on_conflict=id,project_id',{method:'POST',headers:Object.assign({},H,{'Prefer':'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(c.nuevas)}).then(function(r){if(r.ok)recordar('pagos',pid,c.nuevas);}).catch(function(){});
+      if(c.parches.length)aplicarParches('pagos',pid,c.parches,function(r){return 'project_id=eq.'+encodeURIComponent(pid)+'&id=eq.'+encodeURIComponent(r.id);});
+    },900);
+  };
+  window.sbDelPago=function(pid,id){
+    if(!pid||id==null||!esAdm())return;
+    delete BASE.pagos[bk(pid,id)];
+    fetch(URL+'/rest/v1/pagos?project_id=eq.'+encodeURIComponent(pid)+'&id=eq.'+encodeURIComponent(id),{method:'DELETE',headers:H}).catch(function(){});
   };
 
   // Mostrar el botón Sincronizar cuando el módulo esté listo
