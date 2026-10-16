@@ -133,6 +133,33 @@ footer b{color:var(--tx2);font-weight:700;}
 .dph{height:300px;background:#fff;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:center;position:relative;cursor:zoom-in;}
 .dph img{width:100%;height:100%;object-fit:contain;padding:10px;}
 .dph .zoom{position:absolute;right:10px;bottom:10px;font-size:11.5px;background:rgba(255,255,255,.92);border:1px solid var(--bd);border-radius:99px;padding:3px 10px;color:var(--tx2);}
+.gal{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+@media (max-width:1000px){.gal{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media (max-width:560px){.gal{grid-template-columns:1fr;}}
+.g-t{position:relative;aspect-ratio:3/2;border-radius:10px;overflow:hidden;background:#D9D2C9;}
+.g-t img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in;transition:transform .5s ease;}
+.g-t:hover img{transform:scale(1.03);}
+.g-pdf{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#5B4A3E;font-size:13px;cursor:pointer;}
+.g-pdf b{font-size:34px;letter-spacing:.05em;}
+.g-est{position:absolute;left:10px;top:10px;font-size:11.5px;font-weight:600;padding:4px 9px;border-radius:6px;color:#fff;background:#5B4A3E;}
+.g-est.no{background:#B4483C;}.g-est.ca{background:#8EC3E6;color:#2B3A44;}
+.g-ab{position:absolute;right:10px;top:10px;display:flex;gap:6px;}
+.g-ab button,.g-cm{border:0;border-radius:6px;padding:6px 10px;font-size:12px;font-family:inherit;cursor:pointer;background:rgba(255,255,255,.9);color:#3A2F27;backdrop-filter:blur(4px);}
+.g-ab button:hover,.g-cm:hover{background:#fff;}
+.g-ab .g-ap.on{background:#5B4A3E;color:#fff;}
+.g-ab .g-re.on{background:#B4483C;color:#fff;}
+.g-pie{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:flex-start;gap:7px;padding:40px 12px 11px;background:linear-gradient(to top,rgba(30,24,20,.72),rgba(30,24,20,0));color:#fff;}
+.g-tx{min-width:0;width:100%;cursor:zoom-in;}
+.g-tx b{display:block;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.g-tx span{display:block;font-size:11.5px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.g-cm{flex-shrink:0;white-space:nowrap;}
+@media (max-width:560px){.g-cm{font-size:11px;padding:6px 8px;}}
+#visor .vc{flex-direction:column;gap:12px;}
+.vinfo{width:100%;max-width:760px;max-height:30vh;overflow:auto;background:#fff;border-radius:10px;padding:12px 14px;font-size:13px;color:#3A2F27;}
+.vinfo .vi-n b{display:block;font-size:12px;margin-bottom:2px;}
+.vinfo .vi-n,.vinfo .vi-v{margin-bottom:8px;}
+.vinfo .vi-c{border-top:1px solid #EEE7DF;padding:6px 0;}
+.vinfo .vi-c span{color:#8A8077;font-size:11.5px;}
 .pdfi{text-align:center;color:var(--tx2);font-size:13px;}.pdfi b{display:block;font-size:34px;color:#B4483C;letter-spacing:.05em;}
 #visor{position:fixed;inset:0;background:rgba(15,18,22,.88);display:none;flex-direction:column;z-index:70;}
 #visor.open{display:flex;}
@@ -140,8 +167,8 @@ footer b{color:var(--tx2);font-weight:700;}
 #visor .vbar a{color:#CBBFAF;}
 #visor .vbar button{background:#fff;border:0;border-radius:99px;width:34px;height:34px;font-size:15px;cursor:pointer;}
 #visor .vc{flex:1;display:flex;align-items:center;justify-content:center;padding:0 16px 16px;min-height:0;}
-#visor img{max-width:100%;max-height:100%;background:#fff;border-radius:6px;}
-#visor iframe{width:100%;height:100%;border:0;background:#fff;border-radius:6px;}
+#visor img{max-width:100%;max-height:100%;min-height:0;object-fit:contain;background:#fff;border-radius:6px;}
+#visor iframe{width:100%;flex:1;min-height:0;border:0;background:#fff;border-radius:6px;}
 /* Proveedores en acordeón */
 .acc{border:1px solid var(--bd);border-radius:14px;overflow:hidden;background:#fff;}
 .acc-i+.acc-i{border-top:1px solid var(--bd);}
@@ -358,7 +385,11 @@ details.sv-det[open] summary h3::after{content:' ▴';}
 .sv-ok{color:#5B4A3E;font-weight:600;}
 .sv-pe{color:#8A8077;}
 .sv-atr{color:#B4483C;font-weight:600;}
-.nov-acc{background:#E8DED4;border-radius:6px;padding:10px 12px;font-size:13px;cursor:pointer;margin-bottom:10px;}
+.nov-acc{background:#F6E7E5;border:1px solid #D9B3AE;border-left:4px solid #8C2F39;color:#5E1F26;border-radius:6px;padding:10px 12px;font-size:13px;cursor:pointer;margin-bottom:10px;}
+.nov-acc .imp-t{display:inline-block;background:#8C2F39;color:#fff;font-size:10.5px;font-weight:700;letter-spacing:.08em;padding:2px 7px;border-radius:4px;margin-right:8px;vertical-align:1px;}
+.datos .d-full{grid-column:1/-1;}
+.datos .d-full p{margin:0;white-space:pre-line;}
+.datos .d-vacio{color:#A39A91;}
 .nov-sub{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#8A8077;margin:12px 0 6px;}
 .nov{list-style:none;display:flex;flex-direction:column;}
 .nov li{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid #F1ECE6;font-size:13px;}
@@ -538,25 +569,31 @@ details.sv-det[open] summary h3::after{content:' ▴';}
   // Láminas o renders para aprobar
   function htmlDocs(tipo){
     var arr=(D.documentos||[]).filter(function(d){return d.tipo===tipo;});
-    var h='<p class="sub" style="margin:0 0 16px;">'+(tipo==='lamina'?'Planos y láminas de tu proyecto. Ábrelos en grande, revísalos y cuéntanos si los apruebas o qué cambiarías.':'Looks, conceptos y renders de tu proyecto. Ábrelos en grande y cuéntanos qué te parecen.')+'</p><div class="dgrid">';
+    var h='<p class="sub" style="margin:0 0 16px;">'+(tipo==='lamina'?'Planos y láminas de tu proyecto. Toca una imagen para verla en grande y cuéntanos si la apruebas o qué cambiarías.':'Looks, conceptos y renders de tu proyecto. Toca una imagen para verla en grande y cuéntanos qué te parece.')+'</p><div class="gal">';
+    // Galería: todas las imágenes del mismo tamaño, sin marco; botones sobre la foto
     arr.forEach(function(d){
-      var es_=est(d), cls=es_.split(' ')[0];
-      var r=(D.respuestas||[]).filter(function(x){return x.docId===d.id;}).slice(0,6).reverse();
-      h+='<div class="card doc"><div class="dph" onclick="ebVerDoc('+d.id+')">'+(d.pdf?'<div class="pdfi"><b>PDF</b>Abrir documento</div>':'<img src="'+e(d.url)+'" alt="" loading="lazy">')
-        +'<span class="badge b-'+e(cls)+'">'+(es_==='Aprobado'?'✓ Aprobado':es_==='Cambios solicitados'?'Cambios pedidos':'Por revisar')+'</span><span class="zoom">⤢ Ver en grande</span></div><div class="bd">'
-        +'<div class="nm">'+e(d.titulo)+'</div><div class="meta">'+[d.espacio,d.version>1?'Versión '+d.version:'',d.fecha?fechaCorta(d.fecha):''].filter(Boolean).map(e).join(' · ')+'</div>'
-        +(d.nota?'<button class="notab" onclick="ebNota(this)">💬 Nota del estudio</button><div class="nota">'+e(d.nota)+'</div>':'')
-        +(d.anteriores&&d.anteriores.length?'<div class="meta">Versiones anteriores: '+d.anteriores.map(function(v,i){return '<a href="'+e(v.url)+'" target="_blank" rel="noopener" class="tienda">v'+(i+1)+'</a>';}).join(' · ')+'</div>':'')
-        +'<div class="acts"><button class="ap'+(es_==='Aprobado'?' on':'')+'" onclick="ebR('+d.id+',\'Aprobado\',1)">✓ Aprobar</button><button class="ca'+(es_==='Cambios solicitados'?' on':'')+'" onclick="ebR('+d.id+',\'Cambios solicitados\',1)">✎ Pedir cambios</button></div>'
-        +'<div class="acts acts2"><button class="cm" onclick="ebR('+d.id+',\'\',1)">💬 Comentar</button></div></div>'
-        +(r.length?'<div class="coms">'+r.map(function(c){return '<div class="com"><b>'+e(c.nombre)+'</b>'+(c.decision?' · '+e(c.decision):'')+'<span class="f">'+e(c.fecha)+'</span>'+(c.comentario?'<div>'+e(c.comentario)+'</div>':'')+'</div>';}).join('')+'</div>':'')+'</div>';
+      var es_=est(d), nC=(D.respuestas||[]).filter(function(x){return x.docId===d.id&&x.comentario;}).length;
+      var bdg=es_==='Aprobado'?'<span class="g-est ok">✓ Aprobado</span>':es_==='Rechazado'?'<span class="g-est no">✕ Rechazado</span>':es_==='Cambios solicitados'?'<span class="g-est ca">✎ Cambios pedidos</span>':'';
+      h+='<div class="g-t">'+(d.pdf?'<div class="g-pdf" onclick="ebVerDoc('+d.id+')"><b>PDF</b>Abrir documento</div>':'<img src="'+e(d.url)+'" alt="'+e(d.titulo)+'" loading="lazy" onclick="ebVerDoc('+d.id+')">')
+        +bdg
+        +'<div class="g-ab"><button class="g-ap'+(es_==='Aprobado'?' on':'')+'" onclick="ebR('+d.id+',\'Aprobado\',1)" title="Aprobar">✓ Aprobar</button><button class="g-re'+(es_==='Rechazado'?' on':'')+'" onclick="ebR('+d.id+',\'Rechazado\',1)" title="Rechazar">✕ Rechazar</button></div>'
+        +'<div class="g-pie"><div class="g-tx" onclick="ebVerDoc('+d.id+')"><b>'+e(d.titulo)+'</b><span>'+[d.espacio,d.version>1?'Versión '+d.version:'',d.fecha?fechaCorta(d.fecha):''].filter(Boolean).map(e).join(' · ')+(d.nota?' · 📝 nota del estudio':'')+(nC?' · 💬 '+nC:'')+'</span></div>'
+        +'<button class="g-cm" onclick="ebR('+d.id+',\'Cambios solicitados\',1)">💬 Pedir cambios / comentar</button></div></div>';
     });
     return h+'</div>';
+  }
+  // Lo que se ve bajo la imagen en grande: nota del estudio, versiones anteriores y comentarios
+  function infoDoc(d){
+    var r=(D.respuestas||[]).filter(function(x){return x.docId===d.id;}).slice(0,8).reverse();
+    var h=(d.nota?'<div class="vi-n"><b>Nota del estudio</b>'+e(d.nota)+'</div>':'')
+      +(d.anteriores&&d.anteriores.length?'<div class="vi-v">Versiones anteriores: '+d.anteriores.map(function(v,i){return '<a href="'+e(v.url)+'" target="_blank" rel="noopener">v'+(i+1)+'</a>';}).join(' · ')+'</div>':'')
+      +(r.length?r.map(function(c){return '<div class="vi-c"><b>'+e(c.nombre)+'</b>'+(c.decision?' · '+e(c.decision):'')+' <span>'+e(c.fecha)+'</span>'+(c.comentario?'<div>'+e(c.comentario)+'</div>':'')+'</div>';}).join(''):'');
+    return h?'<div class="vinfo">'+h+'</div>':'';
   }
   window.ebVerDoc=function(id){
     var d=(D.documentos||[]).find(function(x){return x.id===id;}); if(!d)return;
     var v=document.getElementById('visor');
-    v.querySelector('.vc').innerHTML=d.pdf?'<iframe src="'+e(d.url)+'"></iframe>':'<img src="'+e(d.url)+'" alt="">';
+    v.querySelector('.vc').innerHTML=(d.pdf?'<iframe src="'+e(d.url)+'"></iframe>':'<img src="'+e(d.url)+'" alt="">')+infoDoc(d);
     v.querySelector('.vt').innerHTML=e(d.titulo)+(d.pdf?' · <a href="'+e(d.url)+'" target="_blank" rel="noopener">abrir PDF en otra pestaña ↗</a>':'');
     v.classList.add('open');
   };
@@ -623,7 +660,8 @@ details.sv-det[open] summary h3::after{content:' ▴';}
     // 1. Datos del proyecto y contactos
     var P=D.proyecto||{}, cts=D.contactos||[];
     var dat=[['Proyecto',P.nombre],['Cliente',P.cliente],['Dirección',P.direccion],['Inicio',P.inicio?fechaCorta(P.inicio):'']].filter(function(x){return x[1];});
-    h+='<div class="av-sec"><h3>Datos del proyecto</h3>'+(dat.length?'<div class="datos">'+dat.map(function(x){return '<div><span>'+x[0]+'</span>'+e(x[1])+'</div>';}).join('')+'</div>':'')
+    h+='<div class="av-sec"><h3>Datos del proyecto</h3>'+(dat.length?'<div class="datos">'+dat.map(function(x){return '<div><span>'+x[0]+'</span>'+e(x[1])+'</div>';}).join('')
+        +[['Datos de facturación',P.facturacion],['Requisitos especiales',P.requisitos]].map(function(x){return '<div class="d-full"><span>'+x[0]+'</span>'+(x[1]?'<p>'+e(x[1])+'</p>':'<p class="d-vacio">—</p>')+'</div>';}).join('')+'</div>':'')
       +'</div>'
       +(cts.length?'<div class="av-sec"><h3>Equipo Estudio Bianco</h3><p class="meta" style="margin:0 0 8px;">Para que tu consulta llegue más rápido, escríbele directo a quien corresponda:</p><div class="contactos">'+cts.map(function(c){return '<div class="ct"><small>'+e(c.area)+'</small><b>'+e(c.nombre)+'</b>'+(c.para?'<span class="ct-para">'+e(c.para)+'</span>':'')+(c.telefono?'<a href="tel:'+e(String(c.telefono).replace(/[^\d+]/g,''))+'">☎ '+e(c.telefono)+'</a>':'')+(c.correo?'<a href="mailto:'+e(c.correo)+'">✉ '+e(c.correo)+'</a>':'')+'</div>';}).join('')+'</div></div>':'');
     // 2. Proceso de diseño: cada etapa con su ícono; abajo la explicación de la etapa en curso (o de la que el cliente toque)
@@ -655,7 +693,7 @@ details.sv-det[open] summary h3::after{content:' ▴';}
     ((sv&&sv.cuotas)||[]).forEach(function(c){if(c.pagada&&c.fechaPago)ultimo.push({f:c.fechaPago,t:'💳 Recibimos tu pago: '+c.concepto});});
     ultimo=ultimo.filter(function(x){return x.f&&x.f<=hoyS;}).sort(function(a,b){return b.f.localeCompare(a.f);}).slice(0,8);
     h+='<div class="av-sec"><h3>Últimas novedades</h3>'
-      +(porRev?'<div class="nov-acc" onclick="ebF(\'Por revisar\');ebV(\'compras\')">✋ Esperamos tu respuesta en '+porRev+' producto'+(porRev===1?'':'s')+' · <u>revisar ahora</u></div>':'')
+      +(porRev?'<div class="nov-acc" onclick="ebF(\'Por revisar\');ebV(\'compras\')"><span class="imp-t">IMPORTANTE</span>✋ Esperamos tu respuesta en '+porRev+' producto'+(porRev===1?'':'s')+' · <u>revisar ahora</u></div>':'')
       +(viene.length?'<div class="nov-sub">Lo que viene</div><ul class="nov">'+viene.map(function(x){return '<li><b>'+e(x.t)+'</b><span>'+e(x.s)+'</span></li>';}).join('')+'</ul>':'')
       +(ultimo.length?'<div class="nov-sub">Lo último</div><ul class="nov">'+ultimo.map(function(x){return '<li><b>'+e(x.t)+'</b><span>'+e(fechaLarga(x.f))+'</span></li>';}).join('')+'</ul>':'')
       +(!porRev&&!viene.length&&!ultimo.length?'<p class="meta">Pronto verás aquí las novedades de tu proyecto.</p>':'')+'</div>';
@@ -712,7 +750,7 @@ details.sv-det[open] summary h3::after{content:' ▴';}
   function ref(o){return o.tipo?{docId:o.id}:{itemId:o.id};}
   window.ebR=function(id,dec,esDoc){
     var it=(esDoc?(D.documentos||[]):D.items).find(function(x){return x.id===id;}); if(!it)return;
-    if(dec==='Cambios solicitados'||dec===''){abrirModal(dec,it);return;}
+    if(dec==='Cambios solicitados'||dec===''){abrirModal(dec,it);if(esDoc){document.getElementById('mT').textContent='Pedir cambios o comentar';document.getElementById('mP').textContent=nombreObj(it)+' · Cuéntanos qué te parece o qué cambiarías.';}return;}
     if(est(it)===dec)dec='Por revisar';
     nombrePara(function(nom){rapido(it,dec,nom);});
   };
