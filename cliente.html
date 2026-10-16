@@ -315,7 +315,7 @@ details.mas[open] summary::after{content:'▴';}
 .et .et-ok{position:absolute;right:-4px;bottom:-3px;width:15px;height:15px;border-radius:50%;background:#fff;color:#5B4A3E;border:1px solid #5B4A3E;font-size:9px;font-style:normal;font-weight:700;display:flex;align-items:center;justify-content:center;}
 .et.sel{box-shadow:inset 0 0 0 1.5px #8EC3E6;}
 /* Proceso de diseño: línea que une las etapas, círculos café y cuadro con foto */
-.proc h3.h-up{text-transform:uppercase;letter-spacing:.2em;font-weight:400;font-size:17px;margin-bottom:18px;}
+.proc h3.h-up{margin-bottom:16px;}
 .proc .etapas{position:relative;gap:6px;}
 .proc .etapas::before{content:'';position:absolute;left:8.33%;right:8.33%;top:36px;height:1px;background:#E2DAD0;}
 .proc .et{position:relative;z-index:1;padding:14px 4px 14px;background:transparent;box-shadow:none;}
@@ -329,11 +329,11 @@ details.mas[open] summary::after{content:'▴';}
 .proc .et b{font-size:14px;font-weight:400;color:#3A2F27;}
 .proc .et:not(.hecha):not(.actual) b{color:#A39A91;}
 .proc .et small{font-size:12px;color:#8A8077;margin-top:3px;}
-.proc .et em{letter-spacing:.18em;font-size:10.5px;font-weight:600;color:#4A3B30;margin-top:6px;}
+.proc .et em{text-transform:none;letter-spacing:0;font-size:12px;font-weight:600;color:#4A3B30;margin-top:6px;}
 .et-d{margin-top:16px;display:flex;align-items:stretch;border-radius:10px;background:#EFE8E0;overflow:hidden;}
 .et-d:empty{display:none;}
 .et-d .et-dt{flex:1;padding:22px 26px;}
-.et-d b{display:block;font-size:12px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:#4A3B30;margin-bottom:6px;}
+.et-d b{display:block;font-size:14.5px;font-weight:600;color:#4A3B30;margin-bottom:4px;}
 .et-d p{margin:0;font-size:14.5px;line-height:1.6;color:#3A2F27;}
 .et-d .et-img{width:34%;flex-shrink:0;min-height:150px;}
 .et-d .et-img img{width:100%;height:100%;object-fit:cover;display:block;}
@@ -418,6 +418,34 @@ details.sv-det[open] summary h3::after{content:' ▴';}
 .sv-t .n{text-align:right;white-space:nowrap;}
 .sv-t tfoot td{font-weight:600;border-bottom:0;}
 .sv-ok{color:#5B4A3E;font-weight:600;}
+/* Detalles de tu servicio: cotización, resumen y etapas */
+.sv-cot2{display:flex;align-items:center;gap:14px;padding:12px 14px;border:1px solid #E8DED4;border-radius:10px;background:#FBF9F5;text-decoration:none;color:#3A2F27;transition:border-color .2s,background .2s;}
+.sv-cot2:hover{border-color:#8EC3E6;background:#fff;}
+.sv-cot2 .sv-pdf{flex-shrink:0;width:42px;height:50px;border-radius:6px;background:#4A3B30;color:#fff;font-size:11px;font-weight:700;letter-spacing:.06em;display:flex;align-items:flex-end;justify-content:center;padding-bottom:7px;}
+.sv-cot2 .sv-cn{flex:1;min-width:0;}
+.sv-cot2 .sv-cn b{display:block;font-size:14px;font-weight:600;}
+.sv-cot2 .sv-cn small{display:block;font-size:12px;color:#8A8077;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sv-cot2 .sv-ab{flex-shrink:0;font-size:13px;font-weight:600;color:#4A3B30;border:1px solid #CBBFAF;border-radius:6px;padding:7px 12px;background:#fff;}
+.sv-tot{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+.sv-tot>div{background:#F6F2ED;border-radius:10px;padding:12px 14px;}
+.sv-tot span{display:block;font-size:12px;color:#8A8077;}
+.sv-tot b{display:block;font-size:19px;font-weight:600;color:#3A2F27;margin-top:2px;}
+.sv-tot small{display:block;font-size:11.5px;color:#6F655C;margin-top:2px;}
+.sv-tot .pend{background:#EFE8E0;}
+.sv-et{border:1px solid #EEE7DF;border-radius:10px;overflow:hidden;}
+.sv-row{display:grid;grid-template-columns:1.5fr 1.2fr 1fr;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid #EEE7DF;font-size:13.5px;}
+.sv-row:first-child{border-top:0;}
+.sv-row.sv-hd{background:#FBF9F5;font-size:11.5px;color:#8A8077;padding:8px 14px;}
+.sv-e b{font-weight:600;color:#3A2F27;}
+.sv-m span{display:block;font-size:12px;color:#8A8077;}
+.sv-m span b{color:#3A2F27;font-size:13.5px;}
+.sv-s small{display:block;font-size:11.5px;color:#8A8077;margin-top:3px;}
+.sv-pill{display:inline-block;font-size:12px;font-weight:600;padding:3px 9px;border-radius:6px;}
+.sv-pill.ok{background:#4A3B30;color:#fff;}
+.sv-pill.pe{background:#EFE8E0;color:#4A3B30;}
+.sv-pill.atr{background:#F6E7E5;color:#8C2F39;}
+.sv-nota{font-size:12px;color:#8A8077;margin:0;}
+@media (max-width:640px){.sv-tot{grid-template-columns:1fr 1fr;}.sv-tot>div:last-child{grid-column:1/-1;}.sv-row{grid-template-columns:1fr auto;}.sv-row .sv-m{grid-column:1/2;}.sv-row .sv-s{grid-column:2/3;grid-row:1/3;text-align:right;}.sv-row.sv-hd{display:none;}.sv-cot2 .sv-ab{display:none;}}
 .sv-pe{color:#8A8077;}
 .sv-atr{color:#B4483C;font-weight:600;}
 .nov-acc{background:#F6E7E5;border:1px solid #D9B3AE;border-left:4px solid #8C2F39;color:#5E1F26;border-radius:6px;padding:10px 12px;font-size:13px;cursor:pointer;margin-bottom:10px;}
@@ -707,15 +735,24 @@ details.sv-det[open] summary h3::after{content:' ▴';}
     h+='<div class="av-sec proc"><h3 class="h-up">Proceso de diseño</h3><div class="etapas" id="etw">'+ETAPAS.map(function(x,i){var st=i<idx?'hecha':(i===idx?'actual':'');return '<div class="et '+st+(i===etIni?' sel':'')+'" onclick="ebEt('+i+')" role="button" tabindex="0"><span class="et-p">'+ET_ICO[i]+(st==='hecha'?'<i class="et-ok">✓</i>':'')+'</span><b>'+x[1]+'</b>'+(fe[x[0]]?'<small>'+e(fechaCorta(fe[x[0]]))+'</small>':'')+(st==='actual'?'<em>Estamos aquí</em>':'')+'</div>';}).join('')+'</div>'
       +'<div class="et-d" id="etd">'+etTexto(etIni)+'</div>'
       +(cerrado?'<p class="meta" style="margin-top:10px;">✓ Tu proyecto está terminado. ¡Gracias por confiar en nosotros!</p>':'')+'</div>';
-    // 3. Detalles de tu servicio (plegable)
+    // 3. Detalles de tu servicio (plegable): qué incluye, cotización, resumen y etapas de pago
     var sv=D.servicio;
     if(sv){
-      var nPend=(sv.cuotas||[]).filter(function(c){return !c.pagada;}).length;
-      h+='<details class="av-sec sv-det"'+(svAbierto?' open':'')+' ontoggle="svAbierto=this.open"><summary><h3>Detalles de tu servicio</h3><span class="sv-res">'+(sv.total?'Pagado '+m(sv.pagado)+' de '+m(sv.total)+(sv.saldo>0?' · pendiente '+m(sv.saldo):' · al día ✓'):'Ver detalle')+'</span></summary><div class="sv-c">'
+      var pdto=Math.round((sv.dcto||0.05)*100);
+      h+='<details class="av-sec sv-det"'+(svAbierto?' open':'')+' ontoggle="svAbierto=this.open"><summary><h3>Detalles de tu servicio</h3><span class="sv-res">'+(sv.total?(sv.saldo>0?'Por pagar '+m(sv.saldo):'Al día ✓'):'Ver detalle')+'</span></summary><div class="sv-c">'
+        +(sv.cotizacion?'<a class="sv-cot2" href="'+e(sv.cotizacion)+'" target="_blank" rel="noopener"><span class="sv-pdf">PDF</span><span class="sv-cn"><b>Cotización del servicio</b>'+(sv.cotizacionNombre?'<small>'+e(sv.cotizacionNombre)+'</small>':'')+'</span><span class="sv-ab">Abrir ↗</span></a>':'')
         +(sv.incluye?'<div class="sv-inc"><span>Qué incluye</span><p>'+e(sv.incluye)+'</p></div>':'')
-        +(sv.cotizacion?'<a class="sv-cot" href="'+e(sv.cotizacion)+'" target="_blank" rel="noopener">📄 Ver cotización'+(sv.cotizacionNombre?' <small>'+e(sv.cotizacionNombre)+'</small>':'')+'</a>':'')
-        +((sv.cuotas||[]).length?'<table class="sv-t"><thead><tr><th>Cuota</th><th>Monto</th><th>Vence</th><th>Estado</th></tr></thead><tbody>'+sv.cuotas.map(function(c){var atr=!c.pagada&&c.vence&&c.vence<hoyS;return '<tr><td>'+e(c.concepto)+'</td><td class="n">'+m(c.monto)+'</td><td>'+(c.vence?e(fechaCorta(c.vence)):'—')+'</td><td>'+(c.pagada?'<span class="sv-ok">✓ Pagada'+(c.fechaPago?' el '+e(fechaCorta(c.fechaPago)):'')+'</span>':(atr?'<span class="sv-atr">Vencida</span>':'<span class="sv-pe">Pendiente</span>'))+'</td></tr>';}).join('')
-          +'</tbody><tfoot><tr><td>Total</td><td class="n">'+m(sv.total)+'</td><td colspan="2">Pagado '+m(sv.pagado)+' · Saldo '+m(sv.saldo)+'</td></tr></tfoot></table>':'')
+        +((sv.cuotas||[]).length?'<div class="sv-tot"><div><span>Total del servicio</span><b>'+m(sv.total)+'</b></div><div><span>Pagado</span><b>'+m(sv.pagado)+'</b></div><div class="'+(sv.saldo>0?'pend':'')+'"><span>Por pagar</span><b>'+m(sv.saldo)+'</b>'+(sv.saldo>0&&sv.saldoDcto<sv.saldo?'<small>'+m(sv.saldoDcto)+' por transferencia</small>':'')+'</div></div>'
+          +'<div class="sv-et"><div class="sv-row sv-hd"><span>Etapa</span><span>Monto</span><span>Estado</span></div>'
+          +sv.cuotas.map(function(c){
+            var atr=!c.pagada&&c.vence&&c.vence<hoyS, cls=c.pagada?'ok':(atr?'atr':'pe');
+            var est=c.pagada?'<span class="sv-pill ok">✓ Pagado '+m(c.pagado)+'</span>'+(c.fechaPago?'<small>el '+e(fechaCorta(c.fechaPago))+'</small>':'')
+              :(atr?'<span class="sv-pill atr">Vencida</span><small>Fecha de pago: '+e(fechaCorta(c.vence))+'</small>':'<span class="sv-pill pe">Pendiente</span><small>'+(c.vence?'Fecha de pago: '+e(fechaCorta(c.vence)):'Fecha de pago por definir')+'</small>');
+            return '<div class="sv-row '+cls+'"><div class="sv-e"><b>'+e(c.concepto)+'</b></div>'
+              +'<div class="sv-m"><span>Precio <b>'+m(c.monto)+'</b></span>'+(c.montoDcto&&c.montoDcto<c.monto?'<span>Transferencia (−'+pdto+'%) <b>'+m(c.montoDcto)+'</b></span>':'')+'</div>'
+              +'<div class="sv-s">'+est+'</div></div>';
+          }).join('')+'</div>'
+          +'<p class="sv-nota">Pagando por transferencia tienes un '+pdto+'% de descuento sobre el valor de cada etapa.</p>':'')
         +'</div></details>';
     }
     // 4. Últimas novedades (lo que viene y lo último que pasó)

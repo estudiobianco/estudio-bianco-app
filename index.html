@@ -1184,7 +1184,7 @@ body.col-resizing *{cursor:col-resize !important;}
   <div class="tc" id="honItemsTc">
     <div class="tch"><h2>Ítems de honorarios</h2><p>Todos los ítems con categoría "Honorarios" del listado general</p></div>
     <div class="ts"><table>
-      <thead><tr><th style="width:26px"></th><th style="min-width:200px">Cuota</th><th style="width:120px">Proveedor</th><th style="width:88px">Total</th><th style="width:125px">Vence</th><th style="width:115px">Est. pago</th><th style="width:95px">Pagado</th><th style="width:95px">Saldo</th></tr></thead>
+      <thead><tr><th style="width:26px"></th><th style="min-width:200px">Etapa</th><th style="width:120px">Proveedor</th><th style="width:110px">Precio</th><th style="width:125px">Fecha de pago</th><th style="width:115px">Est. pago</th><th style="width:95px">Pagado</th><th style="width:95px">Saldo</th></tr></thead>
       <tbody id="honItemsBody"></tbody>
     </table></div>
   </div>
@@ -1600,7 +1600,9 @@ function tp(r){return(r.p1amt||0)+(r.p2amt||0)+(r.p3amt||0)+(r.p4amt||0);}
 // Monto ya pagado: lo que registró el estudio o, si lo compró el cliente directo, el total del producto
 function tpCli(r){var p=tp(r);return p>0?p:(compraCliente(r)?rT(r):0);}
 function tpend(r){return Math.max(0,rT(r)-tpCli(r));}
-function autoPayStatus(r){var paid=tp(r);var total=rT(r);if(paid<=0)return compraCliente(r)?'Pagado':'Pendiente';if(paid>=total)return 'Pagado';return 'Pagado parcialmente';}
+function autoPayStatus(r){var paid=tp(r);var total=rT(r);if(paid<=0)return compraCliente(r)?'Pagado':'Pendiente';if(paid>=total||honPagada(r))return 'Pagado';return 'Pagado parcialmente';}
+// Honorarios pagados por transferencia llevan 5% de descuento: pagar desde el 94% del valor cuenta como pagado
+function honPagada(r){if(!r||r.cat!=='Honorarios')return false;var t=rT(r),p=tp(r);return t>0&&p>0&&p>=t*0.94;}
 function recalcPayStatus(){var changed=0;items.forEach(function(r){var auto=autoPayStatus(r);if(auto!==r.payStatus){r.payStatus=auto;changed++;}});if(changed>0){sAll();tst(changed+' estados actualizados');}else tst('Estados correctos');}
 
 // ── PANEL STATE ───────────────────────────────────────────────────────────────
@@ -1993,7 +1995,7 @@ function rC(){
 
 function changeCat(id,newCat){var r=items.find(function(x){return x.id===id;});if(!r)return;r.cat=newCat;var fc=document.getElementById('fCat');if(fc)fc.value='';sAll();rC();}
 
-function uI(id,f,v){const r=items.find(x=>x.id===id);if(r){r[f]=v;rC();sAll();}}
+function uI(id,f,v){const r=items.find(x=>x.id===id);if(r){r[f]=v;rC();sAll();try{var ph=document.getElementById('page-honorarios');if(ph&&ph.classList.contains('active'))rH();}catch(e){}}}
 // Quiet update: saves field without re-rendering the table (for expand panel fields)
 
 // ── PLAZOS Y CÁLCULO DE ENTREGA ──────────────────────────────────────
@@ -2400,11 +2402,11 @@ function rH(){
   const hi=items.filter(r=>r.cat==='Honorarios');
   const hib=document.getElementById('honItemsBody');hib.innerHTML='';
   hi.forEach(r=>{
-    const t=rT(r),tpd=tp(r),tpn=tpend(r);
+    const t=rT(r),tpd=tp(r),tpn=honPagada(r)?0:tpend(r);
     const pc=payCls(r.payStatus);
     const pid='honi-'+r.id,bid='honib-'+r.id;
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td><button class="xb" id="${bid}" onclick="tE('${pid}','${bid}')">›</button></td><td style="font-weight:500;">${es(r.item)}</td><td style="color:var(--tx2);font-size:11.5px;">${es(r.supplier)}</td><td class="mono" style="text-align:right;">${t>0?fm(t):'—'}</td><td><input type="date" value="${r.vence||''}" onchange="uI(${r.id},'vence',this.value)" title="Fecha en que vence esta cuota (la ve el cliente)" style="font-size:11px;"></td><td><select onchange="uI(${r.id},'payStatus',this.value)" style="font-size:10.5px;">${PAY_OPTS.map(s=>`<option${s===r.payStatus?' selected':''}>${s}</option>`).join('')}</select></td><td class="mono" style="text-align:right;color:var(--ac);">${tpd>0?fm(tpd):'—'}</td><td class="mono" style="text-align:right;color:var(--dn);">${tpn>0?fm(tpn):'—'}</td>`;
+    tr.innerHTML=`<td><button class="xb" id="${bid}" onclick="tE('${pid}','${bid}')">›</button></td><td><input type="text" value="${es(r.item)}" onchange="uI(${r.id},'item',this.value)" title="Nombre de la etapa (lo ve el cliente)" style="width:100%;font-weight:500;font-size:12.5px;"></td><td style="color:var(--tx2);font-size:11.5px;">${es(r.supplier)}</td><td><input type="number" value="${r.unit||0}" onchange="uI(${r.id},'unit',parseFloat(this.value)||0)" title="Precio normal de la etapa (sin descuento)" style="width:100%;text-align:right;font-size:12px;" class="mono"></td><td><input type="date" value="${r.vence||''}" onchange="uI(${r.id},'vence',this.value)" title="Fecha en que vence esta cuota (la ve el cliente)" style="font-size:11px;"></td><td><select onchange="uI(${r.id},'payStatus',this.value)" style="font-size:10.5px;">${PAY_OPTS.map(s=>`<option${s===r.payStatus?' selected':''}>${s}</option>`).join('')}</select></td><td class="mono" style="text-align:right;color:var(--ac);">${tpd>0?fm(tpd):'—'}</td><td class="mono" style="text-align:right;color:var(--dn);">${tpn>0?fm(tpn):'—'}</td>`;
     hib.appendChild(tr);
     const ep=document.createElement('tr');ep.id=pid;ep.className='xp';
     ep.innerHTML=`<td colspan="8"><div class="xi"><div class="xtit">Cuotas — ${es(r.item)}</div><table class="ptbl"><thead><tr><th style="width:75px">Cuota</th><th style="width:75px">%</th><th style="width:105px">Monto ($)</th><th style="width:110px">Fecha pago</th><th style="width:140px">Medio de pago</th><th>Nota</th></tr></thead><tbody>${buildPayRows(r.id,'uIQ')}</tbody></table><div class="pay-sum"><div class="psi"><div class="psl">Total pagado</div><div class="psv g">${fm(tpd)}</div></div><div class="psi"><div class="psl">Saldo</div><div class="psv r">${fm(tpn)}</div></div></div></div></td>`;
@@ -5713,7 +5715,7 @@ window.pdfResumenCliente = function(){
     // Si lo compró el cliente, siempre dice "Pagó cliente" (salvo que haya un pago parcial registrado)
     if(compraCliente(r)&&(paid<=0||paid>=total||r.payStatus==='Pagado'))return {label:'Pagó cliente',cls:'pb-ok',st:'Pagado'};
     if(total<=0)return {label:'Por cotizar',cls:'pb-cot',st:'Pendiente'};
-    if(paid>=total)return {label:'Pagado',cls:'pb-ok',st:'Pagado'};
+    if(paid>=total||(typeof honPagada==='function'&&honPagada(r)))return {label:'Pagado',cls:'pb-ok',st:'Pagado'};
     if(paid>0)return {label:'Pago parcial',cls:'pb-parc',st:'Pagado parcialmente'};
     if(r.payStatus==='Pagado')return {label:'Pagado',cls:'pb-ok',st:'Pagado'};
     if(r.payStatus==='Pagado parcialmente')return {label:'Pago parcial',cls:'pb-parc',st:'Pagado parcialmente'};
