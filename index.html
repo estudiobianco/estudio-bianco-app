@@ -1630,7 +1630,7 @@ function gF(){
   // Update space dropdown options dynamically
   const spEl=document.getElementById('fSpace');
   if(spEl){const spaces=[...new Set(items.map(r=>r.space||'').filter(Boolean))].sort();const cur=spEl.value;spEl.innerHTML='<option value="">Todos los espacios</option>'+spaces.map(s=>`<option${s===cur?' selected':''}>${s}</option>`).join('');}
-  const base=items.filter(r=>{if(r.cat==='Honorarios'&&appMode!=='admin')return false;if(cat&&r.cat!==cat)return false;if(pay&&r.payStatus!==pay)return false;if(del&&r.deliveryStatus!==del)return false;if(cs&&r.clientStatus!==cs)return false;if(sp&&(r.space||'')!==sp)return false;if(q&&!(r.item||'').toLowerCase().includes(q)&&!(r.supplier||'').toLowerCase().includes(q))return false;return true;});
+  const base=items.filter(r=>{if(r.cat==='Honorarios')return false;if(cat&&r.cat!==cat)return false;if(pay&&r.payStatus!==pay)return false;if(del&&r.deliveryStatus!==del)return false;if(cs&&r.clientStatus!==cs)return false;if(sp&&(r.space||'')!==sp)return false;if(q&&!(r.item||'').toLowerCase().includes(q)&&!(r.supplier||'').toLowerCase().includes(q))return false;return true;});
   // Pestañas del listado (R01): los contadores salen de los mismos datos filtrados
   const tabsEl=document.getElementById('comprasTabs');
   if(tabsEl){
@@ -2435,7 +2435,9 @@ function t64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onl
 
 // ── PDF ───────────────────────────────────────────────────────────────────────
 function ldPhases(){try{return JSON.parse(localStorage.getItem("ar6_p"+(currentProjId||"")+"_phases")||"[]");}catch(e){return[];}}
-function showPDF(){
+// El informe del proyecto se puede mandar al cliente: nunca lleva los honorarios del estudio
+function showPDF(){var _todos=items;items=items.filter(function(r){return r.cat!=='Honorarios';});try{return showPDF_base.apply(this,arguments);}finally{items=_todos;}}
+function showPDF_base(){
   if(!currentProjId){alert('Primero abre un proyecto para generar el PDF.');return;}
   const pInfo=projects.find(x=>x.id===currentProjId)||{name:'Proyecto',client:'Estudio Bianco Spa'};
   const today=new Date().toLocaleDateString('es-CL',{day:'2-digit',month:'long',year:'numeric'});
@@ -2752,6 +2754,7 @@ function getProjectStats(pid){
     if(!it.length&&pid==='rucachue'){var o=localStorage.getItem('ar5_items');if(o)it=JSON.parse(o);}
     if(!it.length){var di=pid==='rucachue'?DI:(DI_MAP[pid]||[]);if(di.length)it=di;}
     if(!it.length)return{count:0,total:0,paid:0};
+    it=it.filter(function(r){return r.cat!=='Honorarios';});
     return{count:it.length,total:it.reduce(function(s,r){return s+((r.optGroup&&!r.optSel)?0:(r.qty||1)*(r.unit||0));},0),paid:it.filter(function(r){return r.payStatus==='Pagado';}).length};
   }catch(e){return{count:0,total:0,paid:0};}
 }
@@ -3242,14 +3245,14 @@ window.go = function(id){
 };
 
 // Filter honorarios items from worker views
+// Los honorarios del estudio NUNCA entran en el listado ni en los totales de compras (para nadie); solo en la página Honorarios
 function workerFilter(arr){
-  if(appMode === 'admin') return arr;
   return arr.filter(r => r.cat !== 'Honorarios');
 }
 
 // Override updateNavTotal to exclude honorarios in worker mode
 function updateNavTotal(){
-  const visible = appMode === 'admin' ? items : items.filter(r=>r.cat!=='Honorarios');
+  const visible = items.filter(r=>r.cat!=='Honorarios');
   document.getElementById('navTotal').textContent = fm(visible.reduce((a,r)=>a+rT(r),0));
 }
 
@@ -3257,7 +3260,7 @@ function updateNavTotal(){
 const _gFOrig = gF;
 window.gF = function(){
   const f = _gFOrig();
-  return appMode === 'admin' ? f : f.filter(r=>r.cat!=='Honorarios');
+  return f.filter(r=>r.cat!=='Honorarios');
 };
 
 // Patch getProjectStats to exclude honorarios for worker display
@@ -3809,8 +3812,9 @@ function renderHomeFin(){
     try{
       const its=ldP_for(p.id,'items',[]).map(mg);
       const pgs=ldP_for(p.id,'pagos',[]);
-      const total=its.reduce((a,r)=>a+rT(r),0);
-      const desemb=its.reduce((a,r)=>a+tp(r),0);
+      const itsC=its.filter(r=>r.cat!=='Honorarios');
+      const total=itsC.reduce((a,r)=>a+rT(r),0);
+      const desemb=itsC.reduce((a,r)=>a+tp(r),0);
       const pend=Math.max(0,total-desemb);
       const pct=total>0?Math.round(desemb/total*100):0;
       const honTotal=its.filter(r=>r.cat==='Honorarios').reduce((a,r)=>a+rT(r),0);
