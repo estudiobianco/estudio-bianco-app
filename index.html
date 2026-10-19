@@ -1630,7 +1630,7 @@ function gF(){
   // Update space dropdown options dynamically
   const spEl=document.getElementById('fSpace');
   if(spEl){const spaces=[...new Set(items.map(r=>r.space||'').filter(Boolean))].sort();const cur=spEl.value;spEl.innerHTML='<option value="">Todos los espacios</option>'+spaces.map(s=>`<option${s===cur?' selected':''}>${s}</option>`).join('');}
-  const base=items.filter(r=>{if(r.cat==='Honorarios')return false;if(cat&&r.cat!==cat)return false;if(pay&&r.payStatus!==pay)return false;if(del&&r.deliveryStatus!==del)return false;if(cs&&r.clientStatus!==cs)return false;if(sp&&(r.space||'')!==sp)return false;if(q&&!(r.item||'').toLowerCase().includes(q)&&!(r.supplier||'').toLowerCase().includes(q))return false;return true;});
+  const base=items.filter(r=>{if(r.cat==='Honorarios'&&appMode!=='admin')return false;if(cat&&r.cat!==cat)return false;if(pay&&r.payStatus!==pay)return false;if(del&&r.deliveryStatus!==del)return false;if(cs&&r.clientStatus!==cs)return false;if(sp&&(r.space||'')!==sp)return false;if(q&&!(r.item||'').toLowerCase().includes(q)&&!(r.supplier||'').toLowerCase().includes(q))return false;return true;});
   // Pestañas del listado (R01): los contadores salen de los mismos datos filtrados
   const tabsEl=document.getElementById('comprasTabs');
   if(tabsEl){
@@ -1844,14 +1844,15 @@ function rC(){
   // Espacios escritos con distinta mayúscula o espacios extra ("Dormitorio ignacia" / "Dormitorio Ignacia") van juntos
   const _espNombre={};
   if(porEsp)f.forEach(r=>{const s=(r.space||'').trim().replace(/\s+/g,' ');if(!s)return;const k=s.toLowerCase();if(!_espNombre[k]||(s[0]===s[0].toUpperCase()&&_espNombre[k][0]!==_espNombre[k][0].toUpperCase()))_espNombre[k]=s;});
-  const grpDe=r=>porEsp?(_espNombre[(r.space||'').trim().replace(/\s+/g,' ').toLowerCase()]||'Sin espacio'):r.cat;
-  const ordCat=c=>{const i=CAT_OPTS.indexOf(c);return i<0?99:i;};
+  // Los honorarios del estudio van siempre en su propio grupo, al final (solo los ve la administradora)
+  const grpDe=r=>r.cat==='Honorarios'?'Honorarios del estudio':(porEsp?(_espNombre[(r.space||'').trim().replace(/\s+/g,' ').toLowerCase()]||'Sin espacio'):r.cat);
+  const ordCat=c=>{if(c==='Honorarios del estudio')return 100;const i=CAT_OPTS.indexOf(c);return i<0?99:i;};
   let cats=[...new Set(f.map(grpDe))];
-  if(porEsp)cats.sort((a,b)=>(a==='Sin espacio')-(b==='Sin espacio')||a.localeCompare(b,'es'));
+  if(porEsp)cats.sort((a,b)=>(a==='Honorarios del estudio')-(b==='Honorarios del estudio')||(a==='Sin espacio')-(b==='Sin espacio')||a.localeCompare(b,'es'));
   else cats.sort((a,b)=>ordCat(a)-ordCat(b));
   const fSel=document.getElementById('fAgrupar');if(fSel)fSel.value=comprasAgrupar;
   cats.forEach(cat=>{
-    if(!porEsp&&cat==='Honorarios'&&appMode!=='admin')return;
+    if(cat==='Honorarios del estudio'&&appMode!=='admin')return;
     let group=f.filter(r=>grpDe(r)===cat);
     // Orden manual (se arrastra con la manija ⋮⋮); sin orden guardado se usa el orden de creación
     group=group.slice().sort((a,b)=>ordenItem(a)-ordenItem(b));
@@ -1860,7 +1861,7 @@ function rC(){
     const catPaid=group.reduce((a,r)=>a+tp(r),0);
     const catPendN=group.filter(r=>r.payStatus==='Pendiente').length;
     vis+=catTotal;
-    const cc=porEsp?'b-esp':catCls(cat);
+    const cc=cat==='Honorarios del estudio'?'b-hon':(porEsp?'b-esp':catCls(cat));
     const catKey=(porEsp?'esp_':'')+cat.replace(/[^a-zA-Z0-9]/g,'_');
     if(accOpen[catKey]===undefined)accOpen[catKey]=true;
     const isOpen=accOpen[catKey];
@@ -2146,6 +2147,8 @@ function crearItem(cat,space){
 }
 // "+ Agregar aquí" en la cabecera de cada grupo
 function addItemEn(grp,btn){
+  // En el grupo de honorarios lo nuevo nace con categoría Honorarios (así nunca lo ve el equipo)
+  if(grp==='Honorarios del estudio'){crearItem('Honorarios','');return;}
   if(comprasAgrupar!=='esp'){crearItem(grp,'');return;}
   const sp=grp==='Sin espacio'?'':grp;
   // categoria mas comun en ese espacio (el usuario la puede cambiar en la fila o en la ficha)
@@ -2754,7 +2757,7 @@ function getProjectStats(pid){
     if(!it.length&&pid==='rucachue'){var o=localStorage.getItem('ar5_items');if(o)it=JSON.parse(o);}
     if(!it.length){var di=pid==='rucachue'?DI:(DI_MAP[pid]||[]);if(di.length)it=di;}
     if(!it.length)return{count:0,total:0,paid:0};
-    it=it.filter(function(r){return r.cat!=='Honorarios';});
+    if(appMode!=='admin')it=it.filter(function(r){return r.cat!=='Honorarios';});
     return{count:it.length,total:it.reduce(function(s,r){return s+((r.optGroup&&!r.optSel)?0:(r.qty||1)*(r.unit||0));},0),paid:it.filter(function(r){return r.payStatus==='Pagado';}).length};
   }catch(e){return{count:0,total:0,paid:0};}
 }
@@ -3245,14 +3248,15 @@ window.go = function(id){
 };
 
 // Filter honorarios items from worker views
-// Los honorarios del estudio NUNCA entran en el listado ni en los totales de compras (para nadie); solo en la página Honorarios
+// Los honorarios (categoría Honorarios) solo los ve la administradora; la base de datos se los bloquea al equipo
 function workerFilter(arr){
+  if(appMode === 'admin') return arr;
   return arr.filter(r => r.cat !== 'Honorarios');
 }
 
 // Override updateNavTotal to exclude honorarios in worker mode
 function updateNavTotal(){
-  const visible = items.filter(r=>r.cat!=='Honorarios');
+  const visible = appMode === 'admin' ? items : items.filter(r=>r.cat!=='Honorarios');
   document.getElementById('navTotal').textContent = fm(visible.reduce((a,r)=>a+rT(r),0));
 }
 
@@ -3260,7 +3264,7 @@ function updateNavTotal(){
 const _gFOrig = gF;
 window.gF = function(){
   const f = _gFOrig();
-  return f.filter(r=>r.cat!=='Honorarios');
+  return appMode === 'admin' ? f : f.filter(r=>r.cat!=='Honorarios');
 };
 
 // Patch getProjectStats to exclude honorarios for worker display
@@ -3812,7 +3816,7 @@ function renderHomeFin(){
     try{
       const its=ldP_for(p.id,'items',[]).map(mg);
       const pgs=ldP_for(p.id,'pagos',[]);
-      const itsC=its.filter(r=>r.cat!=='Honorarios');
+      const itsC=appMode==='admin'?its:its.filter(r=>r.cat!=='Honorarios');
       const total=itsC.reduce((a,r)=>a+rT(r),0);
       const desemb=itsC.reduce((a,r)=>a+tp(r),0);
       const pend=Math.max(0,total-desemb);
@@ -4660,6 +4664,8 @@ function renderGantt(){
     its.forEach(function(r){if(+r.id>maxId)maxId=+r.id;});
     its.forEach(function(r){if(vistos[r.id]){r.id=++maxId;rep++;}vistos[r.id]=1;});
     if(rep){try{if(typeof nii!=='undefined'&&nii<=maxId)nii=maxId+1;}catch(e){}try{localStorage.setItem('ar6_p'+pid+'_items',JSON.stringify(its));}catch(e){}}
+    // Seguro: lo que es del estudio (proveedor Estudio Bianco, "honorarios", tarifa o asesoría de diseño) siempre queda como Honorarios
+    its.forEach(function(r){if(r.cat!=='Honorarios'&&(/estudio\s*bianco/i.test(r.supplier||'')||/honorari|estudio\s*bianco/i.test(r.item||'')||/(tarifa|asesor[ií]a)\s+de\s+(dise|servicio|interior)/i.test(r.item||'')))r.cat='Honorarios';});
     var snapshot=its.map(function(r){return toRow(r,pid);});
     _t=setTimeout(function(){
       if(!snapshot.length){ setStatus('ok'); return; }
