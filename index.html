@@ -35,7 +35,7 @@
   window.EB_SESION=function(){return ses;};
   window.ebToken=function(){return asegurar().then(function(s){return s?s.access_token:null;});};
 
-  function perfil(s){return of(SBU+'/rest/v1/perfiles?select=rol,nombre,email&user_id=eq.'+encodeURIComponent(s.uid),{headers:{apikey:ANON,Authorization:'Bearer '+s.access_token}}).then(function(r){return r.ok?r.json():[];}).then(function(a){return a&&a[0]||null;});}
+  function perfil(s){return of(SBU+'/rest/v1/perfiles?select=rol,nombre,email,activo&user_id=eq.'+encodeURIComponent(s.uid),{headers:{apikey:ANON,Authorization:'Bearer '+s.access_token}}).then(function(r){return r.ok?r.json():[];}).then(function(a){return a&&a[0]||null;});}
   // Javiera: al entrar se borran las copias locales de proyectos que hayan quedado de antes en su navegador
   function limpiarLocal(){try{Object.keys(localStorage).forEach(function(k){if(/^ar6_p.+_(items|logs|pagos|cots|global)/.test(k)||k==='ar5_logs'||k==='ar6_crm')localStorage.removeItem(k);});}catch(e){}}
 
@@ -60,6 +60,7 @@
       var s=deRespuesta(j);
       return perfil(s).then(function(p){
         if(!p)return falla('Tu usuario no tiene un perfil asignado. Pídele a Ankel que lo active.');
+        if(p.rol!=='admin'&&p.activo===false){of(SBU+'/auth/v1/logout',{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+s.access_token}}).catch(function(){});return falla('Tu acceso está pausado por ahora. Ankel te avisará cuando esté activo.');}
         s.rol=p.rol;s.nombre=p.nombre||'';
         var antes=''; try{antes=localStorage.getItem('eb_ultimo_usuario')||'';}catch(e){}
         if(p.rol!=='admin'&&antes!==s.uid)limpiarLocal();
@@ -78,8 +79,21 @@
     var ov=document.getElementById('ebCuentaOv');
     if(!ov){ov=document.createElement('div');ov.id='ebCuentaOv';ov.onclick=function(e){if(e.target===ov)ov.style.display='none';};document.body.appendChild(ov);}
     ov.innerHTML='<div class="ebl-box" style="max-width:340px;"><div class="ebl-t" style="margin-bottom:6px;">'+(ses&&ses.nombre?ses.nombre:'Sesión')+'</div><p style="margin:0 0 14px;">'+(ses?ses.email:'')+'<br>'+(ses&&ses.rol==='admin'?'Administradora':'Trabajadora')+'</p>'
+      +(ses&&ses.rol==='admin'?'<div id="ebEquipo" style="margin:0 0 14px;font-size:13px;"><b style="display:block;margin-bottom:6px;">Acceso del equipo</b><span style="color:#8A8077;">Cargando…</span></div>':'')
       +'<button onclick="ebSalir()">Cerrar sesión</button><button class="sec" onclick="document.getElementById(\'ebCuentaOv\').style.display=\'none\'">Volver</button></div>';
     ov.style.display='flex';
+    if(ses&&ses.rol==='admin')pintarEquipo();
+  };
+  // Solo la administradora: activar o pausar el acceso de cada persona del equipo
+  function pintarEquipo(){
+    var box=document.getElementById('ebEquipo'); if(!box)return;
+    fetch(SBU+'/rest/v1/perfiles?select=email,nombre,rol,activo&rol=neq.admin&order=email').then(function(r){return r.ok?r.json():[];}).then(function(a){
+      box.innerHTML='<b style="display:block;margin-bottom:6px;">Acceso del equipo</b>'+(a.length?a.map(function(p){var on=p.activo!==false;return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid #EEE7DF;"><span>'+(p.nombre||p.email)+'<br><small style="color:'+(on?'#2A5C45':'#8C2F39')+';">'+(on?'Acceso activo':'Acceso pausado')+'</small></span><button style="width:auto;padding:6px 12px;margin:0;font-size:12px;'+(on?'background:#fff;color:#8C2F39;border:1px solid #D9B3AE;':'')+'" onclick="ebAcceso(\''+p.email+'\','+(on?'false':'true')+')">'+(on?'Pausar':'Activar')+'</button></div>';}).join(''):'<span style="color:#8A8077;">No hay otras personas.</span>');
+    }).catch(function(){box.innerHTML='<span style="color:#8C2F39;">No se pudo cargar el equipo.</span>';});
+  }
+  window.ebAcceso=function(email,activo){
+    if(!confirm(activo?'¿Activar el acceso de '+email+'? Podrá entrar y ver los proyectos (nunca los honorarios).':'¿Pausar el acceso de '+email+'? No podrá ver ningún dato hasta que lo actives.'))return;
+    fetch(SBU+'/rest/v1/rpc/cambiar_acceso',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({p_email:email,p_activo:activo})}).then(function(r){if(!r.ok)throw r.status;pintarEquipo();}).catch(function(){alert('No se pudo cambiar el acceso.');});
   };
 
   document.addEventListener('DOMContentLoaded',function(){
@@ -90,7 +104,7 @@
     var m=ses.rol==='admin'?'admin':'worker';
     try{if(localStorage.getItem('ar6_mode')!==m){localStorage.setItem('ar6_mode',m);location.reload();return;}}catch(e){}
     // Revisa el rol en la nube por si cambió
-    asegurar().then(function(s){if(!s)return;perfil(s).then(function(p){if(!p){window.ebSalir();return;}if(p.rol!==s.rol){s.rol=p.rol;s.nombre=p.nombre;guardar(s);try{localStorage.setItem('ar6_mode',p.rol==='admin'?'admin':'worker');}catch(e){}location.reload();}});});
+    asegurar().then(function(s){if(!s)return;perfil(s).then(function(p){if(!p||(p.rol!=='admin'&&p.activo===false)){window.ebSalir();return;}if(p.rol!==s.rol){s.rol=p.rol;s.nombre=p.nombre;guardar(s);try{localStorage.setItem('ar6_mode',p.rol==='admin'?'admin':'worker');}catch(e){}location.reload();}});});
     var etq=function(){['homeModeB','navModeB'].forEach(function(id){var el=document.getElementById(id);if(el){el.textContent=(ses.rol==='admin'?'🔑 ':'👷 ')+(ses.nombre||'Cuenta');el.title='Tu cuenta · cerrar sesión';}});};
     etq(); setTimeout(etq,1500);
   });
@@ -8622,10 +8636,10 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
         +'<div class="pl-pin">Clave: <b>'+e(pin)+'</b> <button class="btn" onclick="portalCopiarMsj()">Copiar mensaje con link y clave</button> <button class="btn" onclick="portalNuevaClave()">Cambiar clave</button></div>'
         +'<div class="bt" style="justify-content:space-between;"><span><button class="btn" onclick="window.open(\''+e(L)+'\',\'_blank\')">Ver como cliente ↗</button> <button class="btn" onclick="portalEditarSlug()">Cambiar nombre del link</button></span><span><button class="btn" style="color:var(--dn);" onclick="portalQuitarSlug()">Desactivar</button> <button class="btn" onclick="portalCerrar()">Listo</button></span></div>';
     }else{
-      h+='<p>Crea el link de <b>'+nom+'</b> para que tu cliente vea su listado con fotos y precios, apruebe o pida cambios, y vea cómo va su proyecto. No ve honorarios, pagos del estudio, notas internas ni otros proyectos.</p>'
-        +'<label class="pl-l">Nombre del link</label><div class="lk"><span class="pl-base">'+e(BASE_CLIENTES.replace(/^https?:\/\//,''))+'/</span><input id="plSlug" value="'+e(slugDe(proyNombre()))+'" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9-]/g,\'\')"></div>'
+      h+=(sl?'<p class="nota" style="color:#8C2F39;margin-bottom:10px;"><b>La clave anterior se anuló por seguridad.</b> El link sigue siendo el mismo: elige una clave nueva, guárdala y mándasela solo a tu cliente.</p>':'<p>Crea el link de <b>'+nom+'</b> para que tu cliente vea su listado con fotos y precios, apruebe o pida cambios, y vea cómo va su proyecto. No ve pagos del estudio a proveedores, notas internas ni otros proyectos.</p>')
+        +'<label class="pl-l">Nombre del link</label><div class="lk"><span class="pl-base">'+e(BASE_CLIENTES.replace(/^https?:\/\//,''))+'/</span><input id="plSlug" value="'+e(sl||slugDe(proyNombre()))+'" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9-]/g,\'\')"></div>'
         +'<label class="pl-l">Clave de 4 números</label><div class="lk"><input id="plPin" maxlength="4" inputmode="numeric" value="'+pinNuevo()+'" style="max-width:110px;text-align:center;letter-spacing:.3em;" oninput="this.value=this.value.replace(/\\D/g,\'\')"></div>'
-        +'<div class="bt"><button class="btn" onclick="portalCerrar()">Cancelar</button><button class="btn prim" onclick="portalCrearSlug()">Crear link</button></div>';
+        +'<div class="bt"><button class="btn" onclick="portalCerrar()">Cancelar</button><button class="btn prim" onclick="portalCrearSlug()">'+(sl?'Guardar clave nueva':'Crear link')+'</button></div>';
     }
     if(t){
       var LA=linkDe(t);
