@@ -456,6 +456,49 @@ details.sv-det[open] summary h3::after{content:' ▴';}
 .sv-pill.pe{background:#EFE8E0;color:#4A3B30;}
 .sv-pill.atr{background:#F6E7E5;color:#8C2F39;}
 .sv-nota{font-size:12px;color:#8A8077;margin:0;}
+/* Pestañas como botones blancos */
+.tabs{border-bottom:0;gap:8px;padding:2px 0 6px;}
+.tabs button{background:#fff;border:1px solid #E3DED7!important;border-radius:8px!important;padding:9px 16px;margin:0;color:#5B4A3E;font-weight:500;box-shadow:0 1px 2px rgba(60,48,40,.05);}
+.tabs button:hover{border-color:#CBBFAF!important;}
+.tabs button.on{background:#4A3B30;color:#fff;border-color:#4A3B30!important;}
+.tabs button.on i{color:#E8DED4;}
+/* Aprobado en verde */
+.b-Aprobado{background:#E3F1E7!important;color:#2A6B45!important;border-color:#B9DCC4!important;}
+.acts button.ap.on{background:#2A6B45!important;border-color:#2A6B45!important;color:#fff!important;}
+/* Jerarquía: el espacio (Comedor, Living…) manda; el grupo de opciones va debajo y más chico */
+h2.sec-t{font-size:30px;margin:34px 0 14px;padding-bottom:8px;border-bottom:1px solid #E3DED7;}
+h2.sec-t small{font-size:12.5px;}
+h2.prov-t{font-size:22px;margin:24px 0 10px;}
+.gh2{gap:12px;margin:6px 0 12px;}
+.gt{font-size:19px!important;}
+.gh2 .ng{padding:5px 12px;font-size:10px;}
+.ph,.card.op .ph{height:150px!important;}
+@media (max-width:600px){.ph,.card.op .ph{height:120px!important;}h2.sec-t{font-size:24px;}}
+/* Ver descartados */
+.chip.chip-desc{background:#fff;border-style:dashed;}
+/* Comentario del estudio */
+.ic-nota{cursor:pointer;font-family:inherit;background:#EAF4FB!important;border-color:#BFDDF0!important;color:#2B4A5E!important;}
+.ic-nota u{text-underline-offset:2px;}
+/* Revisar en detalle + panel lateral */
+.mas-b{margin-top:6px;border:0;border-top:1px solid #E8DED4;background:none;width:100%;text-align:left;padding:9px 0 2px;font-family:inherit;font-size:12.5px;font-weight:600;color:#4A3B30;cursor:pointer;display:flex;justify-content:space-between;}
+.mas-b span{color:#8A8077;font-size:15px;line-height:1;}
+#pnl .pn-ov{position:fixed;inset:0;background:rgba(40,32,26,.35);opacity:0;pointer-events:none;transition:opacity .25s;z-index:80;}
+#pnl .pn{position:fixed;top:0;right:0;height:100%;width:min(460px,100%);background:#fff;box-shadow:-10px 0 40px rgba(60,48,40,.15);transform:translateX(105%);transition:transform .3s ease;z-index:81;overflow-y:auto;}
+#pnl.open .pn-ov{opacity:1;pointer-events:auto;}
+#pnl.open .pn{transform:none;}
+#pnl .pn-x{position:sticky;top:10px;float:right;margin:10px 10px 0 0;width:34px;height:34px;border-radius:50%;border:1px solid #E3DED7;background:#fff;cursor:pointer;font-size:14px;z-index:2;}
+#pnl .pn-ph{height:300px;background:#FBF9F5;display:flex;align-items:center;justify-content:center;color:#A39A91;}
+#pnl .pn-ph img{max-width:100%;max-height:100%;object-fit:contain;padding:14px;}
+#pnl .pn-bd{padding:16px 22px 28px;}
+#pnl .pn-t{font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:22px;margin:10px 0 2px;line-height:1.25;}
+#pnl .pn-pr{font-size:18px;font-weight:700;margin-bottom:10px;}
+#pnl .pn-sub{font-size:12px;color:#8A8077;margin-top:10px;}
+#pnl .mas-c .coms{margin:4px 0 0;}
+#pnl .pn-nota{background:#EAF4FB;border:1px solid #BFDDF0;color:#2B4A5E;}
+#pnl .pn-nota.brilla{animation:pnBrilla 1.2s ease 2;}
+@keyframes pnBrilla{50%{box-shadow:0 0 0 4px #BFDDF0;}}
+.modal{z-index:90!important;}.toast{z-index:95!important;}
+body.pn-open #flot{display:none!important;}
 @media (max-width:640px){.sv-tot{grid-template-columns:1fr 1fr;}.sv-tot>div:last-child{grid-column:1/-1;}.sv-row{grid-template-columns:1fr auto;}.sv-row .sv-m{grid-column:1/2;}.sv-row .sv-s{grid-column:2/3;grid-row:1/3;text-align:right;}.sv-row.sv-hd{display:none;}.sv-cot2 .sv-ab{display:none;}}
 .sv-pe{color:#8A8077;}
 .sv-atr{color:#B4483C;font-weight:600;}
@@ -600,10 +643,13 @@ details.sv-det[open] summary h3::after{content:' ▴';}
     h+='<div class="tot3"><div><div class="l">Presupuesto total</div><div class="v">'+m(total)+'</div></div><div><div class="l">Pagado</div><div class="v ok">'+m(pagado)+'</div></div><div><div class="l">Por pagar</div><div class="v">'+m(Math.max(0,total-pagado))+'</div></div><div class="prog" title="'+pctP+'% pagado"><div style="width:'+pctP+'%;background:var(--ok);"></div></div></div>';
     h+='<div class="tot" style="padding:10px 16px;"><div class="s" style="text-align:left;">'+cuenta['Aprobado']+' de '+its.length+' productos aprobados'+(porCotizar?' · algunos productos están por cotizar':'')
       +(nom?'<br><span style="color:var(--tx3);">Respondiendo como '+e(nom)+' · <a href="#" onclick="ebCambiarNombre();return false;" style="color:var(--az);">cambiar</a></span>':'')+'</div></div>';
+    // "Todos" no muestra lo descartado: los descartados se ven solo en su filtro
+    cuenta['']=its.length-(cuenta['Rechazado']||0);
     var F=[['','Todos'],['Por revisar','Por revisar'],['Aprobado','Aprobados'],['Cambios solicitados','Con cambios'],['Rechazado','Descartados']];
-    h+='<div class="bar">'+F.map(function(f){return '<button class="chip'+(filtro===f[0]?' on':'')+'" onclick="ebF(\''+f[0]+'\')">'+f[1]+'<i>'+(cuenta[f[0]]||0)+'</i></button>';}).join('')
+    h+='<div class="bar">'+F.map(function(f){return '<button class="chip'+(filtro===f[0]?' on':'')+(f[0]==='Rechazado'?' chip-desc':'')+'" onclick="ebF(\''+f[0]+'\')">'+(f[0]==='Rechazado'?'Ver descartados':f[1])+'<i>'+(cuenta[f[0]]||0)+'</i></button>';}).join('')
       +'<span class="sp"></span><select class="ag" onchange="ebA(this.value)"><option value="esp"'+(agrupar==='esp'?' selected':'')+'>Ver por espacio</option><option value="cat"'+(agrupar==='cat'?' selected':'')+'>Ver por categoría</option></select></div>';
-    var lista=its.filter(function(it){return !filtro||est(it)===filtro;});
+    var lista=its.filter(function(it){return filtro?est(it)===filtro:est(it)!=='Rechazado';});
+    if(filtro==='Rechazado'&&lista.length)h+='<p class="meta" style="margin:0 0 10px;">Estos son los productos que descartaste. Si cambias de opinión, toca "Aprobar" o vuelve a tocar "Descartar" para que queden por revisar.</p>';
     if(!lista.length)h+='<div class="msg" style="padding:40px;">No hay productos en este filtro.</div>';
     var secs={}, orden=[];
     var nomEsp={}; its.forEach(function(it){var s=String(it.espacio||'').trim().replace(/\s+/g,' ');if(!s)return;var k=s.toLowerCase();if(!nomEsp[k]||(s[0]===s[0].toUpperCase()&&nomEsp[k][0]!==nomEsp[k][0].toUpperCase()))nomEsp[k]=s;});
@@ -613,7 +659,7 @@ details.sv-det[open] summary h3::after{content:' ▴';}
     orden.sort(function(a,b){return (a==='Arte')-(b==='Arte');});
     orden.forEach(function(s){
       var arr=secs[s];
-      h+='<h2>'+e(s)+'<small>'+arr.length+' producto'+(arr.length===1?'':'s')+'</small></h2>';
+      h+='<h2 class="sec-t">'+e(s)+'<small>'+arr.length+' producto'+(arr.length===1?'':'s')+'</small></h2>';
       var sueltos=[], hechos={}, bloques=[];
       arr.forEach(function(it){
         if(!it.grupo){bloques.push({tipo:'s',it:it});return;}
@@ -627,7 +673,8 @@ details.sv-det[open] summary h3::after{content:' ▴';}
         vaciar();
         var todos=its.filter(function(x){return x.grupo===b.g;});
         var rec=todos.find(function(x){return x.recomendada;});
-        h+='<div class="grp"><div class="gh2"><span class="ng">'+todos.length+' opciones</span><span class="gsep"></span><b class="gt">'+e(b.g)+'</b><span class="gsub">Elige una'+(rec?' · <b><span class="st">★</span> Te recomendamos la Opción '+(todos.indexOf(rec)+1)+'</b>':'')+' · el total incluye la que tiene el borde celeste.</span></div><div class="grid g-op">'
+        var nVis=b.its.length;
+        h+='<div class="grp"><div class="gh2"><span class="ng">'+nVis+' opci'+(nVis===1?'ón':'ones')+'</span><span class="gsep"></span><b class="gt">'+e(b.g)+'</b><span class="gsub">Elige una'+(rec?' · <b><span class="st">★</span> Te recomendamos la Opción '+(todos.indexOf(rec)+1)+'</b>':'')+' · el total incluye la que tiene el borde celeste.</span></div><div class="grid g-op">'
           +b.its.map(function(it){return tarjeta(it,todos.indexOf(it)+1);}).join('')+'</div></div>';
       });
       vaciar();
@@ -635,6 +682,7 @@ details.sv-det[open] summary h3::after{content:' ▴';}
     h+=pie;
     document.getElementById('app').innerHTML=h;
     barra(true,revisados,its.length,pct);
+    refrescarPanel();
   }
   // Barra flotante abajo: avance y "Terminé de revisar" (siempre a mano mientras revisa)
   function barra(ver,rev,tot,pct){
@@ -682,7 +730,7 @@ details.sv-det[open] summary h3::after{content:' ▴';}
     // Tarjeta compacta: foto, nombre, precio, íconos y Aprobar/Descartar; el resto va en "Ver detalles" (plegable)
     var nComs=r.filter(function(c){return (c.comentario||'').trim();}).length, nota=(it.nota||'').trim();
     var entr=it.entrega&&it.entrega!=='Por pedir'?'<span class="ic'+(it.entrega==='Entregado'?' ok':' en')+'">'+(it.entrega==='Entregado'?'✓ Entregado':'<i></i>'+e(it.entrega))+'</span>':'';
-    var ico=(nota?'<span class="ic" title="El estudio dejó una nota">📝 Nota</span>':'')+(nComs?'<span class="ic" title="Comentarios">💬 '+nComs+'</span>':'')+(it.compra&&it.compra.fecha?'<span class="ic" title="Comprado">🛒</span>':'')+entr;
+    var ico=(nota?'<button class="ic ic-nota" onclick="ebPanel('+it.id+',1)" title="El estudio dejó un comentario">💬 Comentario del estudio · <u>Leer</u></button>':'')+(nComs?'<span class="ic" title="Comentarios">💬 '+nComs+'</span>':'')+(it.compra&&it.compra.fecha?'<span class="ic" title="Comprado">🛒</span>':'')+entr;
     var precio=+it.precio>0?m(sub(it)):'Por cotizar';
     var h='<div class="card'+(nOp?' op':'')+(it.grupo?(it.elegida?' sel':' alt'):'')+(it.recomendada?' rec':'')+'"><div class="ph">'+(it.imagen?'<img src="'+e(it.imagen)+'" alt="" loading="lazy">':'Sin imagen')
       +'<div class="bdgs"><span class="badge b-'+e(cls)+'">'+(es_==='Aprobado'?'✓ Aprobado':es_==='Rechazado'?'Descartado':es_==='Cambios solicitados'?'Cambios pedidos':'Por revisar')+'</span>'+(it.recomendada?'<span class="recb"><span class="st">★</span> Recomendada</span>':'')+'</div></div><div class="bd">';
@@ -691,19 +739,37 @@ details.sv-det[open] summary h3::after{content:' ▴';}
     else h+='<div class="nm" title="'+e(it.item)+'">'+e(it.item)+'</div><div class="pr"><span class="u">'+e(it.espacio||'')+'</span><span class="t">'+precio+'</span></div>';
     h+='<div class="icos">'+ico+'</div>';
     h+='<div class="acts"><button class="ap'+(es_==='Aprobado'?' on':'')+'" onclick="ebR('+it.id+',\'Aprobado\')">✓ Aprobar</button><button class="re'+(es_==='Rechazado'?' on':'')+'" onclick="ebR('+it.id+',\'Rechazado\')">✕ Descartar</button></div>';
-    h+='<details class="mas"'+(detAbiertos[it.id]?' open':'')+' ontoggle="ebDet(this,'+it.id+')"><summary>Ver detalles</summary><div class="mas-c">';
+    h+='<button class="mas-b" onclick="ebPanel('+it.id+')">Revisar en detalle <span>›</span></button></div></div>';
+    return h;
+  }
+  // Panel lateral "Revisar en detalle": todo lo del producto, igual que la ficha del estudio
+  function detalleHTML(it){
+    var es_=est(it), cls=es_.split(' ')[0], nota=(it.nota||'').trim();
+    var r=(D.respuestas||[]).filter(function(x){return x.itemId===it.id;}).slice(0,12).reverse();
+    var h='<div class="pn-ph">'+(it.imagen?'<img src="'+e(it.imagen)+'" alt="">':'<span>Sin imagen</span>')+'</div>'
+      +'<div class="pn-bd"><span class="badge b-'+e(cls)+'">'+(es_==='Aprobado'?'✓ Aprobado':es_==='Rechazado'?'Descartado':es_==='Cambios solicitados'?'Cambios pedidos':'Por revisar')+'</span>'
+      +'<h3 class="pn-t">'+e(it.item)+'</h3><div class="pn-pr">'+(+it.precio>0?m(sub(it)):'Por cotizar')+'</div><div class="mas-c">';
     h+='<div class="meta">'+[it.proveedor,it.espacio].filter(Boolean).map(e).join(' · ')+'</div>';
     h+='<div class="pr"><span class="u">'+(it.cant>1?it.cant+' × ':'Precio ')+(+it.precio>0?m(it.precio):'por cotizar')+'</span></div>'+(+it.despacho>0?'<div class="meta">Incluye despacho '+m(it.despacho)+'</div>':'');
-    if(nota)h+='<div class="nota" style="display:block;"><b>📝 Nota del estudio</b><br>'+e(nota)+'</div>';
+    if(nota)h+='<div class="nota pn-nota" id="pnNota" style="display:block;"><b>💬 Comentario del estudio</b><br>'+e(nota)+'</div>';
     if((it.specs||'').trim())h+='<div class="specs open">'+e(it.specs)+'</div>';
     h+='<div class="row"><span class="ent'+(it.entrega==='Entregado'?' ok':'')+'">'+e(it.entrega||'Por pedir')+'</span>'+(urlOk(it.link)?'<a class="tienda" href="'+e(it.link)+'" target="_blank" rel="noopener">Ver en tienda ↗</a>':'')+'</div>';
     if(it.compra&&it.compra.fecha)h+='<div class="compra">🛒 '+(it.compra.por==='cliente'?'Lo compraste':'Comprado')+' el '+e(fechaCorta(it.compra.fecha))+(it.compra.entrega?' · entrega aprox. '+e(fechaCorta(it.compra.entrega)):'')+' <a href="#" onclick="ebCompra('+it.id+');return false;">editar</a></div>';
     else if(it.entrega!=='Entregado')h+='<button class="lcy" onclick="ebCompra('+it.id+')">🛒 Lo compré yo</button>';
+    h+='<div class="acts"><button class="ap'+(es_==='Aprobado'?' on':'')+'" onclick="ebR('+it.id+',\'Aprobado\')">✓ Aprobar</button><button class="re'+(es_==='Rechazado'?' on':'')+'" onclick="ebR('+it.id+',\'Rechazado\')">✕ Descartar</button></div>';
     h+='<div class="acts acts2"><button class="ca'+(es_==='Cambios solicitados'?' on':'')+'" onclick="ebR('+it.id+',\'Cambios solicitados\')">✎ Pedir cambios</button><button class="cm" onclick="ebR('+it.id+',\'\')">💬 Comentar</button></div>';
-    if(r.length)h+='<div class="coms">'+r.map(function(c){return '<div class="com"><b>'+e(c.nombre)+'</b>'+(c.decision?' · '+e(c.decision==='Rechazado'?'Descartado':c.decision):'')+'<span class="f">'+e(c.fecha)+'</span>'+(c.comentario?'<div>'+e(c.comentario)+'</div>':'')+'</div>';}).join('')+'</div>';
-    h+='</div></details></div></div>';
-    return h;
+    if(r.length)h+='<div class="pn-sub">Conversación</div><div class="coms">'+r.map(function(c){return '<div class="com"><b>'+e(c.nombre)+'</b>'+(c.decision?' · '+e(c.decision==='Rechazado'?'Descartado':c.decision):'')+'<span class="f">'+e(c.fecha)+'</span>'+(c.comentario?'<div>'+e(c.comentario)+'</div>':'')+'</div>';}).join('')+'</div>';
+    return h+'</div></div>';
   }
+  var panelId=null;
+  window.ebPanel=function(id,aNota){
+    var it=D.items.find(function(x){return x.id===id;}); if(!it)return;
+    var p=document.getElementById('pnl'); if(!p){p=document.createElement('div');p.id='pnl';p.innerHTML='<div class="pn-ov" onclick="ebPanelCerrar()"></div><aside class="pn"><button class="pn-x" onclick="ebPanelCerrar()" aria-label="Cerrar">✕</button><div class="pn-in" id="pnIn"></div></aside>';document.body.appendChild(p);}
+    panelId=id; document.getElementById('pnIn').innerHTML=detalleHTML(it); p.classList.add('open'); document.body.style.overflow='hidden'; document.body.classList.add('pn-open');
+    if(aNota){var n=document.getElementById('pnNota');if(n)setTimeout(function(){n.scrollIntoView({block:'center',behavior:'smooth'});n.classList.add('brilla');},250);}
+  };
+  window.ebPanelCerrar=function(){var p=document.getElementById('pnl');if(p)p.classList.remove('open');panelId=null;document.body.style.overflow='';document.body.classList.remove('pn-open');};
+  function refrescarPanel(){if(panelId==null)return;var it=D.items.find(function(x){return x.id===panelId;});var c=document.getElementById('pnIn');if(it&&c)c.innerHTML=detalleHTML(it);}
   var detAbiertos={};
   window.ebDet=function(el,id){if(el.open)detAbiertos[id]=1;else delete detAbiertos[id];};
   // ── "Cómo va tu proyecto": etapas, lo próximo, entregas de productos y avances de obra ──
@@ -816,9 +882,34 @@ details.sv-det[open] summary h3::after{content:' ▴';}
   var svAbierto=false;
   window.ebV=function(v){vista=v;try{localStorage.setItem('ebc_vista',v);}catch(x){}pintar();window.scrollTo(0,0);};
   // Proveedores en lista tipo acordeón: el nombre y al abrir, sus datos
+  // Categorías de proveedores, en este orden
+  var CAT_PROV=['Mobiliario y decoración','Iluminación','Arte','Enmarcaciones y cuadros','Revestimientos','Papeles murales','Cortinas y textiles','Instalaciones','Equipamiento','Construcción','Otros'];
+  function catProv(p){
+    var t=((p.nombre||'')+' '+(p.especialidad||'')).toLowerCase(), rb=p.rubro||'';
+    // Si el estudio le puso una de las categorías nuevas en la app, manda esa
+    var dir={'Arte':'Arte','Enmarcaciones y cuadros':'Enmarcaciones y cuadros','Papeles murales':'Papeles murales','Cortinas y textiles':'Cortinas y textiles','Instalaciones':'Instalaciones'};
+    if(dir[rb])return dir[rb];
+    var deArte=(D.items||[]).some(function(it){return it.cat==='Arte'&&String(it.proveedor||'').trim().toLowerCase()===String(p.nombre||'').trim().toLowerCase();});
+    if(/papel|mural/.test(t))return 'Papeles murales';
+    if(/cuadro|marco|enmarc|canvas|print|muralla/.test(t))return 'Enmarcaciones y cuadros';
+    if(deArte||/\barte\b|artista|galer[ií]a|atelier de arte/.test(t))return 'Arte';
+    if(/instalador|instalaci[oó]n|climatiz|soloaire|el[eé]ctric|gasfit/.test(t))return 'Instalaciones';
+    if(/cortina|roller|entreagujas|deco ?hogar|decoterra|h ?& ?h|hyh/.test(t))return 'Cortinas y textiles';
+    if(rb==='Construcción y obra'||/constru|scava|sodimac|\beasy\b|imperial/.test(t))return 'Construcción';
+    if(rb==='Terminaciones'||/revestim|piedra|pintura|sherwin|cer[aá]mic|porcelanat|\bmk\b/.test(t))return 'Revestimientos';
+    if(rb==='Iluminación'||/l[aá]mpara|\bled\b|ledstudio|lupchile|casaluze|\bluz\b/.test(t))return 'Iluminación';
+    if(rb==='Equipamiento'||/kitchen|electrodom/.test(t))return 'Equipamiento';
+    if(rb==='Muebles y carpintería'||rb==='Textiles y decoración'||/mueble|deco|home|sill|alfombr|rug/.test(t))return 'Mobiliario y decoración';
+    return 'Otros';
+  }
   function htmlProveedores(){
-    var ps=D.proveedores||[];
-    return '<p class="sub" style="margin:0 0 14px;">Las tiendas y proveedores de los productos de tu proyecto. Toca uno para ver sus datos de contacto.</p><div class="acc">'+ps.map(function(p){
+    var ps=D.proveedores||[], grupos={};
+    ps.forEach(function(p){var c=catProv(p);(grupos[c]=grupos[c]||[]).push(p);});
+    return '<p class="sub" style="margin:0 0 14px;">Las tiendas y proveedores de los productos de tu proyecto, ordenados por categoría. Toca uno para ver sus datos de contacto.</p>'
+      +CAT_PROV.filter(function(c){return grupos[c];}).map(function(c){return '<h2 class="sec-t prov-t">'+e(c)+'<small>'+grupos[c].length+'</small></h2>'+filasProv(grupos[c]);}).join('');
+  }
+  function filasProv(ps){
+    return '<div class="acc">'+ps.map(function(p){
       var web=(p.web||'').trim(), wurl=web?(/^https?:\/\//i.test(web)?web:'https://'+web):'';
       var datos=(p.telefono?'<a href="tel:'+e(p.telefono.replace(/[^\d+]/g,''))+'">☎ '+e(p.telefono)+'</a>':'')
         +(p.correo?'<a href="mailto:'+e(p.correo)+'">✉ '+e(p.correo)+'</a>':'')
