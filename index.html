@@ -9361,6 +9361,22 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
 @media (max-width:800px){#servicioBox .sv-g{grid-template-columns:1fr;}}
 </style>
 <script>
+// ══ VISTA DEL EQUIPO (Javiera): sin Seguimiento ni bitácora; en Gestión solo la carta Gantt ══
+(function(){
+  function esTrab(){try{return appMode!=='admin';}catch(e){return true;}}
+  function aplicar(){
+    if(!esTrab())return;
+    var n=document.getElementById('nav-seguimiento'); if(n)n.style.display='none';
+    var pg=document.getElementById('page-gestion'); if(!pg)return;
+    var hd=pg.querySelectorAll('.gp-sechdr'), corte=hd[1]; // el primero es la Carta Gantt; desde el segundo (Bitácora) se oculta
+    if(corte){var el=corte;while(el){el.style.display='none';el=el.nextElementSibling;}}
+    var p=pg.querySelector('.ph p'); if(p)p.textContent='Carta Gantt del proyecto';
+  }
+  if(typeof window.go==='function'){var _g=window.go;window.go=function(id){if(id==='seguimiento'&&esTrab())id='gestion';var r=_g.apply(this,[id].concat([].slice.call(arguments,1)));aplicar();return r;};}
+  setTimeout(aplicar,300); setTimeout(aplicar,1500);
+})();
+</script>
+<script>
 // ══ AVANCES Y PENDIENTES (inicio, solo la administradora) ══
 // Mis pendientes (tabla pendientes) + el estado de cada proyecto activo con sus alertas
 (function(){
