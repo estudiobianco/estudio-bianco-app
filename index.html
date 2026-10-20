@@ -6591,6 +6591,13 @@ select.sel-esp{width:100%;cursor:pointer;background:transparent;}
 .ebp-i{padding:8px 10px;font-size:12.5px;border-top:1px solid var(--bd);}
 .ebp-g .ebp-i:first-of-type{border-top:none;}
 .ebp-i.nuevo{background:#EEF5FB;}
+.ebp-resp{margin:6px 0 0 12px;padding:6px 10px;border-left:3px solid #4A3B30;background:#F6F2ED;border-radius:0 6px 6px 0;}
+.ebp-resp b{font-size:11.5px;color:#4A3B30;}
+.ebp-rbox{margin-top:6px;}
+.ebp-rbox textarea{width:100%;border:1px solid var(--bd2);border-radius:6px;padding:7px 9px;font-family:inherit;font-size:12.5px;resize:vertical;}
+.ebp-racts{display:flex;justify-content:flex-end;gap:6px;margin-top:4px;}
+.ebp-rbtn{border:1px solid var(--bd2);background:var(--surface);border-radius:6px;cursor:pointer;font-size:11.5px;padding:4px 10px;font-family:inherit;color:var(--tx2);}
+.ebp-rbtn.prim{background:#4A3B30;color:#fff;border-color:#4A3B30;}
 .ebp-i div{margin-top:3px;color:var(--tx2);}
 .ebp-sola{border:1px solid var(--bd);border-radius:10px;margin-bottom:8px;}
 .ebp-vacio{color:var(--tx3);font-size:13px;padding:24px 4px;text-align:center;}
@@ -8812,7 +8819,10 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   var stats={}, panelVista='', novTab='sin';
   function leidos(pid){try{return JSON.parse(localStorage.getItem('eb_portal_leidos_'+pid)||'{}');}catch(x){return {};}}
   function esLeido(pid,l){var v=0;try{v=+localStorage.getItem('eb_portal_visto_'+pid)||0;}catch(x){}return l.id<=v||!!leidos(pid)[l.id];}
-  function respuestas(){return ultimas.filter(function(l){return l.category!=='visita';});}
+  // Respuestas del cliente (las del estudio van aparte, colgadas del comentario que responden)
+  function esDelEstudio(l){return exDe(l).autor==='estudio';}
+  function respuestas(){return ultimas.filter(function(l){return l.category!=='visita'&&!esDelEstudio(l);});}
+  function respuestasDe(id){return ultimas.filter(function(l){return esDelEstudio(l)&&+exDe(l).respondeA===+id;}).sort(function(a,b){return a.id-b.id;});}
   function sinLeer(){var pid=currentProjId;return respuestas().filter(function(l){return !esLeido(pid,l);});}
   function hora(d){return d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZone:'America/Santiago'});}
   function durTxt(min){return min<60?min+' min':Math.floor(min/60)+' h'+(min%60?' '+(min%60)+' min':'');}
@@ -8875,12 +8885,36 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
       h+='<div class="ebp-g"><div class="ebp-gh"><a href="#" onclick="ebPanelCerrar();portalIr('+(+l0.item_id||0)+','+(+x0.docId||0)+');return false;" title="Ir al producto">'+e(nom)+'</a>'+(it&&it.space?'<span>'+e(it.space)+'</span>':'')+(nuevos?'<button title="Marcar como leído" onclick="ebLeer(\''+ids+'\')">✓ Leído</button>':'')+'</div>';
       ls.forEach(function(l){
         var x=exDe(l), dec=x.decision||(x.compra?'Registró su compra':'');
-        h+='<div class="ebp-i'+(esLeido(pid,l)?'':' nuevo')+'"><b>'+e(l.responsible||'Cliente')+'</b>'+(dec?' · <span class="pc-d">'+e(dec==='Rechazado'?'Descartado':dec==='Por revisar'?'Deshizo su respuesta':dec)+'</span>':'')+' <span class="pc-f">'+e(cuando(l))+'</span>'+(l.description?'<div>'+e(String(l.description).slice(0,400))+'</div>':'')+'</div>';
+        var rr=respuestasDe(l.id);
+        h+='<div class="ebp-i'+(esLeido(pid,l)?'':' nuevo')+'"><b>'+e(l.responsible||'Cliente')+'</b>'+(dec?' · <span class="pc-d">'+e(dec==='Rechazado'?'Descartado':dec==='Por revisar'?'Deshizo su respuesta':dec)+'</span>':'')+' <span class="pc-f">'+e(cuando(l))+'</span>'+(l.description?'<div>'+e(String(l.description).slice(0,400))+'</div>':'')
+          +rr.map(function(x){return '<div class="ebp-resp"><b>↳ Estudio Bianco</b> <span class="pc-f">'+e(cuando(x))+'</span><div>'+e(String(x.description||''))+'</div></div>';}).join('')
+          +(l.description?'<div class="ebp-rbox" id="ebpR'+l.id+'"><button class="ebp-rbtn" onclick="ebResponderAbrir('+l.id+')">↩ '+(rr.length?'Responder de nuevo':'Responder')+'</button></div>':'')
+          +'</div>';
       });
       h+='</div>';
     });
     document.getElementById('ebpBody').innerHTML=h;
   }
+  // Responder un comentario del cliente: queda en la conversación del producto y el cliente lo ve en su portal
+  window.ebResponderAbrir=function(id){
+    var box=document.getElementById('ebpR'+id); if(!box)return;
+    box.innerHTML='<textarea id="ebpT'+id+'" rows="3" placeholder="Escribe tu respuesta para el cliente…"></textarea><div class="ebp-racts"><button class="ebp-rbtn" onclick="pintarNovPublico()">Cancelar</button><button class="ebp-rbtn prim" onclick="ebResponder('+id+')">Enviar respuesta</button></div>';
+    var t=document.getElementById('ebpT'+id); if(t)t.focus();
+  };
+  window.pintarNovPublico=function(){pintarNov();};
+  window.ebResponder=function(id){
+    var t=document.getElementById('ebpT'+id), txt=t?t.value.trim():'', l=ultimas.find(function(x){return x.id===id;});
+    if(!txt){if(t)t.focus();return;} if(!l)return;
+    var pid=currentProjId, x=exDe(l), it=(items||[]).find(function(r){return r.id===+l.item_id;});
+    var nom=x.docId?String(l.title||'Lámina').replace(/^Cliente[^·]*·\s*/,''):(it?it.item:String(l.title||'').replace(/^Cliente[^·]*·\s*/,''));
+    var ses=(typeof window.EB_SESION==='function'&&window.EB_SESION())||{}, hoyS=new Date().toLocaleDateString('sv-SE',{timeZone:'America/Santiago'});
+    var row={id:Date.now(),project_id:pid,date:hoyS,type:'Nota general',title:'Estudio respondió · '+nom,description:txt,commits:'',responsible:ses.nombre||'Estudio Bianco',due_date:'',status:'Completada',amount:0,category:'cliente',item_id:(+l.item_id||null),
+      extra:JSON.stringify({cliente:true,autor:'estudio',respondeA:id,docId:+x.docId||0,at:new Date().toISOString()}),source:'app'};
+    var btn=document.querySelector('#ebpR'+id+' .prim'); if(btn){btn.disabled=true;btn.textContent='Enviando…';}
+    fetch(SB+'/rest/v1/logs?on_conflict=project_id,id',{method:'POST',headers:Object.assign({},H,{Prefer:'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(row)})
+      .then(function(r){if(!r.ok)throw r.status;ultimas.unshift(row);var o=leidos(pid);o[id]=1;try{localStorage.setItem('eb_portal_leidos_'+pid,JSON.stringify(o));}catch(x){}pintarNov();repintarKPI();try{tst('✓ Respuesta enviada al cliente');}catch(x){}})
+      .catch(function(){if(btn){btn.disabled=false;btn.textContent='Enviar respuesta';}alert('No se pudo enviar la respuesta. Revisa tu conexión e intenta de nuevo.');});
+  };
   window.ebLeer=function(ids){var pid=currentProjId,o=leidos(pid);String(ids).split(',').forEach(function(i){if(i)o[i]=1;});try{localStorage.setItem('eb_portal_leidos_'+pid,JSON.stringify(o));}catch(x){}pintarNov();repintarKPI();};
   window.ebLeerTodo=function(){var m=ultimas.reduce(function(a,l){return Math.max(a,l.id);},0);try{localStorage.setItem('eb_portal_visto_'+currentProjId,String(m));localStorage.removeItem('eb_portal_leidos_'+currentProjId);}catch(x){}pintarNov();repintarKPI();};
   // Actividad de Javiera en el proyecto: una fila por sesión

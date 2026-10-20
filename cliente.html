@@ -499,6 +499,19 @@ h2.prov-t{font-size:22px;margin:24px 0 10px;}
 @keyframes pnBrilla{50%{box-shadow:0 0 0 4px #BFDDF0;}}
 .modal{z-index:90!important;}.toast{z-index:95!important;}
 body.pn-open #flot{display:none!important;}
+/* Respuestas del estudio a los comentarios del cliente */
+.com-est{margin:8px 0 2px 10px;padding:8px 11px;border-left:3px solid #4A3B30;background:#F6F2ED;border-radius:0 8px 8px 0;}
+.com-est b{display:inline;font-size:12px;color:#4A3B30;}
+.com-est .f{margin-left:6px;}
+.com-est div{margin-top:3px;}
+.com-est.nueva{background:#EAF4FB;border-left-color:#5A9BC7;}
+.av-resp{background:#EAF4FB;border:1px solid #BFDDF0;border-left:4px solid #5A9BC7;border-radius:8px;padding:11px 14px;margin:0 0 12px;font-size:13px;color:#2B4A5E;}
+.av-resp b{display:block;font-size:13.5px;margin-bottom:2px;}
+.av-resp span{font-size:12px;}
+.av-rb{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px;}
+.av-rb button{border:1px solid #BFDDF0;background:#fff;border-radius:6px;padding:5px 10px;font-family:inherit;font-size:12.5px;color:#2B4A5E;cursor:pointer;}
+.av-rb button:hover{border-color:#5A9BC7;}
+.vinfo .com{border-top:1px solid #EEE7DF;padding:6px 0;}
 @media (max-width:640px){.sv-tot{grid-template-columns:1fr 1fr;}.sv-tot>div:last-child{grid-column:1/-1;}.sv-row{grid-template-columns:1fr auto;}.sv-row .sv-m{grid-column:1/2;}.sv-row .sv-s{grid-column:2/3;grid-row:1/3;text-align:right;}.sv-row.sv-hd{display:none;}.sv-cot2 .sv-ab{display:none;}}
 .sv-pe{color:#8A8077;}
 .sv-atr{color:#B4483C;font-weight:600;}
@@ -640,6 +653,7 @@ body.pn-open #flot{display:none!important;}
     h+='<div class="intro"><div class="imp"><b>Importante</b>Este listado puede estar incompleto: se va ajustando según nuestras reuniones. Aun así, es una aproximación fiel al presupuesto total.</div></div>';
     var revisados=its.length-(cuenta['Por revisar']||0), pct=its.length?Math.round(revisados/its.length*100):0, nom=miNombre();
     var pctP=total>0?Math.round(pagado/total*100):0;
+    h+=avisoRespuestas();
     h+='<div class="tot3"><div><div class="l">Presupuesto total</div><div class="v">'+m(total)+'</div></div><div><div class="l">Pagado</div><div class="v ok">'+m(pagado)+'</div></div><div><div class="l">Por pagar</div><div class="v">'+m(Math.max(0,total-pagado))+'</div></div><div class="prog" title="'+pctP+'% pagado"><div style="width:'+pctP+'%;background:var(--ok);"></div></div></div>';
     h+='<div class="tot" style="padding:10px 16px;"><div class="s" style="text-align:left;">'+cuenta['Aprobado']+' de '+its.length+' productos aprobados'+(porCotizar?' · algunos productos están por cotizar':'')
       +(nom?'<br><span style="color:var(--tx3);">Respondiendo como '+e(nom)+' · <a href="#" onclick="ebCambiarNombre();return false;" style="color:var(--az);">cambiar</a></span>':'')+'</div></div>';
@@ -709,10 +723,11 @@ body.pn-open #flot{display:none!important;}
   }
   // Lo que se ve bajo la imagen en grande: nota del estudio, versiones anteriores y comentarios
   function infoDoc(d){
-    var r=(D.respuestas||[]).filter(function(x){return x.docId===d.id;}).slice(0,8).reverse();
-    var h=(d.nota?'<div class="vi-n"><b>Nota del estudio</b>'+e(d.nota)+'</div>':'')
+    var r=(D.respuestas||[]).filter(function(x){return x.docId===d.id;}).slice(0,12).reverse();
+    var h=(d.nota?'<div class="vi-n"><b>Comentario del estudio</b>'+e(d.nota)+'</div>':'')
       +(d.anteriores&&d.anteriores.length?'<div class="vi-v">Versiones anteriores: '+d.anteriores.map(function(v,i){return '<a href="'+e(v.url)+'" target="_blank" rel="noopener">v'+(i+1)+'</a>';}).join(' · ')+'</div>':'')
-      +(r.length?r.map(function(c){return '<div class="vi-c"><b>'+e(c.nombre)+'</b>'+(c.decision?' · '+e(c.decision):'')+' <span>'+e(c.fecha)+'</span>'+(c.comentario?'<div>'+e(c.comentario)+'</div>':'')+'</div>';}).join(''):'');
+      +(r.length?conversacion(r):'');
+    marcarVistas(r);
     return h?'<div class="vinfo">'+h+'</div>':'';
   }
   window.ebVerDoc=function(id){
@@ -728,9 +743,10 @@ body.pn-open #flot{display:none!important;}
     var r=(D.respuestas||[]).filter(function(x){return x.itemId===it.id;}).slice(0,6).reverse();
     var nTot=it.grupo?D.items.filter(function(x){return x.grupo===it.grupo;}).length:0;
     // Tarjeta compacta: foto, nombre, precio, íconos y Aprobar/Descartar; el resto va en "Ver detalles" (plegable)
-    var nComs=r.filter(function(c){return (c.comentario||'').trim();}).length, nota=(it.nota||'').trim();
+    var nComs=r.filter(function(c){return c.autor!=='estudio'&&(c.comentario||'').trim();}).length, nota=(it.nota||'').trim();
     var entr=it.entrega&&it.entrega!=='Por pedir'?'<span class="ic'+(it.entrega==='Entregado'?' ok':' en')+'">'+(it.entrega==='Entregado'?'✓ Entregado':'<i></i>'+e(it.entrega))+'</span>':'';
-    var ico=(nota?'<button class="ic ic-nota" onclick="ebPanel('+it.id+',1)" title="El estudio dejó un comentario">💬 Comentario del estudio · <u>Leer</u></button>':'')+(nComs?'<span class="ic" title="Comentarios">💬 '+nComs+'</span>':'')+(it.compra&&it.compra.fecha?'<span class="ic" title="Comprado">🛒</span>':'')+entr;
+    var nuevaResp=respNuevas().some(function(x){return x.itemId===it.id;});
+    var ico=(nuevaResp?'<button class="ic ic-nota ic-resp" data-id="'+it.id+'" onclick="ebPanel('+it.id+')" title="El estudio respondió tu comentario">💬 Te respondimos · <u>Leer</u></button>':'')+(nota?'<button class="ic ic-nota" onclick="ebPanel('+it.id+',1)" title="El estudio dejó un comentario">💬 Comentario del estudio · <u>Leer</u></button>':'')+(nComs?'<span class="ic" title="Comentarios">💬 '+nComs+'</span>':'')+(it.compra&&it.compra.fecha?'<span class="ic" title="Comprado">🛒</span>':'')+entr;
     var precio=+it.precio>0?m(sub(it)):'Por cotizar';
     var h='<div class="card'+(nOp?' op':'')+(it.grupo?(it.elegida?' sel':' alt'):'')+(it.recomendada?' rec':'')+'"><div class="ph">'+(it.imagen?'<img src="'+e(it.imagen)+'" alt="" loading="lazy">':'Sin imagen')
       +'<div class="bdgs"><span class="badge b-'+e(cls)+'">'+(es_==='Aprobado'?'✓ Aprobado':es_==='Rechazado'?'Descartado':es_==='Cambios solicitados'?'Cambios pedidos':'Por revisar')+'</span>'+(it.recomendada?'<span class="recb"><span class="st">★</span> Recomendada</span>':'')+'</div></div><div class="bd">';
@@ -758,8 +774,35 @@ body.pn-open #flot{display:none!important;}
     else if(it.entrega!=='Entregado')h+='<button class="lcy" onclick="ebCompra('+it.id+')">🛒 Lo compré yo</button>';
     h+='<div class="acts"><button class="ap'+(es_==='Aprobado'?' on':'')+'" onclick="ebR('+it.id+',\'Aprobado\')">✓ Aprobar</button><button class="re'+(es_==='Rechazado'?' on':'')+'" onclick="ebR('+it.id+',\'Rechazado\')">✕ Descartar</button></div>';
     h+='<div class="acts acts2"><button class="ca'+(es_==='Cambios solicitados'?' on':'')+'" onclick="ebR('+it.id+',\'Cambios solicitados\')">✎ Pedir cambios</button><button class="cm" onclick="ebR('+it.id+',\'\')">💬 Comentar</button></div>';
-    if(r.length)h+='<div class="pn-sub">Conversación</div><div class="coms">'+r.map(function(c){return '<div class="com"><b>'+e(c.nombre)+'</b>'+(c.decision?' · '+e(c.decision==='Rechazado'?'Descartado':c.decision):'')+'<span class="f">'+e(c.fecha)+'</span>'+(c.comentario?'<div>'+e(c.comentario)+'</div>':'')+'</div>';}).join('')+'</div>';
+    if(r.length)h+='<div class="pn-sub">Conversación</div>'+conversacion(r);
+    marcarVistas(r);
     return h+'</div></div>';
+  }
+  // Conversación: cada comentario del cliente con las respuestas del estudio debajo
+  function conversacion(r){
+    var cli=r.filter(function(c){return c.autor!=='estudio';}), est_=r.filter(function(c){return c.autor==='estudio';});
+    var usadas={};
+    var h='<div class="coms">'+cli.map(function(c){
+      var rs=est_.filter(function(x){return x.respondeA===c.id;}); rs.forEach(function(x){usadas[x.id]=1;});
+      return '<div class="com"><b>'+e(c.nombre)+'</b>'+(c.decision?' · '+e(c.decision==='Rechazado'?'Descartado':c.decision):'')+'<span class="f">'+e(c.fecha)+'</span>'+(c.comentario?'<div>'+e(c.comentario)+'</div>':'')
+        +rs.map(function(x){return '<div class="com-est'+(respVista(x.id)?'':' nueva')+'"><b>Respuesta de Estudio Bianco</b><span class="f">'+e(x.fecha)+'</span><div>'+e(x.comentario)+'</div></div>';}).join('')+'</div>';
+    }).join('')
+      +est_.filter(function(x){return !usadas[x.id];}).map(function(x){return '<div class="com"><div class="com-est'+(respVista(x.id)?'':' nueva')+'" style="margin:0;"><b>Mensaje de Estudio Bianco</b><span class="f">'+e(x.fecha)+'</span><div>'+e(x.comentario)+'</div></div></div>';}).join('')+'</div>';
+    return h;
+  }
+  // Respuestas del estudio que el cliente ya vio (en este equipo)
+  function claveVistas(){return 'ebc_resp_vistas_'+(S||K||'');}
+  function vistas(){try{return JSON.parse(localStorage.getItem(claveVistas())||'{}');}catch(x){return {};}}
+  function respVista(id){return !!vistas()[id];}
+  function respNuevas(){return (D.respuestas||[]).filter(function(x){return x.autor==='estudio'&&!respVista(x.id);});}
+  function marcarVistas(r){var v=vistas(),cambio=false;r.forEach(function(x){if(x.autor==='estudio'&&!v[x.id]){v[x.id]=1;cambio=true;}});if(cambio){try{localStorage.setItem(claveVistas(),JSON.stringify(v));}catch(x){}setTimeout(refrescarAviso,0);}}
+  function refrescarAviso(){var a=document.getElementById('avResp');if(!a)return;var n=avisoRespuestas();if(n)a.outerHTML=n;else a.remove();document.querySelectorAll('.ic-resp').forEach(function(c){var id=+c.getAttribute('data-id');if(!respNuevas().some(function(x){return x.itemId===id;}))c.remove();});}
+  // Aviso arriba del listado: "Te respondimos"
+  function avisoRespuestas(){
+    var nv=respNuevas(); if(!nv.length)return '';
+    var objs={}; nv.forEach(function(x){var k=x.itemId?'i'+x.itemId:(x.docId?'d'+x.docId:'g');objs[k]=x;});
+    var bot=Object.keys(objs).map(function(k){var x=objs[k];var it=x.itemId?D.items.find(function(i){return i.id===x.itemId;}):null;var d=x.docId?(D.documentos||[]).find(function(i){return i.id===x.docId;}):null;var n=it?it.item:(d?d.titulo:'tu proyecto');return '<button onclick="'+(it?'ebPanel('+it.id+')':(d?'ebV(\''+d.tipo+'\');setTimeout(function(){ebVerDoc('+d.id+')},200)':''))+'">'+e(n)+'</button>';}).join('');
+    return '<div class="av-resp" id="avResp"><b>💬 Estudio Bianco respondió '+(nv.length===1?'un comentario tuyo':nv.length+' comentarios tuyos')+'</b><span>Toca para leer:</span><div class="av-rb">'+bot+'</div></div>';
   }
   var panelId=null;
   window.ebPanel=function(id,aNota){
@@ -850,8 +893,9 @@ body.pn-open #flot{display:none!important;}
     (sg.reuniones||[]).forEach(function(r){ultimo.push({f:r.fecha,t:'🗓 Reunión: '+r.titulo});});
     (sg.avances||[]).forEach(function(a){ultimo.push({f:a.fecha,t:'🏗 '+a.titulo});});
     ((sv&&sv.cuotas)||[]).forEach(function(c){if(c.pagada&&c.fechaPago)ultimo.push({f:c.fechaPago,t:'💳 Recibimos tu pago: '+c.concepto});});
+    (D.respuestas||[]).forEach(function(x){if(x.autor!=='estudio')return;var it=x.itemId?D.items.find(function(i){return i.id===x.itemId;}):null;ultimo.push({f:x.fecha,t:'💬 Te respondimos'+(it?': '+it.item:'')});});
     ultimo=ultimo.filter(function(x){return x.f&&x.f<=hoyS;}).sort(function(a,b){return b.f.localeCompare(a.f);}).slice(0,8);
-    h+='<div class="av-sec"><h3>Últimas novedades</h3>'
+    h+='<div class="av-sec"><h3>Últimas novedades</h3>'+avisoRespuestas()
       +(porRev?'<div class="nov-acc" onclick="ebF(\'Por revisar\');ebV(\'compras\')"><span class="imp-t">IMPORTANTE</span>✋ Esperamos tu respuesta en '+porRev+' producto'+(porRev===1?'':'s')+' · <u>revisar ahora</u></div>':'')
       +(viene.length?'<div class="nov-sub">Lo que viene</div><ul class="nov">'+viene.map(function(x){return '<li><b>'+e(x.t)+'</b><span>'+e(x.s)+'</span></li>';}).join('')+'</ul>':'')
       +(ultimo.length?'<div class="nov-sub">Lo último</div><ul class="nov">'+ultimo.map(function(x){return '<li><b>'+e(x.t)+'</b><span>'+e(fechaLarga(x.f))+'</span></li>';}).join('')+'</ul>':'')
