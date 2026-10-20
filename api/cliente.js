@@ -280,7 +280,8 @@ module.exports = async function handler(req, res) {
         documentos: docs,
         respuestas: resp.map(l => {
           let ex = {}; try { ex = l.extra ? JSON.parse(l.extra) : {}; } catch (e) {}
-          return { id: l.id, fecha: l.date, itemId: l.item_id || 0, docId: ex.docId || 0, decision: ex.decision || '', comentario: l.description || '', nombre: l.responsible || '', autor: ex.autor || 'cliente' };
+          // autor 'estudio' = respuesta del estudio a un comentario del cliente (respondeA = id del comentario)
+          return { id: l.id, fecha: l.date, itemId: l.item_id || 0, docId: ex.docId || 0, decision: ex.decision || '', comentario: l.description || '', nombre: ex.autor === 'estudio' ? 'Estudio Bianco' : (l.responsible || ''), autor: ex.autor || 'cliente', respondeA: +ex.respondeA || 0, at: ex.at || '' };
         })
       });
     }
