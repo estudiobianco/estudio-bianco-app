@@ -512,6 +512,39 @@ body.pn-open #flot{display:none!important;}
 .av-rb button{border:1px solid #BFDDF0;background:#fff;border-radius:6px;padding:5px 10px;font-family:inherit;font-size:12.5px;color:#2B4A5E;cursor:pointer;}
 .av-rb button:hover{border-color:#5A9BC7;}
 .vinfo .com{border-top:1px solid #EEE7DF;padding:6px 0;}
+/* Botón grande Comentar / Pedir cambios */
+.cmc{width:100%;margin-top:6px;border:1px solid #CBBFAF;background:#F6F2ED;border-radius:6px;padding:10px 8px;font-family:inherit;font-size:13px;font-weight:600;color:#4A3B30;cursor:pointer;}
+.cmc:hover{background:#EFE8E0;}
+/* Comentarios plegables en la tarjeta (línea beige) */
+details.cm-d{margin-top:8px;}
+details.cm-d summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-size:11.5px;color:#8A8077;padding:6px 0;}
+details.cm-d summary::-webkit-details-marker{display:none;}
+details.cm-d summary::before{content:'';flex:1;height:1px;background:#E2DAD0;order:2;}
+details.cm-d summary::after{content:'▾';order:3;color:#8A8077;}
+details.cm-d[open] summary::after{content:'▴';}
+details.cm-d summary i{font-style:normal;background:#EFE8E0;color:#4A3B30;border-radius:99px;padding:0 6px;font-size:10.5px;}
+details.cm-d .coms{margin:2px 0 4px;}
+details.cm-d .com{font-size:12px;padding:6px 0;border-top:1px solid #F1ECE6;}
+.cm-vacio{font-size:11.5px;color:#A39A91;margin:2px 0 6px;}
+.mas-b{font-size:11.5px!important;font-weight:500!important;color:#8A8077!important;margin-top:2px!important;}
+.m-chk{display:flex!important;align-items:center;gap:8px;font-size:13px;color:#3A2F27;margin:10px 0 0;cursor:pointer;}
+.m-chk input{width:16px;height:16px;}
+/* Aviso de novedades al entrar y punto en las pestañas */
+.tabs button{position:relative;}
+.tab-dot{position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#C0392B;border:2px solid #EFEDE9;}
+#novPop{position:fixed;inset:0;background:rgba(40,32,26,.35);display:none;align-items:center;justify-content:center;padding:16px;z-index:88;}
+#novPop.open{display:flex;animation:npIn .25s ease;}
+@keyframes npIn{from{opacity:0;}to{opacity:1;}}
+#novPop .np-box{background:#fff;border-radius:14px;width:min(440px,100%);padding:22px 22px 18px;box-shadow:0 20px 50px rgba(60,48,40,.2);}
+#novPop .np-h{display:flex;gap:12px;align-items:center;margin-bottom:14px;}
+#novPop .np-bell{font-size:24px;width:44px;height:44px;border-radius:50%;background:#F6E7E5;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+#novPop .np-h b{display:block;font-family:'Fraunces',Georgia,serif;font-weight:400;font-size:20px;color:#3A2F27;}
+#novPop .np-h small{font-size:12.5px;color:#8A8077;}
+#novPop .np-f{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid #EEE7DF;font-size:13.5px;color:#3A2F27;}
+#novPop .np-i{font-size:17px;width:24px;text-align:center;}
+#novPop .np-t{flex:1;}
+#novPop .np-f button{border:1px solid #CBBFAF;background:#fff;border-radius:6px;padding:6px 12px;font-family:inherit;font-size:12.5px;font-weight:600;color:#4A3B30;cursor:pointer;flex-shrink:0;}
+#novPop .np-ok{width:100%;margin-top:12px;border:0;background:#4A3B30;color:#fff;border-radius:8px;padding:11px;font-family:inherit;font-size:14px;cursor:pointer;}
 @media (max-width:640px){.sv-tot{grid-template-columns:1fr 1fr;}.sv-tot>div:last-child{grid-column:1/-1;}.sv-row{grid-template-columns:1fr auto;}.sv-row .sv-m{grid-column:1/2;}.sv-row .sv-s{grid-column:2/3;grid-row:1/3;text-align:right;}.sv-row.sv-hd{display:none;}.sv-cot2 .sv-ab{display:none;}}
 .sv-pe{color:#8A8077;}
 .sv-atr{color:#B4483C;font-weight:600;}
@@ -548,6 +581,7 @@ body.pn-open #flot{display:none!important;}
   <h3 id="mT"></h3><p id="mP"></p>
   <label for="mNom" id="mNL">Tu nombre</label><input id="mNom" maxlength="80" placeholder="Ej: Jorge">
   <label for="mCom" id="mCL">Comentario</label><textarea id="mCom" maxlength="2000" placeholder="Escribe aquí…"></textarea>
+  <label class="m-chk" id="mChkL" style="display:none;"><input type="checkbox" id="mCambio"> Es un cambio que necesito en este producto</label>
   <div class="err" id="mErr"></div>
   <div class="bt"><button onclick="cerrar()">Cancelar</button><button class="p" id="mOk" onclick="enviar()">Enviar</button></div>
 </div></div>
@@ -625,7 +659,38 @@ body.pn-open #flot{display:none!important;}
   function registrarVisita(){
     var k='ebc_vis_'+(K||S); try{if(sessionStorage.getItem(k))return;sessionStorage.setItem(k,'1');}catch(x){}
     post({accion:'visita',nombre:miNombre()}).catch(function(){});
+    setTimeout(avisoAlEntrar,700);
   }
+  // ── Novedades desde la última visita (se recuerda en este equipo) ──
+  var VK='ebc_ultvis_'+(S||K), NOVPREV='', ETAPAPREV='';
+  try{NOVPREV=localStorage.getItem(VK)||'';ETAPAPREV=localStorage.getItem(VK+'_etapa')||'';}catch(x){}
+  function novedades(){
+    if(!D)return {};
+    var prev=NOVPREV.slice(0,10), hoyS=new Date().toLocaleDateString('sv-SE',{timeZone:'America/Santiago'}), sg=D.seguimiento||{};
+    var docs=(D.documentos||[]).filter(function(d){return prev&&d.fecha&&d.fecha>prev;});
+    var prox=(sg.proximas||[])[0], enDias=prox?Math.round((new Date(prox.fecha+'T12:00:00')-new Date(hoyS+'T12:00:00'))/86400000):99;
+    var nomEt={reunion_inicial:'Reunión de consulta',anteproyecto:'Anteproyecto',correccion_1:'Primera corrección',correccion_2:'Segunda corrección',entrega_final:'Entrega final',implementacion:'Implementación',cerrado:'Proyecto terminado'};
+    return {resp:respNuevas().length, porRev:(D.items||[]).filter(function(it){return est(it)==='Por revisar'&&!fuera(it);}).length,
+      lam:docs.filter(function(d){return d.tipo==='lamina';}).length, ren:docs.filter(function(d){return d.tipo==='render';}).length,
+      etapa:(ETAPAPREV&&sg.etapa&&sg.etapa!==ETAPAPREV)?(nomEt[sg.etapa]||''):'', reunion:(prox&&enDias>=0&&enDias<=7)?prox:null};
+  }
+  function guardarVisita(){try{localStorage.setItem(VK,new Date().toISOString());if(D&&D.seguimiento&&D.seguimiento.etapa)localStorage.setItem(VK+'_etapa',D.seguimiento.etapa);}catch(x){}}
+  function avisoAlEntrar(){
+    var n=novedades(), filas=[];
+    if(n.resp)filas.push(['💬','Te respondimos '+(n.resp===1?'un comentario':n.resp+' comentarios'),'Leer',"ebNovCerrar();ebV('compras');setTimeout(function(){var a=document.getElementById('avResp');if(a)a.scrollIntoView({block:'center',behavior:'smooth'});},200)"]);
+    if(n.lam)filas.push(['📐',(n.lam===1?'Una lámina nueva':n.lam+' láminas nuevas')+' para revisar','Ver',"ebNovCerrar();ebV('lamina')"]);
+    if(n.ren)filas.push(['🖼',(n.ren===1?'Un render nuevo':n.ren+' renders nuevos')+' para revisar','Ver',"ebNovCerrar();ebV('render')"]);
+    if(n.etapa)filas.push(['✨','Tu proyecto avanzó a: '+n.etapa,'Ver',"ebNovCerrar();ebV('avance')"]);
+    if(n.reunion)filas.push(['📅','Próxima reunión: '+n.reunion.titulo+' · '+fechaLarga(n.reunion.fecha)+(n.reunion.hora?' · '+n.reunion.hora:''),'Ver',"ebNovCerrar();ebV('avance')"]);
+    if(n.porRev)filas.push(['✋',n.porRev+' producto'+(n.porRev===1?'':'s')+' esperan tu respuesta','Revisar',"ebNovCerrar();ebF('Por revisar');ebV('compras')"]);
+    if(!filas.length){guardarVisita();return;}
+    var ov=document.getElementById('novPop'); if(!ov){ov=document.createElement('div');ov.id='novPop';ov.onclick=function(ev){if(ev.target===ov)window.ebNovCerrar();};document.body.appendChild(ov);}
+    ov.innerHTML='<div class="np-box"><div class="np-h"><span class="np-bell">🔔</span><div><b>'+(NOVPREV?'Novedades desde tu última visita':'Esto te espera en tu proyecto')+'</b><small>'+e(miNombre()?'Hola '+miNombre()+', ':'')+'esto es lo que hay para ti</small></div></div>'
+      +filas.map(function(f){return '<div class="np-f"><span class="np-i">'+f[0]+'</span><span class="np-t">'+e(f[1])+'</span><button onclick="'+f[3]+'">'+f[2]+'</button></div>';}).join('')
+      +'<button class="np-ok" onclick="ebNovCerrar()">Entendido</button></div>';
+    ov.classList.add('open');
+  }
+  window.ebNovCerrar=function(){var ov=document.getElementById('novPop');if(ov)ov.classList.remove('open');guardarVisita();};
   // Productos, proveedores, espacios y grupos con mayúscula solo al inicio ("Mesa lateral leblon")
   function cap(s){s=String(s==null?'':s).trim();if(!s)return s;var l=s.toLocaleLowerCase('es');return l.charAt(0).toLocaleUpperCase('es')+l.slice(1);}
   function normalizar(d){(d.items||[]).forEach(function(it){it.item=cap(it.item);it.proveedor=cap(it.proveedor);it.espacio=cap(it.espacio);it.grupo=cap(it.grupo);});(d.proveedores||[]).forEach(function(p){p.nombre=cap(p.nombre);});return d;}
@@ -644,7 +709,9 @@ body.pn-open #flot{display:none!important;}
     var h='<div class="priv"><span>Plataforma privada</span><span>Estudio Bianco®</span></div>'
       +'<header><div><img class="logo" src="/logo-estudio-bianco-t.png" alt="Estudio Bianco®"><h1>'+e(D.proyecto.nombre)+'</h1>'
       +'<p class="sub">Esta aplicación es de desarrollo exclusivo de Estudio Bianco, una herramienta para administrar tu proyecto. Aquí armamos tu listado de compras y revisamos contigo cada producto antes de pagarlo.</p></div></header>';
-    function tab(v,t,n){return '<button class="'+(vista===v?'on':'')+'" onclick="ebV(\''+v+'\')">'+t+(n!=null?' <i>'+n+'</i>':'')+'</button>';}
+    // Punto rojo en la pestaña donde hay algo nuevo para el cliente
+    var nv=novedades();
+    function tab(v,t,n){var dot=(v==='compras'&&(nv.resp||nv.porRev))||(v==='lamina'&&nv.lam)||(v==='render'&&nv.ren)||(v==='avance'&&(nv.etapa||nv.reunion));return '<button class="'+(vista===v?'on':'')+'" onclick="ebV(\''+v+'\')">'+t+(n!=null?' <i>'+n+'</i>':'')+(dot&&vista!==v&&!tabVisto[v]?'<span class="tab-dot" title="Hay novedades"></span>':'')+'</button>';}
     h+='<div class="tabs">'+tab('compras','Listado de compras')+(D.seguimiento?tab('avance','Cómo va tu proyecto'):'')+(nLam?tab('lamina','Planos y láminas',nLam):'')+(nRen?tab('render','Looks y renders',nRen):'')+(nProv?tab('prov','Proveedores',nProv):'')+'</div>';
     var pie='<footer><b>Estudio Bianco®</b> · Plataforma de gestión de proyectos de diseño y desarrollo exclusivo de Estudio Bianco.<br>Estudio Bianco es una marca registrada. Este contenido es confidencial y de uso exclusivo del cliente; prohibida su reproducción total o parcial.</footer>';
     if(vista==='avance'){h+=htmlAvance()+pie;document.getElementById('app').innerHTML=h;barra(false);return;}
@@ -755,6 +822,11 @@ body.pn-open #flot{display:none!important;}
     else h+='<div class="nm" title="'+e(it.item)+'">'+e(it.item)+'</div><div class="pr"><span class="u">'+e(it.espacio||'')+'</span><span class="t">'+precio+'</span></div>';
     h+='<div class="icos">'+ico+'</div>';
     h+='<div class="acts"><button class="ap'+(es_==='Aprobado'?' on':'')+'" onclick="ebR('+it.id+',\'Aprobado\')">✓ Aprobar</button><button class="re'+(es_==='Rechazado'?' on':'')+'" onclick="ebR('+it.id+',\'Rechazado\')">✕ Descartar</button></div>';
+    // Comentar / pedir cambios (un solo botón), luego los comentarios plegables y "Revisar en detalle"
+    h+='<button class="cmc" onclick="ebR('+it.id+',\'comcambio\')">💬 Comentar / Pedir cambios</button>';
+    var nConv=r.filter(function(c){return (c.comentario||'').trim();}).length;
+    h+='<details class="cm-d"'+(detAbiertos[it.id]?' open':'')+' ontoggle="ebDet(this,'+it.id+')"><summary>Comentarios'+(nConv?' <i>'+nConv+'</i>':'')+'</summary>'
+      +(nConv?conversacion(r):'<p class="cm-vacio">Aún no hay comentarios. Usa el botón de arriba para escribirnos.</p>')+'</details>';
     h+='<button class="mas-b" onclick="ebPanel('+it.id+')">Revisar en detalle <span>›</span></button></div></div>';
     return h;
   }
@@ -773,8 +845,8 @@ body.pn-open #flot{display:none!important;}
     if(it.compra&&it.compra.fecha)h+='<div class="compra">🛒 '+(it.compra.por==='cliente'?'Lo compraste':'Comprado')+' el '+e(fechaCorta(it.compra.fecha))+(it.compra.entrega?' · entrega aprox. '+e(fechaCorta(it.compra.entrega)):'')+' <a href="#" onclick="ebCompra('+it.id+');return false;">editar</a></div>';
     else if(it.entrega!=='Entregado')h+='<button class="lcy" onclick="ebCompra('+it.id+')">🛒 Lo compré yo</button>';
     h+='<div class="acts"><button class="ap'+(es_==='Aprobado'?' on':'')+'" onclick="ebR('+it.id+',\'Aprobado\')">✓ Aprobar</button><button class="re'+(es_==='Rechazado'?' on':'')+'" onclick="ebR('+it.id+',\'Rechazado\')">✕ Descartar</button></div>';
-    h+='<div class="acts acts2"><button class="ca'+(es_==='Cambios solicitados'?' on':'')+'" onclick="ebR('+it.id+',\'Cambios solicitados\')">✎ Pedir cambios</button><button class="cm" onclick="ebR('+it.id+',\'\')">💬 Comentar</button></div>';
-    if(r.length)h+='<div class="pn-sub">Conversación</div>'+conversacion(r);
+    h+='<button class="cmc" onclick="ebR('+it.id+',\'comcambio\')">💬 Comentar / Pedir cambios</button>';
+    if(r.length)h+='<div class="pn-sub">Comentarios</div>'+conversacion(r);
     marcarVistas(r);
     return h+'</div></div>';
   }
@@ -814,7 +886,7 @@ body.pn-open #flot{display:none!important;}
   window.ebPanelCerrar=function(){var p=document.getElementById('pnl');if(p)p.classList.remove('open');panelId=null;document.body.style.overflow='';document.body.classList.remove('pn-open');};
   function refrescarPanel(){if(panelId==null)return;var it=D.items.find(function(x){return x.id===panelId;});var c=document.getElementById('pnIn');if(it&&c)c.innerHTML=detalleHTML(it);}
   var detAbiertos={};
-  window.ebDet=function(el,id){if(el.open)detAbiertos[id]=1;else delete detAbiertos[id];};
+  window.ebDet=function(el,id){if(el.open){detAbiertos[id]=1;marcarVistas((D.respuestas||[]).filter(function(x){return x.itemId===id;}));}else delete detAbiertos[id];};
   // ── "Cómo va tu proyecto": etapas, lo próximo, entregas de productos y avances de obra ──
   var ETAPAS=[['reunion_inicial','Reunión de consulta'],['anteproyecto','Anteproyecto'],['correccion_1','Primera corrección'],['correccion_2','Segunda corrección'],['entrega_final','Entrega final'],['implementacion','Implementación']];
   function svgI(p){return '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+p+'</svg>';}
@@ -924,7 +996,8 @@ body.pn-open #flot{display:none!important;}
     return h;
   }
   var svAbierto=false;
-  window.ebV=function(v){vista=v;try{localStorage.setItem('ebc_vista',v);}catch(x){}pintar();window.scrollTo(0,0);};
+  var tabVisto={};
+  window.ebV=function(v){vista=v;tabVisto[v]=1;try{localStorage.setItem('ebc_vista',v);}catch(x){}pintar();window.scrollTo(0,0);};
   // Proveedores en lista tipo acordeón: el nombre y al abrir, sus datos
   // Categorías de proveedores, en este orden
   var CAT_PROV=['Mobiliario y decoración','Iluminación','Arte','Enmarcaciones y cuadros','Revestimientos','Papeles murales','Cortinas y textiles','Instalaciones','Equipamiento','Construcción','Otros'];
@@ -978,6 +1051,7 @@ body.pn-open #flot{display:none!important;}
   function ref(o){return o.tipo?{docId:o.id}:{itemId:o.id};}
   window.ebR=function(id,dec,esDoc){
     var it=(esDoc?(D.documentos||[]):D.items).find(function(x){return x.id===id;}); if(!it)return;
+    if(dec==='comcambio'){abrirModal('comcambio',it);return;}
     if(dec==='Cambios solicitados'||dec===''){abrirModal(dec,it);if(esDoc){document.getElementById('mT').textContent='Pedir cambios o comentar';document.getElementById('mP').textContent=nombreObj(it)+' · Cuéntanos qué te parece o qué cambiarías.';}return;}
     if(est(it)===dec)dec='Por revisar';
     nombrePara(function(nom){rapido(it,dec,nom);});
@@ -1003,7 +1077,8 @@ body.pn-open #flot{display:none!important;}
   var modo=null, alListo=null;
   function abrirModal(m,it,_,listo){
     modo=m; pend=it?{obj:it,dec:m}:null; alListo=listo||null;
-    var n=miNombre(), T={'nombre':['¿Cómo te llamas?','Lo pedimos una sola vez, para que el estudio sepa quién responde.'],'Cambios solicitados':['Pedir un cambio','Cuéntanos qué te gustaría cambiar (color, medida, otra opción…).'],'':['Dejar un comentario','Tu comentario le llega al estudio.']}[m];
+    var n=miNombre(), T={'nombre':['¿Cómo te llamas?','Lo pedimos una sola vez, para que el estudio sepa quién responde.'],'Cambios solicitados':['Pedir un cambio','Cuéntanos qué te gustaría cambiar (color, medida, otra opción…).'],'':['Dejar un comentario','Tu comentario le llega al estudio.'],'comcambio':['Comentar o pedir cambios','Escribe tu comentario o cuéntanos qué te gustaría cambiar. Te respondemos por aquí mismo.']}[m];
+    document.getElementById('mChkL').style.display=m==='comcambio'?'':'none'; document.getElementById('mCambio').checked=false;
     document.getElementById('mT').textContent=T[0]; document.getElementById('mP').textContent=(it?nombreObj(it)+' · ':'')+T[1];
     var conNom=(m==='nombre'||!n);
     document.getElementById('mNom').style.display=document.getElementById('mNL').style.display=conNom?'':'none';
@@ -1020,9 +1095,11 @@ body.pn-open #flot{display:none!important;}
     if(!nom)return falla('Escribe tu nombre para que sepamos quién responde.');
     try{localStorage.setItem('ebc_nombre',nom);}catch(x){}
     if(modo==='nombre'){var fn=alListo;cerrar();if(fn)fn(nom);return;}
-    if(!com)return falla(modo===''?'Escribe tu comentario.':'Cuéntanos qué cambio quieres.');
+    if(!com)return falla(modo===''||modo==='comcambio'?'Escribe tu comentario.':'Cuéntanos qué cambio quieres.');
     var b=document.getElementById('mOk'); b.disabled=true; b.textContent='Enviando…';
     var p=pend;
+    // Comentar / pedir cambios: solo marca "Cambios pedidos" si el cliente lo indica
+    if(modo==='comcambio')p.dec=document.getElementById('mCambio').checked?'Cambios solicitados':'';
     post(Object.assign({decision:p.dec,comentario:com,nombre:nom},ref(p.obj))).then(function(j){
       b.disabled=false; b.textContent='Enviar';
       if(!j.ok)return falla(j.error||'No se pudo enviar.');
