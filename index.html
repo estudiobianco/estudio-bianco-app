@@ -2994,7 +2994,12 @@ function editProject(pid){
 // Etapas del proceso del estudio (projects.stage / stage_dates): se muestran al cliente en su portal
 const ETAPAS_PROY=[['reunion_inicial','Reunión de consulta'],['anteproyecto','Anteproyecto'],['correccion_1','Primera corrección'],['correccion_2','Segunda corrección'],['entrega_final','Entrega final'],['implementacion','Implementación']];
 function pintarEtapasNpm(f){var el=document.getElementById('npmEtapas');if(!el)return;el.innerHTML=ETAPAS_PROY.map(function(x){return '<label><span>'+x[1]+'</span><input type="date" data-et="'+x[0]+'" value="'+((f||{})[x[0]]||'')+'"></label>';}).join('');}
-function leerEtapasNpm(){var o={};document.querySelectorAll('#npmEtapas input[data-et]').forEach(function(i){if(i.value)o[i.getAttribute('data-et')]=i.value;});return o;}
+function leerEtapasNpm(){var o={};document.querySelectorAll('#npmEtapas input[data-et]').forEach(function(i){if(i.value)o[i.getAttribute('data-et')]=i.value;});
+  // Conserva las etapas ocultas al cliente (se manejan desde Seguimiento)
+  try{var p=editingProjId&&projects.find(function(x){return x.id===editingProjId;});if(p&&p.stageDates&&Array.isArray(p.stageDates._ocultas))o._ocultas=p.stageDates._ocultas.slice();
+    // el proceso personalizado también se conserva; las fechas de este formulario se copian a sus pasos
+    if(p&&p.stageDates&&Array.isArray(p.stageDates._proceso))o._proceso=p.stageDates._proceso.map(function(x){var y=Object.assign({},x);if(o[x.id])y.fecha=o[x.id];return y;});}catch(e){}
+  return o;}
 function closeNewProj(){document.getElementById('newProjModal').classList.remove('show');}
 function saveNewProj(){
   const name=document.getElementById('npmName').value.trim();
@@ -9191,18 +9196,75 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
 // ══ PROCESO DE DISEÑO (lo ve el cliente en "Cómo va tu proyecto") ══
 // Se edita en Seguimiento: tocar la etapa en que van y anotar la fecha de cada una
 (function(){
-  var ET=[['reunion_inicial','Reunión de consulta'],['anteproyecto','Anteproyecto'],['correccion_1','Primera corrección'],['correccion_2','Segunda corrección'],['entrega_final','Entrega final'],['implementacion','Implementación'],['cerrado','Proyecto cerrado']];
+  // Pasos estándar: se usan hasta que Ankel personaliza el proceso del proyecto (stage_dates._proceso)
+  var DEF=[{id:'reunion_inicial',nombre:'Reunión de consulta',icono:'cafe'},{id:'anteproyecto',nombre:'Anteproyecto',icono:'ampolleta'},{id:'correccion_1',nombre:'Primera corrección',icono:'lapiz'},{id:'correccion_2',nombre:'Segunda corrección',icono:'lapiz_brillo'},{id:'entrega_final',nombre:'Entrega final',icono:'computador'},{id:'implementacion',nombre:'Implementación',icono:'martillo'}];
+  function svgI(p){return '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>';}
+  // Los mismos íconos que ve el cliente en su portal
+  var ICONOS={
+    cafe:['Café',svgI('<path d="M4 9h12v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M16 10h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M8 3.5v2.5M12 3.5v2.5"/><path d="M5 21h10"/>')],
+    ampolleta:['Ampolleta',svgI('<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/>')],
+    lapiz:['Lápiz',svgI('<path d="M4 20l1-4L16 5l3 3L8 19z"/><path d="M14 7l3 3"/>')],
+    lapiz_brillo:['Lápiz con brillo',svgI('<path d="M7 21l1-4 9-9 3 3-9 9z"/><path d="M15 10l3 3"/><path d="M6 2.5v5M3.5 5h5"/><path d="M11 3.5v2M10 4.5h2"/>')],
+    computador:['Computador',svgI('<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/>')],
+    martillo:['Martillo',svgI('<path d="M13.5 10.5l-8.8 8.8a1.6 1.6 0 0 0 2.3 2.3l8.8-8.8"/><path d="M10.5 7.5l4-4 1.8 1.8 2.2-.8 1.8 1.8-.8 2.2 1.8 1.8-4 4z"/>')],
+    calendario:['Calendario',svgI('<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>')],
+    regla:['Regla (medidas)',svgI('<path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>')],
+    casa:['Casa',svgI('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>')],
+    camion:['Camión (despacho)',svgI('<path d="M2 7h11v9H2z"/><path d="M13 10h5l3 3v3h-8z"/><circle cx="6" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/>')],
+    documento:['Documento',svgI('<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>')],
+    paleta:['Paleta (colores)',svgI('<path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2s-1-1.5-1-2.5S14 15 15.5 15H18a3 3 0 0 0 3-3c0-5-4-9-9-9z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/>')],
+    llave:['Llave (entrega)',svgI('<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3"/>')],
+    check:['Check',svgI('<circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/>')]};
+  // Ícono sugerido según el nombre (Ankel lo puede cambiar)
+  function iconoPara(n,tipo){n=String(n||'').toLowerCase();
+    if(tipo==='reunion')return 'calendario';
+    if(/consulta|caf/.test(n))return 'cafe'; if(/antepro|idea|propuesta/.test(n))return 'ampolleta'; if(/segunda|[uú]ltima/.test(n)&&/correc/.test(n))return 'lapiz_brillo'; if(/correc|ajuste/.test(n))return 'lapiz';
+    if(/entrega|portafolio/.test(n))return 'computador'; if(/implement|obra|instala|montaje/.test(n))return 'martillo'; if(/medid|rectific|levantam/.test(n))return 'regla';
+    if(/despacho|compra|pedido/.test(n))return 'camion'; if(/color|material|muestra/.test(n))return 'paleta'; if(/llave|cierre|termin/.test(n))return 'llave'; if(/reuni/.test(n))return 'calendario'; if(/plano|l[aá]mina|document/.test(n))return 'documento';
+    return 'check';}
   function es2(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
   function proy(){return (typeof projects!=='undefined'&&currentProjId)?projects.find(function(x){return x.id===currentProjId;}):null;}
+  // Lista de pasos del proyecto: la personalizada o la estándar (respetando las etapas que se habían ocultado)
+  function lista(p){
+    var fe=p.stageDates||{};
+    if(Array.isArray(fe._proceso)&&fe._proceso.length)return fe._proceso.map(function(x){return Object.assign({},x);});
+    var oc=Array.isArray(fe._ocultas)?fe._ocultas:[];
+    return DEF.filter(function(d){return oc.indexOf(d.id)<0;}).map(function(d){return {id:d.id,nombre:d.nombre,icono:d.icono,fecha:fe[d.id]||'',texto:'',tipo:'etapa'};});
+  }
+  function guardarLista(p,L){
+    p.stageDates=Object.assign({},p.stageDates||{});
+    p.stageDates._proceso=L; delete p.stageDates._ocultas;
+    // las fechas de los pasos estándar también quedan como antes, por compatibilidad
+    DEF.forEach(function(d){var x=L.find(function(y){return y.id===d.id;});if(x&&x.fecha)p.stageDates[d.id]=x.fecha;else delete p.stageDates[d.id];});
+    guardar(p);
+  }
+  function guardar(p){try{svProjects(projects);}catch(e){}try{if(typeof window.sbSaveProject==='function')window.sbSaveProject(p);}catch(e){}window.ebProceso();try{tst('✓ Proceso de diseño actualizado');}catch(e){}}
   window.ebProceso=function(){
     var box=document.getElementById('procBox'), p=proy(); if(!box)return; if(!p){box.innerHTML='';return;}
-    var st=p.stage||'', fe=p.stageDates||{}, idx=ET.map(function(x){return x[0];}).indexOf(st);
-    box.innerHTML='<div class="pr-h"><h2>Proceso de diseño</h2><span>Lo ve el cliente en su portal. Toca la etapa en que van y anota la fecha de cada una.</span></div><div class="pr-g">'
-      +ET.map(function(x,i){var c=i<idx?'hecha':(i===idx?'act':'');return '<div class="pr-e '+c+'"><button onclick="ebProcEtapa(\''+x[0]+'\')" title="Marcar como etapa actual">'+(i<idx?'✓ ':'')+x[1]+(i===idx?'<small>Estamos aquí</small>':'')+'</button><input type="date" value="'+es2(fe[x[0]]||'')+'" onchange="ebProcFecha(\''+x[0]+'\',this.value)" title="Fecha de esta etapa"></div>';}).join('')+'</div>';
+    var L=lista(p), st=p.stage||'', cerr=st==='cerrado', idx=cerr?L.length:L.map(function(x){return x.id;}).indexOf(st);
+    var opIco=function(sel){return Object.keys(ICONOS).map(function(k){return '<option value="'+k+'"'+(k===sel?' selected':'')+'>'+ICONOS[k][0]+'</option>';}).join('');};
+    box.innerHTML='<div class="pr-h"><h2>Proceso de diseño</h2><span>Lo ve el cliente en su portal. Edita los nombres, el ícono y la fecha; toca "Estamos aquí" en la etapa actual. Puedes agregar, quitar y mover pasos.</span></div><div class="pr-g">'
+      +L.map(function(x,i){var c=(i<idx?'hecha':(i===idx?'act':''))+(x.tipo==='reunion'?' reu':'');
+        return '<div class="pr-e '+c+'">'
+          +'<div class="pr-top"><span class="pr-ico">'+(ICONOS[x.icono]||ICONOS.check)[1]+'</span><select onchange="ebProcSet('+i+',\'icono\',this.value)" title="Ícono">'+opIco(x.icono)+'</select></div>'
+          +'<input class="pr-nom" value="'+es2(x.nombre)+'" onchange="ebProcSet('+i+',\'nombre\',this.value)" title="Nombre que ve el cliente">'
+          +'<input type="date" value="'+es2(x.fecha||'')+'" onchange="ebProcSet('+i+',\'fecha\',this.value)" title="Fecha">'
+          +'<button class="pr-aqui" onclick="ebProcAqui('+i+')">'+(i===idx?'● Estamos aquí':(i<idx?'✓ Hecha':'Marcar aquí'))+'</button>'
+          +'<div class="pr-mini"><a href="#" onclick="ebProcMover('+i+',-1);return false;" title="Mover a la izquierda">←</a><a href="#" onclick="ebProcTexto('+i+');return false;" title="Texto que ve el cliente al tocarla">✎ texto</a><a href="#" onclick="ebProcTipo('+i+');return false;" title="Etapa o reunión adicional">'+(x.tipo==='reunion'?'reunión':'etapa')+'</a><a href="#" onclick="ebProcMover('+i+',1);return false;" title="Mover a la derecha">→</a><a href="#" class="pr-x" onclick="ebProcQuitar('+i+');return false;" title="Quitar">✕</a></div>'
+          +'</div>';}).join('')
+      +'<div class="pr-add"><button onclick="ebProcAgregar(\'etapa\')">+ Etapa</button><button onclick="ebProcAgregar(\'reunion\')">+ Reunión adicional</button></div></div>'
+      +'<div class="pr-pie"><label><input type="checkbox"'+(cerr?' checked':'')+' onchange="ebProcCerrar(this.checked)"> Proyecto terminado</label><a href="#" onclick="ebProcEstandar();return false;">Volver al proceso estándar</a></div>';
   };
-  function guardar(p){try{svProjects(projects);}catch(e){}try{if(typeof window.sbSaveProject==='function')window.sbSaveProject(p);}catch(e){}window.ebProceso();try{tst('✓ Proceso de diseño actualizado');}catch(e){}}
-  window.ebProcEtapa=function(k){var p=proy();if(!p)return;p.stage=(p.stage===k)?'':k;guardar(p);};
-  window.ebProcFecha=function(k,v){var p=proy();if(!p)return;p.stageDates=Object.assign({},p.stageDates||{});if(v)p.stageDates[k]=v;else delete p.stageDates[k];guardar(p);};
+  function conLista(fn){var p=proy();if(!p)return;var L=lista(p);if(fn(L,p)!==false)guardarLista(p,L);}
+  window.ebProcSet=function(i,campo,v){conLista(function(L){if(!L[i])return false;L[i][campo]=campo==='nombre'?String(v).trim():v;if(campo==='nombre'&&!L[i].iconoFijo&&L[i].icono==='check')L[i].icono=iconoPara(v,L[i].tipo);if(campo==='icono')L[i].iconoFijo=true;});};
+  window.ebProcAqui=function(i){var p=proy();if(!p)return;var L=lista(p);if(!L[i])return;p.stage=(p.stage===L[i].id)?'':L[i].id;guardarLista(p,L);};
+  window.ebProcMover=function(i,d){conLista(function(L){var j=i+d;if(j<0||j>=L.length)return false;var t=L[i];L[i]=L[j];L[j]=t;});};
+  window.ebProcQuitar=function(i){conLista(function(L,p){if(!L[i]||!confirm('¿Quitar "'+L[i].nombre+'" del proceso de este proyecto? El cliente ya no la verá.'))return false;if(p.stage===L[i].id)p.stage='';L.splice(i,1);});};
+  window.ebProcTipo=function(i){conLista(function(L){if(!L[i])return false;L[i].tipo=L[i].tipo==='reunion'?'etapa':'reunion';if(!L[i].iconoFijo)L[i].icono=iconoPara(L[i].nombre,L[i].tipo);});};
+  window.ebProcTexto=function(i){conLista(function(L){if(!L[i])return false;var t=prompt('Texto que ve el cliente al tocar "'+L[i].nombre+'" (déjalo vacío para usar el texto estándar):',L[i].texto||'');if(t===null)return false;L[i].texto=t.trim();});};
+  window.ebProcAgregar=function(tipo){var n=prompt(tipo==='reunion'?'Nombre de la reunión (por ejemplo: Reunión adicional · revisión de compras):':'Nombre de la etapa (por ejemplo: Rectificación de medidas):',tipo==='reunion'?'Reunión adicional':'');if(!n||!n.trim())return;conLista(function(L){L.push({id:'p'+Date.now(),nombre:n.trim(),icono:iconoPara(n,tipo),fecha:'',texto:'',tipo:tipo});});};
+  window.ebProcCerrar=function(v){var p=proy();if(!p)return;var L=lista(p);p.stage=v?'cerrado':'';guardarLista(p,L);};
+  window.ebProcEstandar=function(){var p=proy();if(!p||!confirm('¿Volver a las 6 etapas estándar en este proyecto? Se pierden los cambios de nombres, íconos y pasos agregados.'))return;p.stageDates=Object.assign({},p.stageDates||{});delete p.stageDates._proceso;delete p.stageDates._ocultas;guardar(p);};
   if(typeof window.go==='function'){var _g=window.go;window.go=function(id){var r=_g.apply(this,arguments);if(id==='seguimiento'){try{window.ebProceso();}catch(x){}}return r;};}
 })();
 </script>
@@ -9210,14 +9272,29 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
 #procBox .pr-h{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px;}
 #procBox .pr-h h2{font-size:15px;margin:0;}
 #procBox .pr-h span{font-size:12px;color:var(--tx3);}
-#procBox .pr-g{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;}
-#procBox .pr-e{display:flex;flex-direction:column;gap:4px;}
-#procBox .pr-e button{border:1px solid var(--bd2);background:var(--surface);border-radius:var(--rs);padding:8px 6px;font-size:12px;font-family:inherit;cursor:pointer;color:var(--tx2);min-height:46px;line-height:1.25;}
-#procBox .pr-e button small{display:block;font-size:10.5px;font-weight:600;margin-top:2px;}
-#procBox .pr-e.hecha button{background:#EFE8E0;color:#4A3B30;border-color:#E2DAD0;}
-#procBox .pr-e.act button{background:#4A3B30;color:#fff;border-color:#4A3B30;font-weight:600;}
-#procBox .pr-e input{font-size:11px;padding:4px;border:1px solid var(--bd2);border-radius:var(--rs);width:100%;}
-@media (max-width:900px){#procBox .pr-g{grid-template-columns:repeat(4,minmax(0,1fr));}}
+#procBox .pr-g{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;}
+#procBox .pr-e{width:150px;display:flex;flex-direction:column;gap:4px;border:1px solid var(--bd2);border-radius:8px;padding:8px;background:var(--surface);}
+#procBox .pr-e.hecha{background:#F6F2ED;}
+#procBox .pr-e.act{border-color:#4A3B30;box-shadow:0 0 0 1px #4A3B30;}
+#procBox .pr-e.reu{border-style:dashed;background:#FBF9F5;}
+#procBox .pr-top{display:flex;align-items:center;gap:6px;}
+#procBox .pr-ico{width:30px;height:30px;border-radius:50%;background:#4A3B30;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+#procBox .pr-e.reu .pr-ico{background:#E8DED4;color:#6F655C;}
+#procBox .pr-top select{flex:1;min-width:0;font-size:10.5px;padding:2px;border:1px solid var(--bd2);border-radius:4px;}
+#procBox .pr-e input{font-size:11.5px;padding:4px 5px;border:1px solid var(--bd2);border-radius:var(--rs);width:100%;}
+#procBox .pr-nom{font-weight:600;}
+#procBox .pr-aqui{border:1px solid var(--bd2);background:var(--surface);border-radius:var(--rs);padding:5px;font-size:11px;font-family:inherit;cursor:pointer;color:var(--tx2);}
+#procBox .pr-e.act .pr-aqui{background:#4A3B30;color:#fff;border-color:#4A3B30;font-weight:600;}
+#procBox .pr-mini{display:flex;justify-content:space-between;font-size:10.5px;}
+#procBox .pr-mini a{color:var(--tx3);text-decoration:none;}
+#procBox .pr-mini a:hover{color:var(--tx);}
+#procBox .pr-mini .pr-x:hover{color:var(--dn);}
+#procBox .pr-add{display:flex;flex-direction:column;gap:6px;justify-content:center;}
+#procBox .pr-add button{border:1px dashed var(--bd2);background:none;border-radius:8px;padding:8px 12px;font-size:12px;font-family:inherit;cursor:pointer;color:var(--tx2);}
+#procBox .pr-add button:hover{border-color:#4A3B30;color:#4A3B30;}
+#procBox .pr-pie{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:12px;color:var(--tx2);}
+#procBox .pr-pie label{display:flex;align-items:center;gap:6px;cursor:pointer;}
+#procBox .pr-pie a{color:var(--tx3);font-size:11.5px;}
 </style>
 <script>
 // ══ SERVICIO PARA EL PORTAL DEL CLIENTE ══

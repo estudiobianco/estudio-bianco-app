@@ -908,6 +908,36 @@ details.cm-d .com{font-size:12px;padding:6px 0;border-top:1px solid #F1ECE6;}
   ];
   function etTexto(i){if(i<0||i>=ETAPAS.length)return '';return '<div class="et-dt"><b>'+ETAPAS[i][1]+'</b><p>'+ET_TXT[i]+'</p></div><div class="et-img"><img src="/proceso.jpg" alt="" onerror="this.parentNode.remove()"></div>';}
   window.ebEt=function(i){var w=document.getElementById('etw'),d=document.getElementById('etd');if(!w||!d)return;w.querySelectorAll('.et').forEach(function(n){n.classList.toggle('sel',n.getAttribute('data-i')===String(i));});d.innerHTML=etTexto(i);};
+  // ── Proceso de diseño armado por el estudio para este proyecto (stage_dates._proceso) ──
+  // Cada paso: {id, nombre, icono, fecha, texto, tipo:'etapa'|'reunion'}
+  var ICONOS={cafe:ET_ICO[0],ampolleta:ET_ICO[1],lapiz:ET_ICO[2],lapiz_brillo:ET_ICO[3],computador:ET_ICO[4],martillo:ET_ICO[5],
+    calendario:svgI('<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'),
+    regla:svgI('<path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/>'),
+    casa:svgI('<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>'),
+    camion:svgI('<path d="M2 7h11v9H2z"/><path d="M13 10h5l3 3v3h-8z"/><circle cx="6" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/>'),
+    documento:svgI('<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>'),
+    paleta:svgI('<path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2s-1-1.5-1-2.5S14 15 15.5 15H18a3 3 0 0 0 3-3c0-5-4-9-9-9z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7.5" r="1"/>'),
+    llave:svgI('<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3"/>'),
+    check:svgI('<circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/>')};
+  var etLista=[];
+  function procesoPersonalizado(fe,etapa,hoyS){
+    var L=fe._proceso.filter(function(x){return x&&x.nombre;}); etLista=L;
+    var cerr=etapa==='cerrado', idx=cerr?L.length:L.map(function(x){return x.id;}).indexOf(etapa);
+    if(idx<0){idx=0;L.forEach(function(x,i){if(x.fecha&&x.fecha<=hoyS&&x.tipo!=='reunion')idx=i;});}
+    var ini=cerr?L.length-1:idx;
+    return '<div class="av-sec proc"><h3 class="h-up">Proceso de diseño</h3><div class="etapas" id="etw">'+L.map(function(x,i){
+        var st=i<idx?'hecha':(i===idx?'actual':''), re=x.tipo==='reunion';
+        return '<div class="et '+(re?'extra ':'')+st+(i===ini?' sel':'')+'" data-c="'+i+'" onclick="ebEtC('+i+')" role="button" tabindex="0"><span class="et-p">'+(ICONOS[x.icono]||ICONOS.check)+(st==='hecha'?'<i class="et-ok">✓</i>':'')+'</span><b>'+e(x.nombre)+'</b>'+(x.fecha?'<small>'+e(fechaCorta(x.fecha))+'</small>':'')+(st==='actual'?'<em>Estamos aquí</em>':'')+'</div>';
+      }).join('')+'</div><div class="et-d" id="etd">'+etTextoC(ini)+'</div>'
+      +(cerr?'<p class="meta" style="margin-top:10px;">✓ Tu proyecto está terminado. ¡Gracias por confiar en nosotros!</p>':'')+'</div>';
+  }
+  function etTextoC(i){
+    var x=etLista[i]; if(!x)return '';
+    var k=ETAPAS.map(function(y){return y[0];}).indexOf(x.id);
+    var txt=(x.texto||'').trim()||(k>=0?ET_TXT[k]:(x.tipo==='reunion'?'Una reunión extra para avanzar o resolver detalles de tu proyecto.':'Una etapa más de tu proyecto. Te contaremos los detalles en el camino.'));
+    return '<div class="et-dt"><b>'+e(x.nombre)+'</b><p>'+e(txt)+(x.fecha&&x.tipo==='reunion'?' · '+e(fechaLarga(x.fecha)):'')+'</p></div><div class="et-img"><img src="/proceso.jpg" alt="" onerror="this.parentNode.remove()"></div>';
+  }
+  window.ebEtC=function(i){var w=document.getElementById('etw'),d=document.getElementById('etd');if(!w||!d)return;w.querySelectorAll('.et').forEach(function(n){n.classList.toggle('sel',n.getAttribute('data-c')===String(i));});d.innerHTML=etTextoC(i);};
   // Reuniones adicionales dentro del proceso de diseño
   var etExtras=[], ICO_REU=svgI('<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M12 13v4M10 15h4"/>');
   window.ebEtX=function(n){var w=document.getElementById('etw'),d=document.getElementById('etd'),r=etExtras[n];if(!w||!d||!r)return;w.querySelectorAll('.et').forEach(function(x){x.classList.toggle('sel',x.getAttribute('data-x')===String(n));});var t=String(r.titulo||'').replace(/^reuni[oó]n adicional\s*[·:\-]?\s*/i,'');d.innerHTML='<div class="et-dt"><b>Reunión adicional</b><p>'+(t?e(t)+' · ':'')+e(fechaLarga(r.fecha))+'. Una reunión extra para avanzar o resolver detalles de tu proyecto.</p></div>';};
@@ -926,14 +956,18 @@ details.cm-d .com{font-size:12px;padding:6px 0;border-top:1px solid #F1ECE6;}
       +'</div>'
       +(cts.length?'<div class="av-sec"><h3>Equipo Estudio Bianco</h3><p class="meta" style="margin:0 0 8px;">Para que tu consulta llegue más rápido, escríbele directo a quien corresponda:</p><div class="contactos">'+cts.map(function(c){return '<div class="ct"><small>'+e(c.area)+'</small><b>'+e(c.nombre)+'</b>'+(c.para?'<span class="ct-para">'+e(c.para)+'</span>':'')+(c.telefono?'<a href="tel:'+e(String(c.telefono).replace(/[^\d+]/g,''))+'">☎ '+e(c.telefono)+'</a>':'')+(c.correo?'<a href="mailto:'+e(c.correo)+'">✉ '+e(c.correo)+'</a>':'')+'</div>';}).join('')+'</div></div>':'');
     // 2. Proceso de diseño: cada etapa con su ícono; abajo la explicación de la etapa en curso (o de la que el cliente toque)
+    if(Array.isArray(fe._proceso)&&fe._proceso.length){h+=procesoPersonalizado(fe,et,hoyS);}else{
     var etIni=cerrado?ETAPAS.length-1:idx;
     // Reuniones adicionales: van entre las etapas según su fecha, en un tono más claro
     var extras=(sg.reuniones||[]).filter(function(r){return r.adicional&&r.fecha;}).sort(function(a,b){return a.fecha.localeCompare(b.fecha);}); etExtras=extras;
-    var porEt={}; extras.forEach(function(r,n){var k=0;ETAPAS.forEach(function(x,i){if(fe[x[0]]&&fe[x[0]]<=r.fecha)k=i;});(porEt[k]=porEt[k]||[]).push(n);});
+    // Etapas que el estudio ocultó para este proyecto (stage_dates._ocultas)
+    var ocultas=Array.isArray(fe._ocultas)?fe._ocultas:[];
+    var porEt={}; extras.forEach(function(r,n){var k=0;ETAPAS.forEach(function(x,i){if(ocultas.indexOf(x[0])<0&&fe[x[0]]&&fe[x[0]]<=r.fecha)k=i;});(porEt[k]=porEt[k]||[]).push(n);});
     function nodoExtra(n){var r=extras[n], ok=r.fecha<=hoyS;return '<div class="et extra'+(ok?' hecha':'')+'" data-x="'+n+'" onclick="ebEtX('+n+')" role="button" tabindex="0"><span class="et-p">'+ICO_REU+(ok?'<i class="et-ok">✓</i>':'')+'</span><b>Reunión adicional</b><small>'+e(fechaCorta(r.fecha))+'</small></div>';}
-    h+='<div class="av-sec proc"><h3 class="h-up">Proceso de diseño</h3><div class="etapas" id="etw">'+ETAPAS.map(function(x,i){var st=i<idx?'hecha':(i===idx?'actual':'');return '<div class="et '+st+(i===etIni?' sel':'')+'" data-i="'+i+'" onclick="ebEt('+i+')" role="button" tabindex="0"><span class="et-p">'+ET_ICO[i]+(st==='hecha'?'<i class="et-ok">✓</i>':'')+'</span><b>'+x[1]+'</b>'+(fe[x[0]]?'<small>'+e(fechaCorta(fe[x[0]]))+'</small>':'')+(st==='actual'?'<em>Estamos aquí</em>':'')+'</div>'+(porEt[i]||[]).map(nodoExtra).join('');}).join('')+'</div>'
+    h+='<div class="av-sec proc"><h3 class="h-up">Proceso de diseño</h3><div class="etapas" id="etw">'+ETAPAS.map(function(x,i){if(ocultas.indexOf(x[0])>=0)return '';var st=i<idx?'hecha':(i===idx?'actual':'');return '<div class="et '+st+(i===etIni?' sel':'')+'" data-i="'+i+'" onclick="ebEt('+i+')" role="button" tabindex="0"><span class="et-p">'+ET_ICO[i]+(st==='hecha'?'<i class="et-ok">✓</i>':'')+'</span><b>'+x[1]+'</b>'+(fe[x[0]]?'<small>'+e(fechaCorta(fe[x[0]]))+'</small>':'')+(st==='actual'?'<em>Estamos aquí</em>':'')+'</div>'+(porEt[i]||[]).map(nodoExtra).join('');}).join('')+'</div>'
       +'<div class="et-d" id="etd">'+etTexto(etIni)+'</div>'
       +(cerrado?'<p class="meta" style="margin-top:10px;">✓ Tu proyecto está terminado. ¡Gracias por confiar en nosotros!</p>':'')+'</div>';
+    }
     // 3. Detalles de tu servicio (plegable): qué incluye, cotización, resumen y etapas de pago
     var sv=D.servicio;
     if(sv){
