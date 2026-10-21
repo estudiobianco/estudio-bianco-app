@@ -9075,7 +9075,8 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   function subir(file){
     return new Promise(function(ok,mal){
       if(!/^image\/|application\/pdf/.test(file.type)){mal('Solo imágenes (JPG, PNG) o PDF.');return;}
-      if(file.size>15*1024*1024){mal('El archivo pesa más de 15 MB. Exporta el PDF en menor calidad o como imagen.');return;}
+      // Límite del plan de almacenamiento: 50 MB por archivo. Más pesado: subirlo a OneDrive y usar "Pegar link"
+      if(file.size>50*1024*1024){mal('"'+(file.name||'El archivo')+'" pesa '+Math.round(file.size/1048576)+' MB y el máximo es 50 MB. Súbelo a OneDrive y usa el botón "🔗 Pegar link" con el link para compartir.');return;}
       var ext=((file.name||'').split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg';
       var path='laminas/'+currentProjId+'_'+Date.now()+'_'+Math.floor(Math.random()*1000)+'.'+ext;
       fetch(SB+'/storage/v1/object/'+encodeURIComponent(BUCKET)+'/'+path,{method:'POST',headers:{apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':file.type},body:file})
@@ -9085,10 +9086,10 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
 
   function pintar(){
     var b=document.getElementById('lamBody'); if(!b)return;
-    var h='<h1 class="lm-h1">Láminas y renders</h1><p class="lm-sub">Lo que subas aquí lo ve tu cliente en su portal, en las pestañas "Planos y láminas" y "Looks y renders", y puede aprobarlo o pedir cambios. Acepta imágenes o PDF (hasta 15 MB).</p>';
+    var h='<h1 class="lm-h1">Láminas y renders</h1><p class="lm-sub">Lo que subas aquí lo ve tu cliente en su portal, en las pestañas "Planos y láminas" y "Looks y renders", y puede aprobarlo o pedir cambios. Acepta imágenes o PDF de hasta 50 MB. Si un plano pesa más, súbelo a OneDrive y usa "🔗 Pegar link".</p>';
     ['lamina','render'].forEach(function(cat){
       var arr=docs.filter(function(d){return d.category===cat;});
-      h+='<div class="lm-sec"><h2>'+TIPOS[cat]+'</h2><label class="btn prim" style="cursor:pointer;">+ Agregar '+(cat==='lamina'?'lámina':'render')+'<input type="file" accept="image/*,application/pdf" multiple style="display:none;" onchange="lmAgregar(\''+cat+'\',this)"></label></div>';
+      h+='<div class="lm-sec"><h2>'+TIPOS[cat]+'</h2><span style="display:flex;gap:6px;"><button class="btn" onclick="lmLink(\''+cat+'\')" title="Para archivos de más de 50 MB: pega el link de OneDrive">🔗 Pegar link</button><label class="btn prim" style="cursor:pointer;">+ Agregar '+(cat==='lamina'?'lámina':'render')+'<input type="file" accept="image/*,application/pdf" multiple style="display:none;" onchange="lmAgregar(\''+cat+'\',this)"></label></span></div>';
       if(!arr.length){h+='<div class="lm-empty">Aún no hay '+(cat==='lamina'?'láminas':'renders')+'. Sube '+(cat==='lamina'?'plantas, elevaciones o detalles de muebles a medida':'imágenes de concepto, looks o renders')+'.</div>';return;}
       h+='<div class="lm-grid">'+arr.map(tarjeta).join('')+'</div>';
     });
@@ -9115,6 +9116,15 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
         return guardar(d).then(function(){docs.push(d);siguiente();});
       }).catch(function(m){alert(typeof m==='string'?m:'No se pudo guardar.');siguiente();});
     })();
+  };
+  // Archivo pesado guardado en OneDrive (o Drive): se publica el link; el cliente lo abre en una pestaña nueva
+  window.lmLink=function(cat){
+    var u=prompt('Pega el link para compartir del archivo (OneDrive: clic derecho → Compartir → Copiar vínculo, con acceso "Cualquier persona con el vínculo"):','');
+    if(u==null)return; u=u.trim();
+    if(!/^https:\/\/\S+$/i.test(u)){alert('El link debe empezar con https://');return;}
+    var t=prompt('Nombre de la '+(cat==='lamina'?'lámina':'imagen')+' (lo ve el cliente):',cat==='lamina'?'Set de planos':'Render'); if(t==null)return;
+    var d={id:Date.now()*10+Math.floor(Math.random()*10),category:cat,date:hoy(),title:(t.trim()||(cat==='lamina'?'Lámina':'Render')),description:'',status:'',extra:{url:u,mime:'application/pdf',link:true,versiones:[],espacio:'',oculto:false}};
+    guardar(d).then(function(){docs.push(d);pintar();tst('✓ Link publicado');}).catch(function(){alert('No se pudo guardar el link.');});
   };
   window.lmVersion=function(id,input){
     var f=input.files&&input.files[0]; input.value=''; var d=docs.find(function(x){return x.id===id;}); if(!f||!d)return;
@@ -9333,7 +9343,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
   window.ebSvIncluye=function(v){guardar(currentProjId,{incluye:v}).then(function(){tst('✓ Guardado');}).catch(function(){alert('No se pudo guardar.');});};
   window.ebSvSubir=function(inp){
     var f=inp.files&&inp.files[0]; if(!f)return; var pid=currentProjId, d=datos[pid];
-    if(f.size>15*1024*1024){alert('El PDF pesa más de 15 MB.');return;}
+    if(f.size>50*1024*1024){alert('El PDF pesa más de 50 MB.');return;}
     var nombre=f.name.replace(/[^\w.\-áéíóúñÁÉÍÓÚÑ ]+/g,'').slice(0,80)||'cotizacion.pdf', path=pid+'/'+Date.now()+'-'+(nombre.normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\w.\-]+/g,'-').replace(/-+/g,'-')||'cotizacion.pdf'), viejo=d.cotizacion_path;
     tst('Subiendo cotización…');
     fetch(SB+'/storage/v1/object/servicio/'+ruta(path),{method:'POST',headers:{apikey:KEY,'Content-Type':'application/pdf','x-upsert':'true'},body:f})

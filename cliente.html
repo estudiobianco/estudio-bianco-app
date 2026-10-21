@@ -805,6 +805,8 @@ details.cm-d .com{font-size:12px;padding:6px 0;border-top:1px solid #F1ECE6;}
   }
   window.ebVerDoc=function(id){
     var d=(D.documentos||[]).find(function(x){return x.id===id;}); if(!d)return;
+    // Planos pesados guardados en OneDrive: se abren en una pestaña nueva
+    if(d.url&&!/supabase\.co\//i.test(d.url)){window.open(d.url,'_blank','noopener');return;}
     var v=document.getElementById('visor');
     v.querySelector('.vc').innerHTML=(d.pdf?'<iframe src="'+e(d.url)+'"></iframe>':'<img src="'+e(d.url)+'" alt="">')+infoDoc(d);
     v.querySelector('.vt').innerHTML=e(d.titulo)+(d.pdf?' · <a href="'+e(d.url)+'" target="_blank" rel="noopener">abrir PDF en otra pestaña ↗</a>':'');
