@@ -533,6 +533,8 @@ details.cm-d .com{font-size:12px;padding:6px 0;border-top:1px solid #F1ECE6;}
 .acts button.dec-ok{flex:1 1 100%;background:#2A6B45!important;border-color:#2A6B45!important;color:#fff!important;font-weight:700;font-size:13.5px;}
 .acts button.dec-no{flex:1 1 100%;background:#EFE8E0!important;border-color:#CBBFAF!important;color:#6F655C!important;font-weight:700;font-size:13.5px;}
 .acts button.dec-ok:hover,.acts button.dec-no:hover{opacity:.9;}
+.badge.b-comprar{background:#F6EADB!important;color:#7A4A1E!important;border-color:#E8D3B8!important;}
+.bdgs{flex-wrap:wrap;}
 /* Aviso de novedades al entrar y punto en las pestañas */
 .tabs button{position:relative;}
 .tab-dot{position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#C0392B;border:2px solid #EFEDE9;}
@@ -809,6 +811,9 @@ details.cm-d .com{font-size:12px;padding:6px 0;border-top:1px solid #F1ECE6;}
     v.classList.add('open');
   };
   window.ebCerrarVisor=function(){var v=document.getElementById('visor');v.classList.remove('open');v.querySelector('.vc').innerHTML='';};
+  // Aprobado pero todavía sin comprar ni pedir: el cliente lo ve como "Pendiente por comprar"
+  function porComprar(it){return est(it)==='Aprobado'&&!fuera(it)&&(!it.entrega||it.entrega==='Por pedir')&&!it.pedido&&!(it.compra&&it.compra.fecha)&&!it.llego;}
+  var ICO_CARRO='<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:4px;"><path d="M3 4h2l2.4 11h10.2L20 8H6.2"/><circle cx="9.5" cy="19" r="1.4"/><circle cx="16.5" cy="19" r="1.4"/></svg>';
   // Aprobar / Descartar: si ya respondió, un solo botón grande con su respuesta (al tocarlo se deshace)
   function botonesDecision(it,es_){
     if(es_==='Aprobado')return '<div class="acts"><button class="dec-ok" onclick="ebR('+it.id+',\'Aprobado\')" title="Toca para deshacer">✓ Aprobado</button></div>';
@@ -826,7 +831,7 @@ details.cm-d .com{font-size:12px;padding:6px 0;border-top:1px solid #F1ECE6;}
     var ico=(nuevaResp?'<button class="ic ic-nota ic-resp" data-id="'+it.id+'" onclick="ebPanel('+it.id+')" title="El estudio respondió tu comentario">💬 Te respondimos · <u>Leer</u></button>':'')+(nota?'<button class="ic ic-nota" onclick="ebPanel('+it.id+',1)" title="El estudio dejó un comentario">💬 Comentario del estudio · <u>Leer</u></button>':'')+(nComs?'<span class="ic" title="Comentarios">💬 '+nComs+'</span>':'')+(it.compra&&it.compra.fecha?'<span class="ic" title="Comprado">🛒</span>':'')+entr;
     var precio=+it.precio>0?m(sub(it)):'Por cotizar';
     var h='<div class="card'+(nOp?' op':'')+(it.grupo?(it.elegida?' sel':' alt'):'')+(it.recomendada?' rec':'')+'"><div class="ph">'+(it.imagen?'<img src="'+e(it.imagen)+'" alt="" loading="lazy">':'Sin imagen')
-      +'<div class="bdgs"><span class="badge b-'+e(cls)+'">'+(es_==='Aprobado'?'✓ Aprobado':es_==='Rechazado'?'Descartado':es_==='Cambios solicitados'?'Cambios pedidos':'Por revisar')+'</span>'+(it.recomendada?'<span class="recb"><span class="st">★</span> Recomendada</span>':'')+'</div></div><div class="bd">';
+      +'<div class="bdgs"><span class="badge b-'+e(cls)+'">'+(es_==='Aprobado'?'✓ Aprobado':es_==='Rechazado'?'Descartado':es_==='Cambios solicitados'?'Cambios pedidos':'Por revisar')+'</span>'+(it.recomendada?'<span class="recb"><span class="st">★</span> Recomendada</span>':'')+(porComprar(it)?'<span class="badge b-comprar">'+ICO_CARRO+'Pendiente por comprar</span>':'')+'</div></div><div class="bd">';
     if(nOp)h+='<div class="opn">Opción '+nOp+' de '+nTot+(it.elegida?' · en el total':' · alternativa')+'</div>'
       +'<div class="cab"><div><div class="nm" title="'+e(it.item)+'">'+e(it.item)+'</div><div class="esp">'+e(it.espacio||'')+'</div></div><div class="t">'+precio+'</div></div>';
     else h+='<div class="nm" title="'+e(it.item)+'">'+e(it.item)+'</div><div class="pr"><span class="u">'+e(it.espacio||'')+'</span><span class="t">'+precio+'</span></div>';
@@ -845,7 +850,7 @@ details.cm-d .com{font-size:12px;padding:6px 0;border-top:1px solid #F1ECE6;}
     var es_=est(it), cls=es_.split(' ')[0], nota=(it.nota||'').trim();
     var r=(D.respuestas||[]).filter(function(x){return x.itemId===it.id;}).slice(0,12).reverse();
     var h='<div class="pn-ph">'+(it.imagen?'<img src="'+e(it.imagen)+'" alt="">':'<span>Sin imagen</span>')+'</div>'
-      +'<div class="pn-bd"><span class="badge b-'+e(cls)+'">'+(es_==='Aprobado'?'✓ Aprobado':es_==='Rechazado'?'Descartado':es_==='Cambios solicitados'?'Cambios pedidos':'Por revisar')+'</span>'
+      +'<div class="pn-bd"><span class="badge b-'+e(cls)+'">'+(es_==='Aprobado'?'✓ Aprobado':es_==='Rechazado'?'Descartado':es_==='Cambios solicitados'?'Cambios pedidos':'Por revisar')+'</span>'+(porComprar(it)?' <span class="badge b-comprar">'+ICO_CARRO+'Pendiente por comprar</span>':'')
       +'<h3 class="pn-t">'+e(it.item)+'</h3><div class="pn-pr">'+(+it.precio>0?m(sub(it)):'Por cotizar')+'</div><div class="mas-c">';
     h+='<div class="meta">'+[it.proveedor,it.espacio].filter(Boolean).map(e).join(' · ')+'</div>';
     h+='<div class="pr"><span class="u">'+(it.cant>1?it.cant+' × ':'Precio ')+(+it.precio>0?m(it.precio):'por cotizar')+'</span></div>'+(+it.despacho>0?'<div class="meta">Incluye despacho '+m(it.despacho)+'</div>':'');
