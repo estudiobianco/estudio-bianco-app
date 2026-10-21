@@ -811,8 +811,8 @@ details.cm-d .com{font-size:12px;padding:6px 0;border-top:1px solid #F1ECE6;}
     v.classList.add('open');
   };
   window.ebCerrarVisor=function(){var v=document.getElementById('visor');v.classList.remove('open');v.querySelector('.vc').innerHTML='';};
-  // Aprobado pero todavía sin comprar ni pedir: el cliente lo ve como "Pendiente por comprar"
-  function porComprar(it){return est(it)==='Aprobado'&&!fuera(it)&&(!it.entrega||it.entrega==='Por pedir')&&!it.pedido&&!(it.compra&&it.compra.fecha)&&!it.llego;}
+  // Aprobado o por revisar, y todavía sin comprar ni pedir: el cliente lo ve como "Pendiente por comprar"
+  function porComprar(it){var s=est(it);return (s==='Aprobado'||s==='Por revisar')&&!fuera(it)&&(!it.entrega||it.entrega==='Por pedir')&&!it.pedido&&!(it.compra&&it.compra.fecha)&&!it.llego;}
   var ICO_CARRO='<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:4px;"><path d="M3 4h2l2.4 11h10.2L20 8H6.2"/><circle cx="9.5" cy="19" r="1.4"/><circle cx="16.5" cy="19" r="1.4"/></svg>';
   // Aprobar / Descartar: si ya respondió, un solo botón grande con su respuesta (al tocarlo se deshace)
   function botonesDecision(it,es_){
