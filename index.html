@@ -1937,7 +1937,7 @@ function rC(){
       tr.innerHTML=`
         <td style="${TD}"><div class="opt-c0"><span class="drag-h" draggable="true" data-id="${r.id}" title="Arrastra para mover">⋮⋮</span>${typeof optCasilla==='function'?optCasilla(r):''}<button class="xb" id="${bid}" onclick="abrirFicha(${r.id})" title="Abrir ficha del producto">›</button></div></td>
         <td style="${TD}">${img}</td>
-        <td style="${TD}"><div style="display:flex;align-items:center;gap:4px;">${comprasTab==='desc'?'<button class="xb" title="Reponer al listado" onclick="reponerItem('+r.id+')">↺</button>':''}${typeof optRadio==='function'?optRadio(r):''}${urlIcon}<input type="text" value="${es(r.item)}" onchange="uI(${r.id},'item',this.value)" style="${IS}flex:1;min-width:0;font-weight:500;"></div><div style="display:flex;align-items:center;gap:4px;">${typeof portalCom==='function'?portalCom(r):''}${typeof optChip==='function'?optChip(r):''}<input type="text" value="${es(r.supplier)}" list="supplierList" autocomplete="off" placeholder="Proveedor por definir" onchange="uI(${r.id},'supplier',this.value);upsertSupplier(this.value)" style="${IS}height:20px;font-size:11px;color:var(--tx3);flex:1;min-width:0;"></div></td>
+        <td style="${TD}"><div style="display:flex;align-items:center;gap:4px;">${comprasTab==='desc'?'<button class="xb" title="Reponer al listado" onclick="reponerItem('+r.id+')">↺</button>':''}${typeof optRadio==='function'?optRadio(r):''}${urlIcon}<input type="text" value="${es(r.item)}" onchange="uI(${r.id},'item',this.value)" style="${IS}flex:1;min-width:0;font-weight:500;"></div><div style="display:flex;align-items:center;gap:4px;">${typeof portalCom==='function'?portalCom(r):''}${typeof optChip==='function'?optChip(r):''}${comprasAgrupar==='esp'&&r.cat?'<span class="badge '+catCls(r.cat)+'" title="Categoría" style="font-size:9.5px;padding:0 6px;flex-shrink:0;white-space:nowrap;">'+es(r.cat)+'</span>':''}<input type="text" value="${es(r.supplier)}" list="supplierList" autocomplete="off" placeholder="Proveedor por definir" onchange="uI(${r.id},'supplier',this.value);upsertSupplier(this.value)" style="${IS}height:20px;font-size:11px;color:var(--tx3);flex:1;min-width:0;"></div></td>
         <td style="${TD}">${selEspacio(r,'row',IS+'padding-right:0;')}</td>
         <td style="${TD}"><input type="number" value="${r.qty}" min="0" onchange="uI(${r.id},'qty',+this.value)" style="${ISN}text-align:center;padding:2px 0;"></td>
         <td style="${TD}"><input type="text" id="uprice-${r.id}" value="${r.unit>0?'$'+r.unit.toLocaleString('es-CL'):''}" placeholder="$0" onfocus="this.value=parseFloat(this.value.replace(/[^0-9]/g,''))||''" onblur="var v=+this.value.replace(/[^0-9]/g,'');uI(${r.id},'unit',v);this.value=v>0?'$'+v.toLocaleString('es-CL'):''" style="${ISN}"></td>
@@ -5747,12 +5747,16 @@ window.pdfResumenCliente = function(){
     var total=(typeof rTraw==='function'?rTraw(r):(r.qty||1)*(r.unit||0));
     var paid=window.pagadoItem(r);
     if(r.payStatus==='Devuelto')return {label:'Devuelto',cls:'pb-dev',st:'Devuelto'};
-    // Si lo compró el cliente, siempre dice "Pagó cliente" (salvo que haya un pago parcial registrado)
-    if(compraCliente(r)&&(paid<=0||paid>=total||r.payStatus==='Pagado'))return {label:'Pagó cliente',cls:'pb-ok',st:'Pagado'};
+    // ¿Quién pagó? Lo dice "Pagado por" de cada pago registrado (y el medio de pago de las cuotas)
+    // "Cliente directo al proveedor" y "Cliente a Estudio Bianco" = pagó el cliente; "Estudio Bianco al proveedor" = pagó el estudio
+    var quienes=movsDeItem(r.id).map(function(p){return String(p.meth||'').split('|').slice(1).join('|').trim();}).concat([r.p1method,r.p2method,r.p3method,r.p4method].map(function(x){return String(x||'').trim();})).filter(Boolean);
+    var porCli=quienes.some(function(q){return /^cliente/i.test(q);}), porEst=quienes.some(function(q){return /^estudio\s*bianco/i.test(q);});
+    // Si lo compró o lo pagó el cliente, dice "Pagó cliente" (salvo que haya un pago parcial)
+    if((compraCliente(r)||(porCli&&!porEst))&&(paid<=0&&compraCliente(r)||paid>=total||r.payStatus==='Pagado'))return {label:'Pagó cliente',cls:'pb-ok',st:'Pagado'};
     if(total<=0)return {label:'Por cotizar',cls:'pb-cot',st:'Pendiente'};
-    if(paid>=total||(typeof honPagada==='function'&&honPagada(r)))return {label:'Pagado',cls:'pb-ok',st:'Pagado'};
+    if(paid>=total||(typeof honPagada==='function'&&honPagada(r)))return {label:(porEst&&!porCli)?'Pagó estudio':'Pagado',cls:'pb-ok',st:'Pagado'};
     if(paid>0)return {label:'Pago parcial',cls:'pb-parc',st:'Pagado parcialmente'};
-    if(r.payStatus==='Pagado')return {label:'Pagado',cls:'pb-ok',st:'Pagado'};
+    if(r.payStatus==='Pagado')return {label:porCli&&!porEst?'Pagó cliente':(porEst&&!porCli?'Pagó estudio':'Pagado'),cls:'pb-ok',st:'Pagado'};
     if(r.payStatus==='Pagado parcialmente')return {label:'Pago parcial',cls:'pb-parc',st:'Pagado parcialmente'};
     return {label:'Pendiente',cls:'pb-pend',st:'Pendiente'};
   };
