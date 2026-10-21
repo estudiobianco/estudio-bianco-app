@@ -529,6 +529,10 @@ details.cm-d .com{font-size:12px;padding:6px 0;border-top:1px solid #F1ECE6;}
 .mas-b{font-size:11.5px!important;font-weight:500!important;color:#8A8077!important;margin-top:2px!important;}
 .m-chk{display:flex!important;align-items:center;gap:8px;font-size:13px;color:#3A2F27;margin:10px 0 0;cursor:pointer;}
 .m-chk input{width:16px;height:16px;}
+/* Producto ya respondido: un solo botón destacado */
+.acts button.dec-ok{flex:1 1 100%;background:#2A6B45!important;border-color:#2A6B45!important;color:#fff!important;font-weight:700;font-size:13.5px;}
+.acts button.dec-no{flex:1 1 100%;background:#EFE8E0!important;border-color:#CBBFAF!important;color:#6F655C!important;font-weight:700;font-size:13.5px;}
+.acts button.dec-ok:hover,.acts button.dec-no:hover{opacity:.9;}
 /* Aviso de novedades al entrar y punto en las pestañas */
 .tabs button{position:relative;}
 .tab-dot{position:absolute;top:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#C0392B;border:2px solid #EFEDE9;}
@@ -805,6 +809,12 @@ details.cm-d .com{font-size:12px;padding:6px 0;border-top:1px solid #F1ECE6;}
     v.classList.add('open');
   };
   window.ebCerrarVisor=function(){var v=document.getElementById('visor');v.classList.remove('open');v.querySelector('.vc').innerHTML='';};
+  // Aprobar / Descartar: si ya respondió, un solo botón grande con su respuesta (al tocarlo se deshace)
+  function botonesDecision(it,es_){
+    if(es_==='Aprobado')return '<div class="acts"><button class="dec-ok" onclick="ebR('+it.id+',\'Aprobado\')" title="Toca para deshacer">✓ Aprobado</button></div>';
+    if(es_==='Rechazado')return '<div class="acts"><button class="dec-no" onclick="ebR('+it.id+',\'Rechazado\')" title="Toca para deshacer">✕ Descartado</button></div>';
+    return '<div class="acts"><button class="ap" onclick="ebR('+it.id+',\'Aprobado\')">✓ Aprobar</button><button class="re" onclick="ebR('+it.id+',\'Rechazado\')">✕ Descartar</button></div>';
+  }
   function tarjeta(it,nOp){
     var es_=est(it), cls=es_.split(' ')[0];
     var r=(D.respuestas||[]).filter(function(x){return x.itemId===it.id;}).slice(0,6).reverse();
@@ -821,7 +831,7 @@ details.cm-d .com{font-size:12px;padding:6px 0;border-top:1px solid #F1ECE6;}
       +'<div class="cab"><div><div class="nm" title="'+e(it.item)+'">'+e(it.item)+'</div><div class="esp">'+e(it.espacio||'')+'</div></div><div class="t">'+precio+'</div></div>';
     else h+='<div class="nm" title="'+e(it.item)+'">'+e(it.item)+'</div><div class="pr"><span class="u">'+e(it.espacio||'')+'</span><span class="t">'+precio+'</span></div>';
     h+='<div class="icos">'+ico+'</div>';
-    h+='<div class="acts"><button class="ap'+(es_==='Aprobado'?' on':'')+'" onclick="ebR('+it.id+',\'Aprobado\')">✓ Aprobar</button><button class="re'+(es_==='Rechazado'?' on':'')+'" onclick="ebR('+it.id+',\'Rechazado\')">✕ Descartar</button></div>';
+    h+=botonesDecision(it,es_);
     // Comentar / pedir cambios (un solo botón), luego los comentarios plegables y "Revisar en detalle"
     h+='<button class="cmc" onclick="ebR('+it.id+',\'comcambio\')">💬 Comentar / Pedir cambios</button>';
     var nConv=r.filter(function(c){return (c.comentario||'').trim();}).length;
@@ -844,7 +854,7 @@ details.cm-d .com{font-size:12px;padding:6px 0;border-top:1px solid #F1ECE6;}
     h+='<div class="row"><span class="ent'+(it.entrega==='Entregado'?' ok':'')+'">'+e(it.entrega||'Por pedir')+'</span>'+(urlOk(it.link)?'<a class="tienda" href="'+e(it.link)+'" target="_blank" rel="noopener">Ver en tienda ↗</a>':'')+'</div>';
     if(it.compra&&it.compra.fecha)h+='<div class="compra">🛒 '+(it.compra.por==='cliente'?'Lo compraste':'Comprado')+' el '+e(fechaCorta(it.compra.fecha))+(it.compra.entrega?' · entrega aprox. '+e(fechaCorta(it.compra.entrega)):'')+' <a href="#" onclick="ebCompra('+it.id+');return false;">editar</a></div>';
     else if(it.entrega!=='Entregado')h+='<button class="lcy" onclick="ebCompra('+it.id+')">🛒 Lo compré yo</button>';
-    h+='<div class="acts"><button class="ap'+(es_==='Aprobado'?' on':'')+'" onclick="ebR('+it.id+',\'Aprobado\')">✓ Aprobar</button><button class="re'+(es_==='Rechazado'?' on':'')+'" onclick="ebR('+it.id+',\'Rechazado\')">✕ Descartar</button></div>';
+    h+=botonesDecision(it,es_);
     h+='<button class="cmc" onclick="ebR('+it.id+',\'comcambio\')">💬 Comentar / Pedir cambios</button>';
     if(r.length)h+='<div class="pn-sub">Comentarios</div>'+conversacion(r);
     marcarVistas(r);
