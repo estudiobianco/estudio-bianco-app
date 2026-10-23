@@ -4593,7 +4593,7 @@ function renderGantt(){
       install_date:r.installDate||'', track_note:r.trackNote||'',
       lead_unit:r.leadUnit||'semanas', date_history:JSON.stringify(r.dateHistory||[]),
       order_num:r.orderNum||'', ship_cost:+r.shipCost||0, vence:r.vence||'', delivery_resp:r.deliveryResp||'', ship_link:r.shipLink||'',
-      image_url:r.imageUrl||'',
+      image_url:r.imageUrl||'', precio_normal:+r.precioNormal||0,
       opt_group:r.optGroup||'', opt_sel:r.optSel?'1':'', opt_rec:r.optRec?'1':'', client_note:r.clientNote||'', sort_order:(r.sortOrder==null||r.sortOrder==='')?null:+r.sortOrder
     };
   }
@@ -4618,7 +4618,7 @@ function renderGantt(){
       installDate:x.install_date||'', trackNote:x.track_note||'',
       leadUnit:x.lead_unit||'semanas', dateHistory:(function(){try{return JSON.parse(x.date_history||'[]');}catch(e){return [];}})(),
       orderNum:x.order_num||'', shipCost:+x.ship_cost||0, vence:x.vence||'', deliveryResp:x.delivery_resp||'', shipLink:x.ship_link||'',
-      imageUrl:x.image_url||'',
+      imageUrl:x.image_url||'', precioNormal:+x.precio_normal||0,
       optGroup:x.opt_group||'', optSel:x.opt_sel==='1', optRec:x.opt_rec==='1', clientNote:x.client_note||'', sortOrder:x.sort_order==null?null:+x.sort_order
     };
   }
@@ -5812,6 +5812,9 @@ window.pdfResumenCliente = function(){
     h+='<div class="fp-g"><label>Proveedor</label><input type="text" list="supplierList" value="'+eF(r.supplier||'')+'" onchange="fSave(\'supplier\',this.value);try{upsertSupplier(this.value)}catch(e){}"></div>';
     h+='<div class="fp-row2"><div class="fp-g"><label>Cantidad</label><input type="number" min="0" value="'+(r.qty||1)+'" onchange="fSave(\'qty\',+this.value||0);renderFichaExt()"></div>';
     h+='<div class="fp-g"><label>Precio unitario</label><input type="text" value="'+(r.unit>0?r.unit.toLocaleString('es-CL'):'')+'" placeholder="0" onchange="fSaveNum(\'unit\',this.value)"></div></div>';
+    // Solo en la tienda de tazas: precio normal para mostrar el descuento
+    if(currentProjId==='tienda-tazas'){var _pn=+r.precioNormal||0,_dc=(_pn>0&&r.unit>0&&_pn>r.unit)?Math.round((1-r.unit/_pn)*100):0;
+      h+='<div class="fp-g"><label>Precio normal <span style="color:var(--tx3);">· en la tienda se muestra tachado'+(_dc?' · '+_dc+'% de descuento':'')+'</span></label><input type="text" value="'+(_pn>0?_pn.toLocaleString('es-CL'):'')+'" placeholder="0" onchange="fSaveNum(\'precioNormal\',this.value)"></div>';}
     h+='<div class="fp-g"><label>Costo de despacho <span style="color:var(--tx3);">· total del envío, se suma al producto</span></label><input type="text" value="'+(+r.shipCost>0?(+r.shipCost).toLocaleString('es-CL'):'')+'" placeholder="0" onchange="fSaveNum(\'shipCost\',this.value)"></div>';
     var _desp=+r.shipCost||0;
     h+='<div class="fp-kpi" style="margin-bottom:12px;"><div class="l">Subtotal'+(_desp>0?' con despacho':'')+'</div><div class="v">'+(subtotal+_desp>0?mF(subtotal+_desp):'Por cotizar')+'</div>'+(_desp>0&&subtotal>0?'<div class="l" style="margin-top:2px;">Producto '+mF(subtotal)+' + despacho '+mF(_desp)+'</div>':'')+'</div>';
