@@ -1910,7 +1910,7 @@ function rC(){
     const _TH='background:var(--s2);font-size:10px;font-weight:600;letter-spacing:.03em;color:var(--tx2);padding:7px 8px;border-bottom:1px solid var(--bd);position:relative;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
     // Tienda de tazas: la columna `EST. CLIENTE` pasa a ser PRECIO NORMAL
     const _COLT=currentProjId==='tienda-tazas'
-      ?['','','PRODUCTO','ESPACIO','CANT.','PRECIO ACTUAL','SUBTOTAL','PRECIO NORMAL','PAGO','ENTREGA','FECHA ENTREGA','AVISO','']
+      ?['','','PRODUCTO','ESPACIO','CANT.','PRECIO ACTUAL','SUBTOTAL','PRECIO NORMAL','PAGO','ENTREGA','FECHA ENTREGA','ETIQUETAS','']
       :['','','PRODUCTO','ESPACIO','CANT.','PRECIO UNIT.','SUBTOTAL','EST. CLIENTE','PAGO','ENTREGA','FECHA ENTREGA','INSTAL.',''];
     const _ALN=['left','left','left','left','center','right','right','left','center','left','left','left','left'];
     tbl.innerHTML='<colgroup>'+_cw.map(x=>'<col style="width:'+x+'px">').join('')+'</colgroup>'
@@ -2021,7 +2021,8 @@ function changeCat(id,newCat){var r=items.find(function(x){return x.id===id;});i
 // Tienda de tazas: aviso "Ojo" que se muestra en la tienda (té vencido, cajas arrugadas)
 var AVISO_TE='Este té venció en junio y las cajas están arrugadas (no sirven para regalo).';
 function ojoCelda(r){
-  return '<label title="Marca para mostrar el aviso en la tienda. Doble clic en el texto para cambiarlo." style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;font-weight:600;color:'+(r.aviso?'#B4483C':'var(--tx3)')+';"><input type="checkbox"'+(r.aviso?' checked':'')+' onchange="uI('+r.id+',\'aviso\',this.checked?AVISO_TE:\'\')">⚠ Ojo</label>'
+  return '<label title="Marca si el producto viene con su caja" style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;font-weight:600;margin-bottom:3px;color:'+(r.conCaja?'var(--ac)':'var(--tx3)')+';"><input type="checkbox"'+(r.conCaja?' checked':'')+' onchange="uI('+r.id+',\'conCaja\',this.checked)">📦 Con caja</label>'
+    +'<label title="Marca para mostrar el aviso en la tienda. Doble clic en el texto para cambiarlo." style="display:flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;font-weight:600;color:'+(r.aviso?'#B4483C':'var(--tx3)')+';"><input type="checkbox"'+(r.aviso?' checked':'')+' onchange="uI('+r.id+',\'aviso\',this.checked?AVISO_TE:\'\')">⚠ Ojo</label>'
     +(r.aviso?'<div ondblclick="var t=prompt(\'Texto del aviso\',this.textContent);if(t!==null)uI('+r.id+',\'aviso\',t.trim())" style="font-size:9.5px;color:#B4483C;line-height:1.2;white-space:normal;cursor:text;">'+es(r.aviso)+'</div>':'');
 }
 function uI(id,f,v){const r=items.find(x=>x.id===id);if(r){r[f]=v;rC();sAll();try{var ph=document.getElementById('page-honorarios');if(ph&&ph.classList.contains('active'))rH();}catch(e){}}}
@@ -4602,7 +4603,7 @@ function renderGantt(){
       install_date:r.installDate||'', track_note:r.trackNote||'',
       lead_unit:r.leadUnit||'semanas', date_history:JSON.stringify(r.dateHistory||[]),
       order_num:r.orderNum||'', ship_cost:+r.shipCost||0, vence:r.vence||'', delivery_resp:r.deliveryResp||'', ship_link:r.shipLink||'',
-      image_url:r.imageUrl||'', precio_normal:+r.precioNormal||0, aviso:r.aviso||'',
+      image_url:r.imageUrl||'', precio_normal:+r.precioNormal||0, aviso:r.aviso||'', con_caja:!!r.conCaja,
       opt_group:r.optGroup||'', opt_sel:r.optSel?'1':'', opt_rec:r.optRec?'1':'', client_note:r.clientNote||'', sort_order:(r.sortOrder==null||r.sortOrder==='')?null:+r.sortOrder
     };
   }
@@ -4627,7 +4628,7 @@ function renderGantt(){
       installDate:x.install_date||'', trackNote:x.track_note||'',
       leadUnit:x.lead_unit||'semanas', dateHistory:(function(){try{return JSON.parse(x.date_history||'[]');}catch(e){return [];}})(),
       orderNum:x.order_num||'', shipCost:+x.ship_cost||0, vence:x.vence||'', deliveryResp:x.delivery_resp||'', shipLink:x.ship_link||'',
-      imageUrl:x.image_url||'', precioNormal:+x.precio_normal||0, aviso:x.aviso||'',
+      imageUrl:x.image_url||'', precioNormal:+x.precio_normal||0, aviso:x.aviso||'', conCaja:!!x.con_caja,
       optGroup:x.opt_group||'', optSel:x.opt_sel==='1', optRec:x.opt_rec==='1', clientNote:x.client_note||'', sortOrder:x.sort_order==null?null:+x.sort_order
     };
   }
