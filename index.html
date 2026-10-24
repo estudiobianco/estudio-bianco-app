@@ -9536,6 +9536,108 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
 #tableroBox .tb-al span.nov{background:#EAF4FB;color:#2B4A5E;}
 #tableroBox .tb-ok{font-size:11.5px;color:#2A6B45;}
 </style>
+<script>
+// ══ PEDIDOS DE LA TIENDA (solo la administradora, proyecto tienda-tazas) ══
+// Lista los pedidos que llegan desde tienda-bianco.vercel.app y permite marcar su estado
+(function(){
+  var SB='https://iucjhzsnlotojvpyjcfo.supabase.co';
+  var KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1Y2poenNubG90b2p2cHlqY2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMTIzMTYsImV4cCI6MjA5NDY4ODMxNn0.PKLG4LS1EjgfHE0GXAnyxWuEUhlZy5s7TWxe8luvuik';
+  var H={apikey:KEY,'Content-Type':'application/json'};
+  var PID='tienda-tazas', ESTADOS=['Pendiente','Pagado','Entregado','No compró'], peds=[], filtro='';
+  function e(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function esAdm(){try{return appMode==='admin';}catch(x){return false;}}
+  function m(n){return '$'+Math.round(+n||0).toLocaleString('es-CL');}
+  function exDe(l){try{return typeof l.extra==='string'?JSON.parse(l.extra||'{}'):(l.extra||{});}catch(x){return {};}}
+  function cuando(l){var x=exDe(l),d=x.at?new Date(x.at):null;if(!d||isNaN(d))return l.date||'';
+    return d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',timeZone:'America/Santiago'})+' · '+d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit',hourCycle:'h23',timeZone:'America/Santiago'});}
+  function wsp(c){var d=String(c||'').replace(/\D/g,'');if(d.length===9)d='56'+d;else if(d.length===8)d='569'+d;return d.length>=10?'https://wa.me/'+d:'';}
+
+  function montar(){
+    var tb=document.querySelector('#page-compras > .tb'); if(!tb)return;
+    var b=document.getElementById('pedTiendaBtn');
+    if(!b){b=document.createElement('button');b.id='pedTiendaBtn';b.className='btn';b.textContent='🛍 Pedidos de la tienda';b.title='Todos los pedidos que llegan desde la tienda';
+      b.onclick=function(){window.ebPedidos();};tb.insertBefore(b,tb.firstChild);}
+    var ver=false;try{ver=esAdm()&&currentProjId===PID;}catch(x){}
+    b.style.display=ver?'':'none';
+  }
+  setInterval(montar,1500);
+
+  function cargar(){
+    return fetch(SB+'/rest/v1/logs?select=id,date,title,description,amount,status,extra,responsible&project_id=eq.'+PID+'&title=like.'+encodeURIComponent('Pedido de tazas*')+'&order=id.desc',{headers:H})
+      .then(function(r){return r.ok?r.json():[];}).then(function(d){peds=d||[];}).catch(function(){peds=[];});
+  }
+  function estadoDe(l){return ESTADOS.indexOf(l.status)>=0?l.status:'Pendiente';}
+  function pintar(){
+    var bx=document.getElementById('pedBox'); if(!bx)return;
+    var vivos=peds.filter(function(l){return estadoDe(l)!=='No compró';});
+    var tot=vivos.reduce(function(a,l){return a+(+l.amount||0);},0);
+    var cobrar=vivos.filter(function(l){return estadoDe(l)==='Pendiente';}).reduce(function(a,l){return a+(+l.amount||0);},0);
+    var cuenta={};ESTADOS.forEach(function(s){cuenta[s]=peds.filter(function(l){return estadoDe(l)===s;}).length;});
+    var lista=peds.filter(function(l){return !filtro||estadoDe(l)===filtro;});
+    bx.innerHTML='<div class="pd-hd"><div><h2>Pedidos de la tienda</h2><p>Lo que te han pedido desde tienda-bianco.vercel.app</p></div><button class="pd-x" onclick="ebPedidosCerrar()" aria-label="Cerrar">✕</button></div>'
+      +'<div class="pd-kpi"><div><span>Pedidos</span><b>'+vivos.length+'</b></div><div><span>Total vendido</span><b>'+m(tot)+'</b></div><div><span>Por cobrar</span><b style="color:#B4483C;">'+m(cobrar)+'</b></div></div>'
+      +'<div class="pd-tabs">'+['',].concat(ESTADOS).map(function(s){return '<button class="'+(filtro===s?'on':'')+'" onclick="ebPedFiltro(\''+s+'\')">'+(s||'Todos')+' <small>'+(s?cuenta[s]:peds.length)+'</small></button>';}).join('')+'</div>'
+      +(lista.length?lista.map(function(l){var x=exDe(l),est=estadoDe(l),w=wsp(x.contacto),ps=Array.isArray(x.pedido)?x.pedido:[];
+        return '<div class="pd-c pd-'+(est==='No compró'?'no':est.toLowerCase())+'"><div class="pd-t"><div><b>'+e(l.responsible||String(l.title||'').replace(/^Pedido de tazas · /,''))+'</b><div class="pd-f">'+e(cuando(l))+(x.contacto?' · '+(w?'<a href="'+w+'" target="_blank" rel="noopener">'+e(x.contacto)+' (WhatsApp)</a>':e(x.contacto)):'')+'</div></div>'
+          +'<select onchange="ebPedEstado('+l.id+',this.value)">'+ESTADOS.map(function(s){return '<option'+(s===est?' selected':'')+'>'+s+'</option>';}).join('')+'</select></div>'
+          +'<div class="pd-l">'+(ps.length?ps.map(function(p){return '<div><span>'+p.cant+' × '+e(p.nombre)+'</span><span>'+m(p.cant*p.precio)+'</span></div>';}).join(''):'<div>'+e(l.description||'').replace(/\n/g,'<br>')+'</div>')
+          +'<div class="pd-tot"><span>Total</span><span>'+m(l.amount)+'</span></div></div></div>';}).join(''):'<p class="pd-vacio">No hay pedidos'+(filtro?' en "'+e(filtro)+'"':' todavía')+'.</p>');
+  }
+  window.ebPedFiltro=function(s){filtro=s;pintar();};
+  window.ebPedidos=function(){
+    var ov=document.getElementById('pedOv');
+    if(!ov){ov=document.createElement('div');ov.id='pedOv';ov.innerHTML='<div id="pedBox"></div>';ov.onclick=function(ev){if(ev.target===ov)window.ebPedidosCerrar();};document.body.appendChild(ov);}
+    ov.classList.add('open');document.getElementById('pedBox').innerHTML='<p class="pd-vacio">Cargando pedidos…</p>';
+    cargar().then(pintar);
+  };
+  window.ebPedidosCerrar=function(){var ov=document.getElementById('pedOv');if(ov)ov.classList.remove('open');};
+  // Cambia el estado; "No compró" devuelve las unidades a la tienda
+  window.ebPedEstado=function(id,est){
+    var l=peds.find(function(x){return x.id===id;}); if(!l)return;
+    var antes=estadoDe(l);
+    if(est==='No compró'&&antes!=='No compró'){
+      if(!confirm('¿Marcar que no compró? Las tazas de este pedido vuelven a estar disponibles en la tienda.')){pintar();return;}
+      var ps=exDe(l).pedido||[];
+      ps.forEach(function(p){var r=(items||[]).find(function(it){return it.id===+p.id;});if(!r)return;
+        if(r.deliveryStatus==='Entregado')uI(r.id,'deliveryStatus','Por pedir');else uI(r.id,'qty',(+r.qty||0)+(+p.cant||1));});
+    }
+    if(antes==='No compró'&&est!=='No compró')alert('Ojo: al sacarlo de "No compró" el stock no se vuelve a descontar. Si las tazas se vendieron, ajusta la cantidad en el listado.');
+    fetch(SB+'/rest/v1/logs?id=eq.'+id+'&project_id=eq.'+PID,{method:'PATCH',headers:Object.assign({Prefer:'return=minimal'},H),body:JSON.stringify({status:est,updated_at:new Date().toISOString()})})
+      .then(function(r){if(!r.ok)throw 0;l.status=est;pintar();try{tst('Pedido: '+est);}catch(x){}})
+      .catch(function(){alert('No se pudo guardar el estado. Revisa tu conexión.');pintar();});
+  };
+})();
+</script>
+<style>
+#pedOv{position:fixed;inset:0;background:rgba(40,32,26,.35);display:none;justify-content:flex-end;z-index:9000;}
+#pedOv.open{display:flex;}
+#pedBox{width:min(620px,100vw);height:100%;overflow:auto;background:var(--bg,#fff);padding:22px 22px 40px;box-shadow:-8px 0 30px rgba(0,0,0,.12);}
+#pedBox .pd-hd{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:14px;}
+#pedBox h2{margin:0;font-size:20px;font-weight:600;}
+#pedBox .pd-hd p{margin:3px 0 0;font-size:12px;color:var(--tx3);}
+#pedBox .pd-x{border:0;background:none;font-size:18px;cursor:pointer;color:var(--tx2);}
+#pedBox .pd-kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+#pedBox .pd-kpi div{border:1px solid var(--bd);border-radius:10px;padding:10px 12px;}
+#pedBox .pd-kpi span{display:block;font-size:10.5px;color:var(--tx3);text-transform:uppercase;letter-spacing:.04em;}
+#pedBox .pd-kpi b{font-size:19px;}
+#pedBox .pd-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;}
+#pedBox .pd-tabs button{border:1px solid var(--bd);background:#fff;border-radius:20px;padding:5px 11px;font-size:12px;cursor:pointer;font-family:inherit;}
+#pedBox .pd-tabs button.on{background:#4A3B30;color:#fff;border-color:#4A3B30;}
+#pedBox .pd-tabs small{opacity:.7;}
+#pedBox .pd-c{border:1px solid var(--bd);border-left:4px solid #C9A227;border-radius:10px;padding:12px 14px;margin-bottom:10px;background:#fff;}
+#pedBox .pd-c.pd-pagado{border-left-color:#3E7CB1;}
+#pedBox .pd-c.pd-entregado{border-left-color:#2A6B45;}
+#pedBox .pd-c.pd-no{border-left-color:#B9B1A8;opacity:.6;}
+#pedBox .pd-t{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;}
+#pedBox .pd-t b{font-size:14.5px;}
+#pedBox .pd-f{font-size:11.5px;color:var(--tx3);margin-top:2px;}
+#pedBox .pd-f a{color:#25A35A;font-weight:600;text-decoration:none;}
+#pedBox .pd-t select{font-size:12px;padding:4px 6px;border-radius:6px;border:1px solid var(--bd);}
+#pedBox .pd-l{margin-top:8px;font-size:12.5px;}
+#pedBox .pd-l div{display:flex;justify-content:space-between;gap:10px;padding:2px 0;}
+#pedBox .pd-tot{border-top:1px solid var(--bd);margin-top:4px;padding-top:5px !important;font-weight:700;}
+#pedBox .pd-vacio{color:var(--tx3);font-size:13px;text-align:center;padding:30px 0;}
+</style>
 
 </body>
 </html>
