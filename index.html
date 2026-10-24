@@ -9593,14 +9593,14 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     if(!man)return '';
     var ds=disponibles(), t=0;
     var filas=man.lineas.map(function(ln,i){var r=ds.find(function(x){return x.id===ln.id;});if(r)t+=ln.cant*(+r.unit||0);
-      return '<div class="pm-ln"><select onchange="ebPmSet('+i+',\'id\',+this.value)"><option value="0">Elige un producto…</option>'+ds.map(function(x){return '<option value="'+x.id+'"'+(x.id===ln.id?' selected':'')+'>'+e(x.item)+' · '+m(x.unit)+' · quedan '+Math.max(1,Math.round(+x.qty||1))+'</option>';}).join('')+'</select>'
-        +'<input type="number" min="1" value="'+ln.cant+'" onchange="ebPmSet('+i+',\'cant\',Math.max(1,+this.value||1))"><button class="pm-q" onclick="ebPmQuitar('+i+')" title="Quitar">✕</button></div>';}).join('');
-    return '<div class="pm"><h3>Nuevo pedido manual</h3>'
-      +'<div class="pm-r"><input id="pmNom" placeholder="Nombre y apellido" value="'+e(man.nom)+'" oninput="ebPmDato(\'nom\',this.value)"><input id="pmCel" placeholder="Celular (opcional)" value="'+e(man.cel)+'" oninput="ebPmDato(\'cel\',this.value)"></div>'
-      +filas+'<button class="pm-add" onclick="ebPmAgregar()">＋ Agregar otro producto</button>'
-      +'<div class="pm-tot"><span>Total</span><b>'+m(t)+'</b></div>'
-      +'<div class="pm-acc"><button class="btn" onclick="ebPmCancelar()">Cancelar</button><button class="btn pm-ok" onclick="ebPmGuardar()">Guardar pedido</button></div>'
-      +'<p class="pm-n">Se descuenta del stock igual que un pedido de la tienda. No envía WhatsApp a nadie.</p></div>';
+      return '<div class="pdm-ln"><select onchange="ebPmSet('+i+',\'id\',+this.value)"><option value="0">Elige un producto…</option>'+ds.map(function(x){return '<option value="'+x.id+'"'+(x.id===ln.id?' selected':'')+'>'+e(x.item)+' · '+m(x.unit)+' · quedan '+Math.max(1,Math.round(+x.qty||1))+'</option>';}).join('')+'</select>'
+        +'<input type="number" min="1" value="'+ln.cant+'" onchange="ebPmSet('+i+',\'cant\',Math.max(1,+this.value||1))"><button class="pdm-q" onclick="ebPmQuitar('+i+')" title="Quitar">✕</button></div>';}).join('');
+    return '<div class="pdm"><h3>Nuevo pedido manual</h3>'
+      +'<div class="pdm-r"><input id="pmNom" placeholder="Nombre y apellido" value="'+e(man.nom)+'" oninput="ebPmDato(\'nom\',this.value)"><input id="pmCel" placeholder="Celular (opcional)" value="'+e(man.cel)+'" oninput="ebPmDato(\'cel\',this.value)"></div>'
+      +filas+'<button class="pdm-add" onclick="ebPmAgregar()">＋ Agregar otro producto</button>'
+      +'<div class="pdm-tot"><span>Total</span><b>'+m(t)+'</b></div>'
+      +'<div class="pdm-acc"><button class="btn" onclick="ebPmCancelar()">Cancelar</button><button class="btn pdm-ok" onclick="ebPmGuardar()">Guardar pedido</button></div>'
+      +'<p class="pdm-n">Se descuenta del stock igual que un pedido de la tienda. No envía WhatsApp a nadie.</p></div>';
   }
   window.ebPedManual=function(){man={nom:'',cel:'',lineas:[{id:0,cant:1}]};pintar();var n=document.getElementById('pmNom');if(n)n.focus();};
   window.ebPmDato=function(k,v){if(man)man[k]=v;};
@@ -9673,17 +9673,17 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
 #pedBox .pd-l{margin-top:8px;font-size:12.5px;}
 #pedBox .pd-l div{display:flex;justify-content:space-between;gap:10px;padding:2px 0;}
 #pedBox .pd-tot{border-top:1px solid var(--bd);margin-top:4px;padding-top:5px !important;font-weight:700;}
-#pedBox .pm{border:1px solid #CBBFAF;background:#FAF7F2;border-radius:10px;padding:12px 14px;margin-bottom:14px;}
-#pedBox .pm h3{margin:0 0 8px;font-size:14px;}
-#pedBox .pm input,#pedBox .pm select{height:32px;border:1px solid var(--bd);border-radius:6px;padding:0 8px;font-size:12.5px;font-family:inherit;background:#fff;min-width:0;}
-#pedBox .pm-r{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;}
-#pedBox .pm-ln{display:grid;grid-template-columns:1fr 60px 28px;gap:6px;margin-bottom:6px;}
-#pedBox .pm-q{border:0;background:none;color:var(--tx3);cursor:pointer;}
-#pedBox .pm-add{border:0;background:none;color:#4A3B30;font-size:12px;font-weight:600;cursor:pointer;padding:2px 0;}
-#pedBox .pm-tot{display:flex;justify-content:space-between;border-top:1px solid var(--bd);margin-top:6px;padding-top:6px;font-size:13px;}
-#pedBox .pm-acc{display:flex;justify-content:flex-end;gap:6px;margin-top:8px;}
-#pedBox .pm-ok{background:#4A3B30;color:#fff;border-color:#4A3B30;}
-#pedBox .pm-n{font-size:11px;color:var(--tx3);margin:6px 0 0;}
+#pedBox .pdm{border:1px solid #CBBFAF;background:#FAF7F2;border-radius:10px;padding:12px 14px;margin-bottom:14px;}
+#pedBox .pdm h3{margin:0 0 8px;font-size:14px;}
+#pedBox .pdm input,#pedBox .pdm select{height:32px;border:1px solid var(--bd);border-radius:6px;padding:0 8px;font-size:12.5px;font-family:inherit;background:#fff;min-width:0;}
+#pedBox .pdm-r{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;}
+#pedBox .pdm-ln{display:grid;grid-template-columns:1fr 60px 28px;gap:6px;margin-bottom:6px;}
+#pedBox .pdm-q{border:0;background:none;color:var(--tx3);cursor:pointer;}
+#pedBox .pdm-add{border:0;background:none;color:#4A3B30;font-size:12px;font-weight:600;cursor:pointer;padding:2px 0;}
+#pedBox .pdm-tot{display:flex;justify-content:space-between;border-top:1px solid var(--bd);margin-top:6px;padding-top:6px;font-size:13px;}
+#pedBox .pdm-acc{display:flex;justify-content:flex-end;gap:6px;margin-top:8px;}
+#pedBox .pdm-ok{background:#4A3B30;color:#fff;border-color:#4A3B30;}
+#pedBox .pdm-n{font-size:11px;color:var(--tx3);margin:6px 0 0;}
 #pedBox .pd-vacio{color:var(--tx3);font-size:13px;text-align:center;padding:30px 0;}
 </style>
 
