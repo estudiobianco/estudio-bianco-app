@@ -171,6 +171,12 @@ footer b{color:var(--tx2);font-weight:700;}
 #visor .vc{flex:1;display:flex;align-items:center;justify-content:center;padding:0 16px 16px;min-height:0;}
 #visor img{max-width:100%;max-height:100%;min-height:0;object-fit:contain;background:#fff;border-radius:6px;}
 #visor img.vi-img{max-height:60vh;padding:10px;}
+#visor .vi-fw{position:relative;display:flex;justify-content:center;max-width:100%;min-height:0;}
+#visor .vi-sin{min-height:70px;align-items:center;}
+#visor .vi-link{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:#4A3B30;color:#fff;text-decoration:none;font-size:14px;font-weight:600;border-radius:99px;padding:11px 20px;white-space:nowrap;box-shadow:0 4px 16px rgba(0,0,0,.25);}
+#visor .vi-sin .vi-link{position:static;transform:none;}
+#visor .vi-link:hover{background:#2E241C;}
+@media (max-width:600px){#visor .vi-link{font-size:13px;padding:10px 16px;bottom:10px;}}
 .vinfo .vi-p{display:flex;justify-content:space-between;gap:10px;font-size:15px;margin-bottom:2px;}
 .vinfo .vi-m{font-size:12px;color:#8A8077;margin-bottom:10px;}
 .vinfo .vi-est{background:#FBF3E6;border:1px solid #EAD9BC;border-radius:8px;padding:8px 10px;}
@@ -829,17 +835,18 @@ details.cm-d .com{font-size:12px;padding:6px 0;border-top:1px solid #F1ECE6;}
   // Foto del producto: con link abre la tienda en otra pestaña; sin link, la imagen en grande con sus comentarios
   function phFoto(it){
     var lk=urlOk(it.link), clic=lk||it.imagen;
-    return '<div class="ph'+(clic?' ph-click':'')+'"'+(clic?' onclick="ebFoto('+it.id+')" title="'+(lk?'Abrir la página del producto':'Ver la imagen en grande')+'"':'')+'>'
+    return '<div class="ph'+(clic?' ph-click':'')+'"'+(clic?' onclick="ebFoto('+it.id+')" title="Ver la imagen en grande y sus detalles"':'')+'>'
       +(it.imagen?'<img src="'+e(it.imagen)+'" alt="" loading="lazy">':'Sin imagen')
-      +(clic?'<span class="ph-hint">'+(lk?'Ver en tienda ↗':'🔍 Ampliar')+'</span>':'');
+      +(clic?'<span class="ph-hint">'+(it.imagen?'🔍 Ampliar':'Ver detalle')+'</span>':'');
   }
   window.ebFoto=function(id){
     var it=(D.items||[]).find(function(x){return x.id===id;}); if(!it)return;
-    if(urlOk(it.link)){window.open(it.link,'_blank','noopener');return;}
-    if(!it.imagen)return;
+    var lk=urlOk(it.link); if(!it.imagen&&!lk)return;
     var r=(D.respuestas||[]).filter(function(x){return x.itemId===it.id;}).slice(0,12).reverse(), nota=(it.nota||'').trim();
     var v=document.getElementById('visor');
-    v.querySelector('.vc').innerHTML='<img class="vi-img" src="'+e(it.imagen)+'" alt="'+e(it.item)+'">'
+    // Primero la imagen grande con sus datos; el link de la tienda va en un botón sobre la imagen
+    var btn=lk?'<a class="vi-link" href="'+e(it.link)+'" target="_blank" rel="noopener">Llévame a la página del producto ↗</a>':'';
+    v.querySelector('.vc').innerHTML=(it.imagen?'<div class="vi-fw"><img class="vi-img" src="'+e(it.imagen)+'" alt="'+e(it.item)+'">'+btn+'</div>':'<div class="vi-fw vi-sin">'+btn+'</div>')
       +'<div class="vinfo"><div class="vi-p"><b>'+e(it.item)+'</b><span>'+(+it.precio>0?m(sub(it)):'Por cotizar')+'</span></div>'
       +'<div class="vi-m">'+[it.proveedor,it.espacio].filter(Boolean).map(e).join(' · ')+'</div>'
       +(nota?'<div class="vi-n vi-est"><b>💬 Comentario del estudio</b>'+e(nota)+'</div>':'')
@@ -891,7 +898,7 @@ details.cm-d .com{font-size:12px;padding:6px 0;border-top:1px solid #F1ECE6;}
     var es_=est(it), cls=es_.split(' ')[0], nota=(it.nota||'').trim();
     var r=(D.respuestas||[]).filter(function(x){return x.itemId===it.id;}).slice(0,12).reverse();
     var lk=urlOk(it.link), clic=lk||it.imagen;
-    var h='<div class="pn-ph'+(clic?' ph-click':'')+'"'+(clic?' onclick="ebFoto('+it.id+')" title="'+(lk?'Abrir la página del producto':'Ver la imagen en grande')+'"':'')+'>'+(it.imagen?'<img src="'+e(it.imagen)+'" alt="">':'<span>Sin imagen</span>')+(clic?'<span class="ph-hint">'+(lk?'Ver en tienda ↗':'🔍 Ampliar')+'</span>':'')+'</div>'
+    var h='<div class="pn-ph'+(clic?' ph-click':'')+'"'+(clic?' onclick="ebFoto('+it.id+')" title="Ver la imagen en grande y sus detalles"':'')+'>'+(it.imagen?'<img src="'+e(it.imagen)+'" alt="">':'<span>Sin imagen</span>')+(clic?'<span class="ph-hint">'+(it.imagen?'🔍 Ampliar':'Ver detalle')+'</span>':'')+'</div>'
       +'<div class="pn-bd"><span class="badge b-'+e(cls)+'">'+(es_==='Aprobado'?'✓ Aprobado':es_==='Rechazado'?'Descartado':es_==='Cambios solicitados'?'Cambios pedidos':'Por revisar')+'</span>'+(porComprar(it)?' <span class="badge b-comprar">'+ICO_CARRO+'Pendiente por comprar</span>':'')
       +'<h3 class="pn-t">'+e(it.item)+'</h3><div class="pn-pr">'+(+it.precio>0?m(sub(it)):'Por cotizar')+'</div><div class="mas-c">';
     h+='<div class="meta">'+[it.proveedor,it.espacio].filter(Boolean).map(e).join(' · ')+'</div>';
