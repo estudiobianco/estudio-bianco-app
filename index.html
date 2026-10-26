@@ -9597,15 +9597,15 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
 
   // ── Pedido manual (para lo que te piden por WhatsApp o en persona) ──
   var man=null; // {nom, cel, lineas:[{id,cant,precio}], editId, orig:{id:cant}, nombres:{id:nombre}}
+  // Todos los productos de la tienda, también los agotados (primero los que quedan)
   function disponibles(){
-    var enPedido=man&&man.orig?man.orig:{};
-    return (items||[]).filter(function(r){return enPedido[r.id]||(r.deliveryStatus!=='Entregado'&&(+r.unit||0)>0&&r.cat!=='Honorarios');}).sort(function(a,b){return String(a.item).localeCompare(String(b.item));});
+    return (items||[]).filter(function(r){return r.cat!=='Honorarios';}).sort(function(a,b){var aa=a.deliveryStatus==='Entregado'?1:0,bb=b.deliveryStatus==='Entregado'?1:0;return aa-bb||String(a.item).localeCompare(String(b.item));});
   }
   function quedan(x){return x.deliveryStatus==='Entregado'?'agotado':'quedan '+Math.max(1,Math.round(+x.qty||1));}
-  function precioLn(ln){if(man.editId&&ln.precio!=null)return +ln.precio||0;var r=(items||[]).find(function(x){return x.id===ln.id;});return r?(+r.unit||0):0;}
+  function precioLn(ln){if(ln.precio!=null)return +ln.precio||0;var r=(items||[]).find(function(x){return x.id===ln.id;});return r?(+r.unit||0):0;}
   function formHTML(){
     if(!man)return '';
-    var ds=disponibles(), t=0, ed=!!man.editId;
+    var ds=disponibles(), t=0, ed=true;
     var filas=man.lineas.map(function(ln,i){if(ln.id)t+=ln.cant*precioLn(ln);
       var esta=ds.some(function(x){return x.id===ln.id;});
       return '<div class="pdm-ln'+(ed?' ed':'')+'"><select onchange="ebPmSet('+i+',\'id\',+this.value)"><option value="0">Elige un producto…</option>'
@@ -9614,15 +9614,15 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
         +'<input type="number" min="1" value="'+ln.cant+'" title="Cantidad" onchange="ebPmSet('+i+',\'cant\',Math.max(1,+this.value||1))">'
         +(ed?'<input type="text" title="Precio unitario de este pedido" value="'+(ln.id?'$'+precioLn(ln).toLocaleString('es-CL'):'')+'" onfocus="this.value=parseFloat(this.value.replace(/[^0-9]/g,\'\'))||\'\'" onchange="ebPmSet('+i+',\'precio\',+this.value.replace(/[^0-9]/g,\'\')||0)">':'')
         +'<button class="pdm-q" onclick="ebPmQuitar('+i+')" title="Quitar">✕</button></div>';}).join('');
-    return '<div class="pdm"><h3>'+(ed?'Editar pedido':'Nuevo pedido manual')+'</h3>'
+    return '<div class="pdm"><h3>'+(man.editId?'Editar pedido':'Nuevo pedido manual')+'</h3>'
       +'<div class="pdm-r"><input id="pmNom" placeholder="Nombre y apellido" value="'+e(man.nom)+'" oninput="ebPmDato(\'nom\',this.value)"><input id="pmCel" placeholder="Celular (opcional)" value="'+e(man.cel)+'" oninput="ebPmDato(\'cel\',this.value)"></div>'
       +(ed?'<div class="pdm-h"><span>Producto</span><span>Cant.</span><span>Precio c/u</span><span></span></div>':'')
       +filas+'<button class="pdm-add" onclick="ebPmAgregar()">＋ Agregar otro producto</button>'
       +'<div class="pdm-tot"><span>Total</span><b>'+m(t)+'</b></div>'
-      +'<div class="pdm-acc"><button class="btn" onclick="ebPmCancelar()">Cancelar</button><button class="btn pdm-ok" onclick="ebPmGuardar()">'+(ed?'Guardar cambios':'Guardar pedido')+'</button></div>'
-      +'<p class="pdm-n">'+(ed?(man.noCompro?'Este pedido está en "No compró": los cambios no tocan el stock.':'El stock se ajusta solo: si agregas unidades se descuentan, si quitas vuelven a la tienda.'):'Se descuenta del stock igual que un pedido de la tienda. No envía WhatsApp a nadie.')+'</p></div>';
+      +'<div class="pdm-acc"><button class="btn" onclick="ebPmCancelar()">Cancelar</button><button class="btn pdm-ok" onclick="ebPmGuardar()">'+(man.editId?'Guardar cambios':'Guardar pedido')+'</button></div>'
+      +'<p class="pdm-n">'+(man.editId?(man.noCompro?'Este pedido está en "No compró": los cambios no tocan el stock.':'El stock se ajusta solo: si agregas unidades se descuentan, si quitas vuelven a la tienda.'):'Se descuenta del stock igual que un pedido de la tienda. Puedes elegir productos agotados. No envía WhatsApp a nadie.')+'</p></div>';
   }
-  window.ebPedManual=function(){man={nom:'',cel:'',lineas:[{id:0,cant:1}]};pintar();var n=document.getElementById('pmNom');if(n)n.focus();};
+  window.ebPedManual=function(){man={nom:'',cel:'',orig:{},lineas:[{id:0,cant:1}]};pintar();var n=document.getElementById('pmNom');if(n)n.focus();};
   // Editar un pedido ya hecho: nombre, celular, productos, cantidades y precio
   window.ebPedEditar=function(id){
     var l=peds.find(function(x){return x.id===id;}); if(!l)return;
@@ -9642,9 +9642,10 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     if(delta>0){ if(r.deliveryStatus==='Entregado'){uI(r.id,'deliveryStatus','Por pedir');uI(r.id,'qty',delta);} else uI(r.id,'qty',(+r.qty||0)+delta); }
     else { var q=(+r.qty||0)+delta; if(r.deliveryStatus==='Entregado')return; if(q>0)uI(r.id,'qty',q); else uI(r.id,'deliveryStatus','Entregado'); }
   }
+  // Guarda un pedido nuevo (manual) o editado; los productos agotados también se pueden elegir
   function guardarEdicion(nom,cel,ls){
-    var l=peds.find(function(x){return x.id===man.editId;}); if(!l)return;
-    var x=exDe(l), nuevo={}, falta=[];
+    var l=man.editId?peds.find(function(x){return x.id===man.editId;}):null; if(man.editId&&!l)return;
+    var x=l?exDe(l):{cliente:true,autor:'cliente',tienda:true,manual:true,at:new Date().toISOString()}, nuevo={}, falta=[];
     ls.forEach(function(ln){nuevo[ln.id]=(nuevo[ln.id]||0)+ln.cant;});
     // Revisa que haya stock para las unidades nuevas
     if(!man.noCompro)Object.keys(nuevo).forEach(function(id){var mas=nuevo[id]-(man.orig[id]||0);if(mas<=0)return;var r=(items||[]).find(function(it){return it.id===+id;});
@@ -9654,12 +9655,16 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     var total=ped.reduce(function(a,p){return a+p.cant*p.precio;},0);
     var desc=ped.map(function(p){return p.cant+' × '+p.nombre+' ('+m(p.cant*p.precio)+')';}).join('\n')+'\nTotal: '+m(total)+(cel?'\nContacto: '+cel:'');
     x.pedido=ped; x.total=total; x.contacto=cel; x.editado=new Date().toISOString();
+    if(!l)delete x.editado;
     var cambios={title:'Pedido de tazas · '+nom,responsible:nom,description:desc,amount:total,item_id:ped.length===1?ped[0].id:null,extra:JSON.stringify(x),updated_at:new Date().toISOString()};
-    fetch(SB+'/rest/v1/logs?id=eq.'+l.id+'&project_id=eq.'+PID,{method:'PATCH',headers:Object.assign({Prefer:'return=minimal'},H),body:JSON.stringify(cambios)})
-      .then(function(r){if(!r.ok)throw 0;
+    var req;
+    if(l)req=fetch(SB+'/rest/v1/logs?id=eq.'+l.id+'&project_id=eq.'+PID,{method:'PATCH',headers:Object.assign({Prefer:'return=minimal'},H),body:JSON.stringify(cambios)});
+    else{l=Object.assign({id:Date.now()*1000+Math.floor(Math.random()*1000),project_id:PID,date:new Date().toLocaleDateString('sv-SE',{timeZone:'America/Santiago'}),type:'Nota general',commits:'',due_date:'',status:'Pendiente',category:'cliente',source:'app'},cambios);
+      req=fetch(SB+'/rest/v1/logs',{method:'POST',headers:Object.assign({Prefer:'return=minimal'},H),body:JSON.stringify(l)}).then(function(r){if(r.ok)peds.unshift(l);return r;});}
+    req.then(function(r){if(!r.ok)throw 0;
         if(!man.noCompro){var ids={};Object.keys(man.orig).concat(Object.keys(nuevo)).forEach(function(k){ids[k]=1;});
           Object.keys(ids).forEach(function(id){var r=(items||[]).find(function(it){return it.id===+id;});ajustarStock(r,(man.orig[id]||0)-(nuevo[id]||0));});}
-        Object.assign(l,cambios); man=null; pintar(); try{tst('Pedido actualizado');}catch(x){}})
+        var era=!!man.editId; Object.assign(l,cambios); man=null; pintar(); try{tst(era?'Pedido actualizado':'Pedido guardado');}catch(x){}})
       .catch(function(){alert('No se pudo guardar el pedido. Revisa tu conexión.');});
   }
   window.ebPmAgregar=function(){if(man){man.lineas.push({id:0,cant:1});pintar();}};
@@ -9670,14 +9675,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     var nom=String(man.nom||'').trim(), ls=man.lineas.filter(function(l){return l.id;});
     if(!nom){alert('Escribe el nombre de quien compra.');return;}
     if(!ls.length){alert('Elige al menos un producto.');return;}
-    if(man.editId){guardarEdicion(nom,String(man.cel||'').trim(),ls);return;}
-    fetch(SB+'/rest/v1/rpc/tienda_pedido',{method:'POST',headers:H,body:JSON.stringify({p_nombre:nom,p_contacto:String(man.cel||'').trim(),p_productos:ls.map(function(l){return {id:l.id,cant:l.cant};})})})
-      .then(function(r){if(!r.ok)throw 0;return r.json();})
-      .then(function(){man=null;try{tst('Pedido guardado');}catch(x){}
-        // Recarga el listado para ver el stock ya descontado
-        try{if(typeof openProject==='function')openProject(PID);}catch(x){}
-        setTimeout(function(){var ov=document.getElementById('pedOv');if(ov)ov.classList.add('open');cargar().then(pintar);},900);})
-      .catch(function(){alert('No se pudo guardar el pedido. Revisa tu conexión.');});
+    guardarEdicion(nom,String(man.cel||'').trim(),ls);
   };
   window.ebPedidos=function(){
     var ov=document.getElementById('pedOv');
