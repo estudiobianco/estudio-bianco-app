@@ -167,11 +167,18 @@ footer b{color:var(--tx2);font-weight:700;}
 #visor.open{display:flex;}
 #visor .vbar{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;color:#fff;font-size:14px;}
 #visor .vbar a{color:#CBBFAF;}
-#visor .vbar button{background:#fff;border:0;border-radius:99px;width:34px;height:34px;font-size:15px;cursor:pointer;}
+#visor .vbar button{background:#fff;border:0;border-radius:99px;width:46px;height:46px;font-size:20px;font-weight:600;cursor:pointer;flex-shrink:0;}
 #visor .vc{flex:1;display:flex;align-items:center;justify-content:center;padding:0 16px 16px;min-height:0;}
 #visor img{max-width:100%;max-height:100%;min-height:0;object-fit:contain;background:#fff;border-radius:6px;}
 #visor img.vi-img{max-height:60vh;padding:10px;}
-.vinfo .vi-p{display:flex;justify-content:space-between;gap:10px;font-size:14px;margin-bottom:8px;}
+.vinfo .vi-p{display:flex;justify-content:space-between;gap:10px;font-size:15px;margin-bottom:2px;}
+.vinfo .vi-m{font-size:12px;color:#8A8077;margin-bottom:10px;}
+.vinfo .vi-est{background:#FBF3E6;border:1px solid #EAD9BC;border-radius:8px;padding:8px 10px;}
+.vinfo .vi-s{white-space:pre-line;background:#F7F4EF;border-radius:8px;padding:8px 10px;margin-bottom:8px;line-height:1.45;}
+.vinfo .vi-s b{display:block;font-size:12px;margin-bottom:2px;white-space:normal;}
+.vinfo .vi-sub{font-size:12px;font-weight:600;color:#6F655C;text-transform:uppercase;letter-spacing:.04em;margin:10px 0 2px;}
+#visor .vinfo{max-height:40vh;}
+@media (max-width:600px){#visor img.vi-img{max-height:42vh;}#visor .vinfo{max-height:48vh;}}
 .vinfo .cmc{margin-top:8px;}
 .ph-click,.pn-ph.ph-click{cursor:pointer;}
 .ph-hint{position:absolute;right:8px;bottom:8px;background:rgba(255,255,255,.94);border:1px solid #E3DED7;color:#4A3B30;font-size:11px;font-weight:600;border-radius:99px;padding:3px 9px;pointer-events:none;box-shadow:0 1px 4px rgba(0,0,0,.08);}
@@ -493,7 +500,7 @@ h2.prov-t{font-size:22px;margin:24px 0 10px;}
 #pnl .pn{position:fixed;top:0;right:0;height:100%;width:min(460px,100%);background:#fff;box-shadow:-10px 0 40px rgba(60,48,40,.15);transform:translateX(105%);transition:transform .3s ease;z-index:81;overflow-y:auto;}
 #pnl.open .pn-ov{opacity:1;pointer-events:auto;}
 #pnl.open .pn{transform:none;}
-#pnl .pn-x{position:sticky;top:10px;float:right;margin:10px 10px 0 0;width:34px;height:34px;border-radius:50%;border:1px solid #E3DED7;background:#fff;cursor:pointer;font-size:14px;z-index:2;}
+#pnl .pn-x{position:sticky;top:10px;float:right;margin:10px 10px 0 0;width:44px;height:44px;border-radius:50%;border:1px solid #E3DED7;background:#fff;cursor:pointer;font-size:19px;font-weight:600;z-index:2;box-shadow:0 2px 8px rgba(0,0,0,.12);}
 #pnl .pn-ph{height:300px;background:#FBF9F5;display:flex;align-items:center;justify-content:center;color:#A39A91;}
 #pnl .pn-ph img{max-width:100%;max-height:100%;object-fit:contain;padding:14px;}
 #pnl .pn-bd{padding:16px 22px 28px;}
@@ -834,7 +841,10 @@ details.cm-d .com{font-size:12px;padding:6px 0;border-top:1px solid #F1ECE6;}
     var v=document.getElementById('visor');
     v.querySelector('.vc').innerHTML='<img class="vi-img" src="'+e(it.imagen)+'" alt="'+e(it.item)+'">'
       +'<div class="vinfo"><div class="vi-p"><b>'+e(it.item)+'</b><span>'+(+it.precio>0?m(sub(it)):'Por cotizar')+'</span></div>'
-      +(nota?'<div class="vi-n"><b>Comentario del estudio</b>'+e(nota)+'</div>':'')
+      +'<div class="vi-m">'+[it.proveedor,it.espacio].filter(Boolean).map(e).join(' · ')+'</div>'
+      +(nota?'<div class="vi-n vi-est"><b>💬 Comentario del estudio</b>'+e(nota)+'</div>':'')
+      +((it.specs||'').trim()?'<div class="vi-s"><b>Especificaciones</b>'+e(it.specs)+'</div>':'')
+      +'<div class="vi-sub">Comentarios</div>'
       +(r.length?conversacion(r):'<p class="cm-vacio">Aún no hay comentarios en este producto.</p>')
       +'<button class="cmc" onclick="ebCerrarVisor();ebR('+it.id+',\'comcambio\')">💬 Comentar / Pedir cambios</button></div>';
     v.querySelector('.vt').innerHTML=e(it.item);
