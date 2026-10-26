@@ -170,6 +170,13 @@ footer b{color:var(--tx2);font-weight:700;}
 #visor .vbar button{background:#fff;border:0;border-radius:99px;width:34px;height:34px;font-size:15px;cursor:pointer;}
 #visor .vc{flex:1;display:flex;align-items:center;justify-content:center;padding:0 16px 16px;min-height:0;}
 #visor img{max-width:100%;max-height:100%;min-height:0;object-fit:contain;background:#fff;border-radius:6px;}
+#visor img.vi-img{max-height:60vh;padding:10px;}
+.vinfo .vi-p{display:flex;justify-content:space-between;gap:10px;font-size:14px;margin-bottom:8px;}
+.vinfo .cmc{margin-top:8px;}
+.ph-click,.pn-ph.ph-click{cursor:pointer;}
+.ph-hint{position:absolute;right:8px;bottom:8px;background:rgba(255,255,255,.94);border:1px solid #E3DED7;color:#4A3B30;font-size:11px;font-weight:600;border-radius:99px;padding:3px 9px;pointer-events:none;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+.pn-ph{position:relative;}
+@media (max-width:600px){.ph-hint{font-size:9.5px;padding:2px 7px;right:5px;bottom:5px;}}
 #visor iframe{width:100%;flex:1;min-height:0;border:0;background:#fff;border-radius:6px;}
 /* Proveedores en acordeón */
 .acc{border:1px solid var(--bd);border-radius:14px;overflow:hidden;background:#fff;}
@@ -812,6 +819,28 @@ details.cm-d .com{font-size:12px;padding:6px 0;border-top:1px solid #F1ECE6;}
     v.querySelector('.vt').innerHTML=e(d.titulo)+(d.pdf?' · <a href="'+e(d.url)+'" target="_blank" rel="noopener">abrir PDF en otra pestaña ↗</a>':'');
     v.classList.add('open');
   };
+  // Foto del producto: con link abre la tienda en otra pestaña; sin link, la imagen en grande con sus comentarios
+  function phFoto(it){
+    var lk=urlOk(it.link), clic=lk||it.imagen;
+    return '<div class="ph'+(clic?' ph-click':'')+'"'+(clic?' onclick="ebFoto('+it.id+')" title="'+(lk?'Abrir la página del producto':'Ver la imagen en grande')+'"':'')+'>'
+      +(it.imagen?'<img src="'+e(it.imagen)+'" alt="" loading="lazy">':'Sin imagen')
+      +(clic?'<span class="ph-hint">'+(lk?'Ver en tienda ↗':'🔍 Ampliar')+'</span>':'');
+  }
+  window.ebFoto=function(id){
+    var it=(D.items||[]).find(function(x){return x.id===id;}); if(!it)return;
+    if(urlOk(it.link)){window.open(it.link,'_blank','noopener');return;}
+    if(!it.imagen)return;
+    var r=(D.respuestas||[]).filter(function(x){return x.itemId===it.id;}).slice(0,12).reverse(), nota=(it.nota||'').trim();
+    var v=document.getElementById('visor');
+    v.querySelector('.vc').innerHTML='<img class="vi-img" src="'+e(it.imagen)+'" alt="'+e(it.item)+'">'
+      +'<div class="vinfo"><div class="vi-p"><b>'+e(it.item)+'</b><span>'+(+it.precio>0?m(sub(it)):'Por cotizar')+'</span></div>'
+      +(nota?'<div class="vi-n"><b>Comentario del estudio</b>'+e(nota)+'</div>':'')
+      +(r.length?conversacion(r):'<p class="cm-vacio">Aún no hay comentarios en este producto.</p>')
+      +'<button class="cmc" onclick="ebCerrarVisor();ebR('+it.id+',\'comcambio\')">💬 Comentar / Pedir cambios</button></div>';
+    v.querySelector('.vt').innerHTML=e(it.item);
+    marcarVistas(r);
+    v.classList.add('open');
+  };
   window.ebCerrarVisor=function(){var v=document.getElementById('visor');v.classList.remove('open');v.querySelector('.vc').innerHTML='';};
   // Aprobado o por revisar, y todavía sin comprar ni pedir: el cliente lo ve como "Pendiente por comprar"
   function porComprar(it){var s=est(it);return (s==='Aprobado'||s==='Por revisar')&&!fuera(it)&&(!it.entrega||it.entrega==='Por pedir')&&!it.pedido&&!(it.compra&&it.compra.fecha)&&!it.llego;}
@@ -832,7 +861,7 @@ details.cm-d .com{font-size:12px;padding:6px 0;border-top:1px solid #F1ECE6;}
     var nuevaResp=respNuevas().some(function(x){return x.itemId===it.id;});
     var ico=(nuevaResp?'<button class="ic ic-nota ic-resp" data-id="'+it.id+'" onclick="ebPanel('+it.id+')" title="El estudio respondió tu comentario">💬 Te respondimos · <u>Leer</u></button>':'')+(nota?'<button class="ic ic-nota" onclick="ebPanel('+it.id+',1)" title="El estudio dejó un comentario">💬 Comentario del estudio · <u>Leer</u></button>':'')+(nComs?'<span class="ic" title="Comentarios">💬 '+nComs+'</span>':'')+(it.compra&&it.compra.fecha?'<span class="ic" title="Comprado">🛒</span>':'')+entr;
     var precio=+it.precio>0?m(sub(it)):'Por cotizar';
-    var h='<div class="card'+(nOp?' op':'')+(it.grupo?(it.elegida?' sel':' alt'):'')+(it.recomendada?' rec':'')+'"><div class="ph">'+(it.imagen?'<img src="'+e(it.imagen)+'" alt="" loading="lazy">':'Sin imagen')
+    var h='<div class="card'+(nOp?' op':'')+(it.grupo?(it.elegida?' sel':' alt'):'')+(it.recomendada?' rec':'')+'">'+phFoto(it)
       +'<div class="bdgs"><span class="badge b-'+e(cls)+'">'+(es_==='Aprobado'?'✓ Aprobado':es_==='Rechazado'?'Descartado':es_==='Cambios solicitados'?'Cambios pedidos':'Por revisar')+'</span>'+(it.recomendada?'<span class="recb"><span class="st">★</span> Recomendada</span>':'')+(porComprar(it)?'<span class="badge b-comprar">'+ICO_CARRO+'Pendiente por comprar</span>':'')+'</div></div><div class="bd">';
     if(nOp)h+='<div class="opn">Opción '+nOp+' de '+nTot+(it.elegida?' · en el total':' · alternativa')+'</div>'
       +'<div class="cab"><div><div class="nm" title="'+e(it.item)+'">'+e(it.item)+'</div><div class="esp">'+e(it.espacio||'')+'</div></div><div class="t">'+precio+'</div></div>';
@@ -851,7 +880,8 @@ details.cm-d .com{font-size:12px;padding:6px 0;border-top:1px solid #F1ECE6;}
   function detalleHTML(it){
     var es_=est(it), cls=es_.split(' ')[0], nota=(it.nota||'').trim();
     var r=(D.respuestas||[]).filter(function(x){return x.itemId===it.id;}).slice(0,12).reverse();
-    var h='<div class="pn-ph">'+(it.imagen?'<img src="'+e(it.imagen)+'" alt="">':'<span>Sin imagen</span>')+'</div>'
+    var lk=urlOk(it.link), clic=lk||it.imagen;
+    var h='<div class="pn-ph'+(clic?' ph-click':'')+'"'+(clic?' onclick="ebFoto('+it.id+')" title="'+(lk?'Abrir la página del producto':'Ver la imagen en grande')+'"':'')+'>'+(it.imagen?'<img src="'+e(it.imagen)+'" alt="">':'<span>Sin imagen</span>')+(clic?'<span class="ph-hint">'+(lk?'Ver en tienda ↗':'🔍 Ampliar')+'</span>':'')+'</div>'
       +'<div class="pn-bd"><span class="badge b-'+e(cls)+'">'+(es_==='Aprobado'?'✓ Aprobado':es_==='Rechazado'?'Descartado':es_==='Cambios solicitados'?'Cambios pedidos':'Por revisar')+'</span>'+(porComprar(it)?' <span class="badge b-comprar">'+ICO_CARRO+'Pendiente por comprar</span>':'')
       +'<h3 class="pn-t">'+e(it.item)+'</h3><div class="pn-pr">'+(+it.precio>0?m(sub(it)):'Por cotizar')+'</div><div class="mas-c">';
     h+='<div class="meta">'+[it.proveedor,it.espacio].filter(Boolean).map(e).join(' · ')+'</div>';
