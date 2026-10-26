@@ -8782,6 +8782,7 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   // Las novedades ya no se acumulan sobre el listado: viven en la tarjeta "Portal del cliente" y su panel lateral
   function aviso(){
     var box=document.getElementById('portalAviso'); if(box)box.innerHTML='';
+    try{montar();}catch(x){}
     try{repintarKPI();if(document.getElementById('ebPanel')&&document.getElementById('ebPanel').classList.contains('open')&&panelVista==='nov')pintarNov();}catch(x){}
   }
   function avisoAnterior(){
@@ -8849,6 +8850,14 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
       b.onclick=portalAbrir; var csv=tb.querySelector('[onclick="expCSV()"]'); tb.insertBefore(b,csv||null);
     }
     document.getElementById('portalBtn').style.display=appMode==='admin'?'':'none';
+    // Para Javiera: botón de comentarios de clientes (la administradora los ve en la tarjeta "Portal del cliente")
+    if(!document.getElementById('comCliBtn')){
+      var c=document.createElement('button'); c.id='comCliBtn'; c.className='btn'; c.title='Comentarios y dudas de los clientes en su portal';
+      c.onclick=function(){window.ebNovedades('sin');}; tb.insertBefore(c,tb.firstChild);
+    }
+    var cb=document.getElementById('comCliBtn'), nSin=0; try{nSin=sinLeer().length;}catch(x){}
+    cb.style.display=appMode==='admin'?'none':'';
+    cb.innerHTML='💬 Comentarios de clientes'+(nSin?' <b style="background:#B4483C;color:#fff;border-radius:10px;padding:0 7px;margin-left:4px;font-size:11px;">'+nSin+'</b>':'');
     if(!document.getElementById('portalAviso')){var d=document.createElement('div');d.id='portalAviso';var tabs=document.getElementById('comprasTabs');tabs.parentNode.insertBefore(d,tabs);}
   }
   // ══ SOLO ADMINISTRACIÓN: tarjetas "Portal del cliente" y "Javiera", panel lateral de novedades y de actividad ══
@@ -8871,7 +8880,7 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
       if(pid===currentProjId){repintarKPI();if(panelVista==='act'&&document.getElementById('ebPanel').classList.contains('open'))window.ebActividad();}
     }).catch(function(){});
   }
-  function repintarKPI(){var el=document.getElementById('kpiAdminExtra');if(el)el.innerHTML=tarjetas();}
+  function repintarKPI(){try{if(!esAdm())montar();}catch(x){}var el=document.getElementById('kpiAdminExtra');if(el)el.innerHTML=tarjetas();}
   function tarjetas(){
     var s=stats[currentProjId]||{}, v=s.visitas, a=s.act, n=sinLeer().length;
     var c1='<div class="kc kc-click" style="border-left:3px solid #2F78A8;" onclick="ebNovedades()" title="Ver las novedades del portal del cliente">'
@@ -8894,10 +8903,10 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   window.ebPanelCerrar=function(){var p=document.getElementById('ebPanel');if(p)p.classList.remove('open');panelVista='';};
   document.addEventListener('keydown',function(ev){if(ev.key==='Escape')window.ebPanelCerrar();});
   // Novedades del portal: agrupadas por producto, con "Sin leer" y "Todas"
+  // Javiera también lo abre (para responder dudas); a ella no se le muestran visitas ni actividad
   window.ebNovedades=function(t){
-    if(!esAdm())return;
     if(t)novTab=t; var p=panel(); panelVista='nov';
-    document.getElementById('ebpTit').textContent='Novedades del portal del cliente';
+    document.getElementById('ebpTit').textContent=esAdm()?'Novedades del portal del cliente':'Comentarios de los clientes';
     pintarNov(); p.classList.add('open');
   };
   function pintarNov(){
@@ -8908,7 +8917,7 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
     var h='<div class="ebp-tabs"><button class="'+(novTab==='sin'?'act':'')+'" onclick="ebNovedades(\'sin\')">Sin leer <i>'+nSin+'</i></button><button class="'+(novTab==='todas'?'act':'')+'" onclick="ebNovedades(\'todas\')">Todas <i>'+rs.length+'</i></button>'
       +(nSin?'<button class="ebp-lnk" onclick="ebLeerTodo()">Marcar todo como leído</button>':'')+'</div>';
     var v=(stats[pid]||{}).visitas||ultimas.filter(function(l){return l.category==='visita';});
-    if(v.length)h+='<details class="ebp-vis"><summary>👀 '+v.length+' ingreso'+(v.length===1?'':'s')+' al portal · último '+e(cuando(v[0]))+'</summary><ul>'+v.slice(0,40).map(function(l){return '<li>'+e(l.responsible||'Cliente')+' · '+e(cuando(l))+'</li>';}).join('')+'</ul></details>';
+    if(v.length&&esAdm())h+='<details class="ebp-vis"><summary>👀 '+v.length+' ingreso'+(v.length===1?'':'s')+' al portal · último '+e(cuando(v[0]))+'</summary><ul>'+v.slice(0,40).map(function(l){return '<li>'+e(l.responsible||'Cliente')+' · '+e(cuando(l))+'</li>';}).join('')+'</ul></details>';
     if(!orden.length)h+='<div class="ebp-vacio">'+(novTab==='sin'?'Estás al día: no hay novedades sin leer.':'Todavía no hay respuestas del cliente en este proyecto.')+'</div>';
     orden.forEach(function(k){
       var ls=grupos[k], l0=ls[0], x0=exDe(l0), it=(items||[]).find(function(r){return r.id===+l0.item_id;});
@@ -8933,7 +8942,7 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
         var x=exDe(l), dec=x.decision||(x.compra?'Registró su compra':'');
         var rr=respuestasDe(l.id);
         h+='<div class="ebp-i'+(esLeido(pid,l)?'':' nuevo')+'"><b>'+e(l.responsible||'Cliente')+'</b>'+(dec?' · <span class="pc-d">'+e(dec==='Rechazado'?'Descartado':dec==='Por revisar'?'Deshizo su respuesta':dec)+'</span>':'')+' <span class="pc-f">'+e(cuando(l))+'</span>'+(l.description?'<div>'+e(String(l.description).slice(0,400))+'</div>':'')
-          +rr.map(function(x){return '<div class="ebp-resp"><b>↳ Estudio Bianco</b> <span class="pc-f">'+e(cuando(x))+'</span><div>'+e(String(x.description||''))+'</div></div>';}).join('')
+          +rr.map(function(x){return '<div class="ebp-resp"><b>↳ '+e(x.responsible&&x.responsible!=='Estudio Bianco'?x.responsible+' (Estudio Bianco)':'Estudio Bianco')+'</b> <span class="pc-f">'+e(cuando(x))+'</span><div>'+e(String(x.description||''))+'</div></div>';}).join('')
           +(l.description?'<div class="ebp-rbox" id="ebpR'+l.id+'"><button class="ebp-rbtn" onclick="ebResponderAbrir('+l.id+')">↩ '+(rr.length?'Responder de nuevo':'Responder')+'</button></div>':'')
           +'</div>';
       });
