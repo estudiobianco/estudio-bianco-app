@@ -9764,7 +9764,10 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
   var H={apikey:KEY,'Content-Type':'application/json'};
   var DUENO='hola@estudiobianco.cl';
   var D=null, error='', vista='resumen', mes='', amb='', fTipo='', fQ='', verCerradas=false;
-  var TIPOS=['Ingreso','Gasto','Retiro socio','Traspaso interno','Ahorro'];
+  // Período que se mira: 'semana' (lunes a domingo de semRef), 'mes' (mes) o 'anio' (año de mes)
+  var per='mes', semRef='';
+  // "Plata de clientes": compras de clientes que pasan por tus cuentas; se anota pero no suma a ingresos ni gastos
+  var TIPOS=['Ingreso','Gasto','Retiro socio','Traspaso interno','Ahorro','Plata de clientes'];
   var CATS=['Honorarios','Comisión','Reembolso','Supermercado','Hogar','Servicios','Suscripciones','Materiales estudio','Impuestos','Salud','Educación','Transporte','Comida fuera','Vestuario','Deudas','Retiro','Traspaso','Ahorro','Otro'];
   var AMBS=['Personal','Estudio'];
   var FORMS={
@@ -9809,13 +9812,23 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
   }
 
   // ── Cálculos ──
-  function movsMes(){return (D.mov||[]).filter(function(m){return String(m.fecha).slice(0,7)===mes&&(!amb||m.ambito===amb);});}
+  function lunes(f){var d=new Date(f+'T12:00:00'),w=(d.getDay()+6)%7;d.setDate(d.getDate()-w);return d.toISOString().slice(0,10);}
+  function enPer(f){f=String(f).slice(0,10);
+    if(per==='anio')return f.slice(0,4)===mes.slice(0,4);
+    if(per==='semana'){var a=lunes(semRef||hoy());return f>=a&&f<=sumaDias(a,6);}
+    return f.slice(0,7)===mes;}
+  function anios(){var s={};s[hoy().slice(0,4)]=1;s[mes.slice(0,4)]=1;(D&&D.mov||[]).forEach(function(m){s[String(m.fecha).slice(0,4)]=1;});return Object.keys(s).sort().reverse();}
+  function etiqueta(){
+    if(per==='anio')return 'el año '+mes.slice(0,4);
+    if(per==='semana'){var a=lunes(semRef||hoy());return 'la semana del '+fC(a).slice(0,5)+' al '+fC(sumaDias(a,6)).slice(0,5);}
+    return MES(mes);}
+  function movsMes(){return (D.mov||[]).filter(function(m){return enPer(m.fecha)&&(!amb||m.ambito===amb);});}
   function totales(lista){
     var t={ing:0,gas:0,ret:0,aho:0};
     lista.forEach(function(m){var v=monto(m);
       if(m.tipo==='Ingreso')t.ing+=v;else if(m.tipo==='Gasto')t.gas+=v;else if(m.tipo==='Retiro socio')t.ret+=v;else if(m.tipo==='Ahorro')t.aho+=v;});
     // Los retiros salen del estudio y entran a lo personal
-    if(amb==='Personal'){var r=(D.mov||[]).filter(function(m){return m.tipo==='Retiro socio'&&String(m.fecha).slice(0,7)===mes;}).reduce(function(a,m){return a+monto(m);},0);t.ret=r;t.res=t.ing+r-t.gas-t.aho;}
+    if(amb==='Personal'){var r=(D.mov||[]).filter(function(m){return m.tipo==='Retiro socio'&&enPer(m.fecha);}).reduce(function(a,m){return a+monto(m);},0);t.ret=r;t.res=t.ing+r-t.gas-t.aho;}
     else if(amb==='Estudio')t.res=t.ing-t.gas-t.ret-t.aho;
     else t.res=t.ing-t.gas-t.aho;
     return t;
@@ -9854,12 +9867,16 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     var abiertas=(D.pre||[]).filter(function(p){return p.estado==='Abierta';}).length;
     var h='<div class="mf-wrap">';
     h+='<div class="mf-hd"><div><h2>Mis finanzas</h2><p>🔒 Solo tú ves esta pestaña. Se alimenta de tus correos cada mañana y de los pagos que registras en cada proyecto.</p></div>';
-    h+='<div class="mf-ctl"><input type="month" value="'+mes+'" onchange="ebMF.mes(this.value)"><select onchange="ebMF.amb(this.value)"><option value="">Personal y estudio</option>'+AMBS.map(function(a){return '<option'+(amb===a?' selected':'')+'>'+a+'</option>';}).join('')+'</select>';
+    h+='<div class="mf-ctl"><select onchange="ebMF.per(this.value)" title="Período">'+[['semana','Semana'],['mes','Mes'],['anio','Año']].map(function(p){return '<option value="'+p[0]+'"'+(per===p[0]?' selected':'')+'>'+p[1]+'</option>';}).join('')+'</select>'
+      +(per==='semana'?'<input type="date" value="'+(semRef||hoy())+'" onchange="ebMF.sem(this.value)" title="Cualquier día de la semana">'
+        :per==='anio'?'<select onchange="ebMF.anio(this.value)">'+anios().map(function(y){return '<option'+(y===mes.slice(0,4)?' selected':'')+'>'+y+'</option>';}).join('')+'</select>'
+        :'<input type="month" value="'+mes+'" onchange="ebMF.mes(this.value)">')
+      +'<select onchange="ebMF.amb(this.value)"><option value="">Personal y estudio</option>'+AMBS.map(function(a){return '<option'+(amb===a?' selected':'')+'>'+a+'</option>';}).join('')+'</select>';
     h+='<button class="btn" onclick="ebMF.recargar()" title="Volver a cargar">↻</button><button class="btn prim" onclick="ebMF.nuevo(\'fin_movimientos\')">+ Movimiento</button></div></div>';
     h+='<div class="mf-kpi">';
-    h+=kpi('Ingresos de '+MES(mes),clp(t.ing),'g')+kpi('Gastos',clp(t.gas),'r');
+    h+=kpi('Ingresos de '+etiqueta(),clp(t.ing),'g')+kpi('Gastos',clp(t.gas),'r');
     h+=kpi(amb==='Personal'?'Retiros recibidos del estudio':'Retiros del estudio',clp(t.ret),'');
-    h+=kpi('Resultado del mes',clp(t.res),t.res<0?'r':'g');
+    h+=kpi(per==='anio'?'Resultado del año':per==='semana'?'Resultado de la semana':'Resultado del mes',clp(t.res),t.res<0?'r':'g');
     h+=kpi('Por cobrar a clientes',clp(totPC),'b')+kpi('Deudas registradas',clp(totDeu),totDeu?'w':'');
     h+='</div>';
     var tabs=[['resumen','Resumen'],['mov','Movimientos'],['cobrar','Por cobrar'],['deudas','Deudas'],['fijos','Pagos fijos'],['venc','Vencimientos'],['preg','Preguntas'+(abiertas?' ('+abiertas+')':'')]];
@@ -9893,10 +9910,16 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     var cat={},gs=movsMes().filter(function(m){return m.tipo==='Gasto';});
     gs.forEach(function(m){cat[m.categoria]=(cat[m.categoria]||0)+monto(m);});
     var ks=Object.keys(cat).sort(function(a,b){return cat[b]-cat[a];}),mx=ks.length?cat[ks[0]]:1;
-    h+='<div class="mf-card"><h3>Gastos de '+MES(mes)+' por categoría</h3>';
-    if(!ks.length)h+='<p class="mf-mut">Sin gastos registrados este mes.</p>';
+    h+='<div class="mf-card"><h3>Gastos de '+etiqueta()+' por categoría</h3>';
+    if(!ks.length)h+='<p class="mf-mut">Sin gastos registrados en este período.</p>';
     ks.forEach(function(k){h+='<div class="mf-bar"><span>'+es2(k)+'</span><div><i style="width:'+Math.max(3,Math.round(cat[k]/mx*100))+'%"></i></div><b class="mono">'+clp(cat[k])+'</b></div>';});
     h+='</div></div>';
+    // Año completo: mes a mes
+    if(per==='anio'){var y=mes.slice(0,4),fil='';
+      for(var i=1;i<=12;i++){var ym=y+'-'+(i<10?'0':'')+i,l=(D.mov||[]).filter(function(m){return String(m.fecha).slice(0,7)===ym&&(!amb||m.ambito===amb);});
+        if(!l.length)continue;var g=0,n=0,r=0;l.forEach(function(m){var v=monto(m);if(m.tipo==='Ingreso')n+=v;else if(m.tipo==='Gasto')g+=v;else if(m.tipo==='Retiro socio')r+=v;});
+        fil+='<tr onclick="ebMF.irMes(\''+ym+'\')" style="cursor:pointer;"><td>'+MES(ym)+'</td><td class="mono mf-r g">'+clp(n)+'</td><td class="mono mf-r r">'+clp(g)+'</td><td class="mono mf-r">'+clp(r)+'</td><td class="mono mf-r '+(n-g<0?'r':'g')+'">'+clp(n-g)+'</td></tr>';}
+      h+='<div class="mf-card"><h3>'+y+' mes a mes</h3>'+(fil?'<table class="mf-t"><thead><tr><th>Mes</th><th class="mf-r">Ingresos</th><th class="mf-r">Gastos</th><th class="mf-r">Retiros</th><th class="mf-r">Ingresos − gastos</th></tr></thead><tbody>'+fil+'</tbody></table><p class="mf-mut">Toca un mes para verlo en detalle.</p>':'<p class="mf-mut">Sin movimientos ese año.</p>')+'</div>';}
     h+='<div class="mf-card"><h3>Últimos movimientos</h3><table class="mf-t"><tbody>'+(D.mov||[]).filter(function(m){return !amb||m.ambito===amb;}).slice(0,8).map(filaMov).join('')+'</tbody></table>';
     h+='<p class="mf-mut" style="margin-top:10px;">Dólares convertidos a <input type="number" class="mf-tc" value="'+tc()+'" onchange="ebMF.tc(this.value)"> pesos. Claude revisa tus correos cada mañana a las 8:00 y agrega lo nuevo aquí.</p></div>';
     return h;
@@ -9906,12 +9929,12 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
       if(amb&&m.ambito!==amb)return false;
       if(fTipo&&m.tipo!==fTipo)return false;
       if(fQ){var s=(m.descripcion+' '+m.contraparte+' '+m.categoria+' '+m.notas+' '+nomProy(m.project_id)).toLowerCase();if(s.indexOf(fQ.toLowerCase())<0)return false;}
-      else if(String(m.fecha).slice(0,7)!==mes)return false;
+      else if(!enPer(m.fecha))return false;
       return true;});
     var t={};l.forEach(function(m){t[m.tipo]=(t[m.tipo]||0)+monto(m);});
     var h='<div class="mf-bar2"><select onchange="ebMF.tipo(this.value)"><option value="">Todos los tipos</option>'+TIPOS.map(function(x){return '<option'+(fTipo===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select>';
     h+='<input type="search" placeholder="Buscar en todos los meses…" value="'+es2(fQ)+'" onchange="ebMF.buscar(this.value)"><button class="btn" onclick="ebMF.csv()">⬇ Excel (CSV)</button></div>';
-    h+='<p class="mf-mut">'+(fQ?'Resultados en todos los meses':'Movimientos de '+MES(mes))+': '+l.length+' · '+Object.keys(t).map(function(k){return k+' '+clp(t[k]);}).join(' · ')+'</p>';
+    h+='<p class="mf-mut">'+(fQ?'Resultados en todos los meses':'Movimientos de '+etiqueta())+': '+l.length+' · '+Object.keys(t).map(function(k){return k+' '+clp(t[k]);}).join(' · ')+'</p>';
     h+='<div class="mf-card mf-np"><table class="mf-t"><thead><tr><th>Fecha</th><th>Detalle</th><th>Tipo</th><th>Categoría</th><th>Ámbito</th><th class="mf-r">Monto</th><th>Fuente</th></tr></thead><tbody>'+(l.length?l.map(filaMov).join(''):'<tr><td colspan="7" class="mf-mut">Sin movimientos.</td></tr>')+'</tbody></table></div>';
     return h;
   }
@@ -9951,8 +9974,12 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     return h+'</tbody></table></div>';
   }
   function vPreg(){
-    var l=D.pre||[];
-    var h='<p class="mf-mut">Dudas que encontró Claude al ordenar tus cuentas. Responde aquí y en la próxima revisión diaria se corrigen los datos.</p>';
+    var todas=D.pre||[], ped=todas.filter(function(p){return p.estado==='Pedido'||(p.estado==='Aplicada'&&/^Pedido de Ankel:/.test(p.pregunta));}), l=todas.filter(function(p){return ped.indexOf(p)<0;});
+    // Pedidos a Claude: se revisan en la revisión diaria de las 8:00
+    var h='<div class="mf-card"><h3>Pídele algo a Claude</h3><p class="mf-mut">Por ejemplo: "revisa mis gastos de Jumbo de octubre" o "carga la cartola que dejé en Descargas". Claude lo revisa cada mañana a las 8:00 y te responde aquí.</p>'
+      +'<textarea id="mfPedido" rows="2" placeholder="Escribe tu pedido…"></textarea><div style="text-align:right;margin-top:6px;"><button class="btn prim" onclick="ebMF.pedir()">Enviar pedido</button></div>'
+      +ped.slice().reverse().map(function(p){return '<div class="mf-li" style="display:block;"><b>'+es2(String(p.pregunta).replace(/^Pedido de Ankel:\s*/,''))+'</b> <span class="mf-chip">'+(p.estado==='Pedido'?'Pendiente':'Listo')+'</span>'+(p.respuesta?'<div class="mf-sub" style="margin-top:3px;">Claude: '+es2(p.respuesta)+'</div>':'')+'</div>';}).join('')+'</div>';
+    h+='<p class="mf-mut">Dudas que encontró Claude al ordenar tus cuentas. Responde aquí y en la próxima revisión diaria se corrigen los datos.</p>';
     if(!l.length)return h+'<div class="mf-card"><p class="mf-mut">No hay preguntas.</p></div>';
     l.forEach(function(p){
       h+='<div class="mf-card mf-q'+(p.estado==='Abierta'?'':' mf-old')+'"><div class="mf-pc"><b>'+es2(p.pregunta)+'</b><span class="mf-chip">'+es2(p.estado)+'</span></div>'+
@@ -10017,6 +10044,13 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
   window.ebMF={
     vista:function(v){vista=v;pintar();},
     mes:function(v){if(v){mes=v;pintar();}},
+    per:function(v){per=v;if(v==='semana'&&!semRef)semRef=hoy();pintar();},
+    sem:function(v){if(v){semRef=v;pintar();}},
+    anio:function(v){if(v){mes=v+mes.slice(4);pintar();}},
+    irMes:function(ym){mes=ym;per='mes';pintar();},
+    pedir:function(){var el=document.getElementById('mfPedido');var txt=el?el.value.trim():'';if(!txt)return;
+      fetch(SB+'/rest/v1/fin_preguntas',{method:'POST',headers:Object.assign({},H,{Prefer:'return=minimal'}),body:JSON.stringify({pregunta:'Pedido de Ankel: '+txt,estado:'Pedido'})})
+        .then(function(x){if(!x.ok)throw 0;aviso('Pedido enviado');return recargar();}).catch(function(){alert('No se pudo enviar el pedido.');});},
     amb:function(v){amb=v;pintar();},
     tipo:function(v){fTipo=v;pintar();},
     buscar:function(v){fQ=v||'';pintar();},
