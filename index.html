@@ -9916,7 +9916,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
       +'<div class="mf-seg">'+[['','Todo'],['Personal','Personal'],['Estudio','Estudio']].map(function(a){return '<button class="'+(amb===a[0]?'on':'')+'" onclick="ebMF.amb(\''+a[0]+'\')">'+a[1]+'</button>';}).join('')+'</div></div>';
     if(regla)h+=bannerRegla();
     var nSin=(D.mov||[]).filter(function(m){return m.tipo==='Gasto'&&sinCat(m);}).length;
-    var tabs=[['resumen','🏠 Inicio'],['mov','Movimientos'+(nSin?' ('+nSin+' sin categoría)':'')],['cobrar','Me deben'],['deudas','Debo'],['fijos','Pagos mensuales'],['venc','Pagos con fecha'],['sii','Empresa (SII)'],['cats','Categorías'],['preg','Preguntas'+(abiertas?' ('+abiertas+')':'')]];
+    var tabs=[['resumen','🏠 Inicio'],['mov','Movimientos'+(nSin?' ('+nSin+' sin categoría)':'')],['cobrar','Me deben'],['deudas','Debo'],['fijos','Pagos mensuales'],['venc','Pagos con fecha'],['anual','Resumen por año'],['sii','Empresa (SII)'],['cats','Categorías'],['preg','Preguntas'+(abiertas?' ('+abiertas+')':'')]];
     h+='<div class="mf-tabs">'+tabs.map(function(x){return '<button class="'+(vista===x[0]?'on':'')+'" onclick="ebMF.vista(\''+x[0]+'\')">'+x[1]+'</button>';}).join('')+'</div>';
     if(vista==='resumen')h+=vResumen(t);
     else if(vista==='mov')h+=vMov();
@@ -9926,6 +9926,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     else if(vista==='venc')h+=vVenc();
     else if(vista==='cats')h+=vCats();
     else if(vista==='sii')h+=vSii();
+    else if(vista==='anual')h+=vAnual();
     else if(vista==='preg')h+=vPreg();
     h+='</div>';
     box.innerHTML=h;
@@ -9993,6 +9994,11 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
       +'<div><span>Salió</span><b class="r">'+clp(b.gas)+'</b><small>'+(b.gas?'Gastos '+(amb==='Estudio'?'del estudio':amb==='Personal'?'personales':'personales y del estudio'):'Sin gastos anotados')+(b.aho?' · además ahorraste '+clp(b.aho):'')+'</small></div>'
       +'<div class="mf-hres"><span>'+(b.res>=0?'Te quedó':'Gastaste más de lo que entró')+'</span><b class="'+(b.res>=0?'g':'r')+'">'+clp(b.res)+'</b><small>'+(amb==='Estudio'&&b.ret?'Ya descontados '+clp(b.ret)+' que retiraste a tu cuenta':(!amb&&b.ret?clp(b.ret)+' pasaron del estudio a tu cuenta (no se cuentan dos veces)':'Entró − salió'))+'</small></div>'
       +'</div><p class="mf-hn">Solo suma lo que está anotado. Si falta una cartola o un pago fijo, este número cambia.</p></div>';
+    // Ventas del estudio según el SII en el mismo período (aunque falten cartolas)
+    if(amb!=='Personal'&&(D.sii||[]).length){var sv={f:0,b:0,c:0};
+      (D.sii||[]).forEach(function(d){if(!d.fecha||!enPer(d.fecha)||!vale(d))return;var n=(Number(d.neto)||0)+(Number(d.exento)||0);
+        if(d.libro==='Ventas'){if(d.codigo===39||d.codigo===41)sv.b+=n;else sv.f+=signo(d)*n;}else sv.c+=signo(d)*n;});
+      if(sv.f||sv.b||sv.c)h+='<div class="mf-card mf-sii1"><b>Según el SII</b>, el estudio vendió <b class="g">'+clp(sv.f+sv.b)+'</b> neto '+enEtiqueta()+' ('+clp(sv.f)+' con factura'+(sv.b?' y '+clp(sv.b)+' con boleta':'')+') y compró <b class="r">'+clp(sv.c)+'</b> con factura. <a href="javascript:void 0" onclick="ebMF.vista(\'anual\')">Ver resumen por año →</a></div>';}
     // 2. Debo · pago cada mes · me deben
     var deu=(D.deu||[]).filter(function(d){return !d.cerrada&&(!amb||d.ambito===amb);}), totD=deu.reduce(function(a,d){return a+(Number(d.monto)||0);},0), cuo=deu.reduce(function(a,d){return a+(Number(d.cuota)||0);},0);
     var fij=(D.fij||[]).filter(function(f){return f.activo&&(!amb||f.ambito===amb);}), mens=fij.filter(function(f){return f.frecuencia!=='Anual';});
@@ -10088,6 +10094,54 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     return h+'</tbody></table></div>';
   }
   // Categorías y reglas automáticas
+  // ── Resumen por año: el estudio con los datos del SII (ventas, compras, IVA, F29) y lo que registran tus bancos; lo personal con tus movimientos ──
+  var GE={Sueldos:'Sueldos y honorarios','Honorarios externos':'Sueldos y honorarios',Impuestos:'Impuestos y previsión (pagos registrados)','Previsión':'Impuestos y previsión (pagos registrados)','Convenios TGR':'Impuestos y previsión (pagos registrados)'};
+  function datosAnio(y){
+    var r={vf:0,vb:0,vt:0,ivaD:0,cn:0,ivaC:0,f29:0,nf29:0,ret:0,eg:{},ei:0,pi:0,pg:{},n:0,ns:0};
+    (D.sii||[]).forEach(function(d){if(String(d.periodo||d.fecha||'').slice(0,4)!==y||!vale(d))return;r.ns++;var s=signo(d),n=(Number(d.neto)||0)+(Number(d.exento)||0);
+      if(d.libro==='Ventas'){if(d.codigo===39||d.codigo===41)r.vb+=n;else r.vf+=s*n;r.vt+=s*(Number(d.total)||0);r.ivaD+=s*(Number(d.iva)||0);}
+      else{r.cn+=s*n;r.ivaC+=s*(Number(d.iva)||0);}});
+    (D.f29||[]).forEach(function(f){if(f.periodo.slice(0,4)===y){r.f29+=Number(f.total_pagado)||0;r.nf29++;}});
+    (D.mov||[]).forEach(function(m){if(String(m.fecha).slice(0,4)!==y)return;r.n++;var v=monto(m);
+      if(m.tipo==='Retiro socio')r.ret+=v;
+      else if(m.tipo==='Ingreso'){if(m.ambito==='Estudio')r.ei+=v;else r.pi+=v;}
+      else if(m.tipo==='Gasto'){if(m.ambito==='Estudio'){var g=GE[m.categoria]||'Otros gastos pagados (bancos)';r.eg[g]=(r.eg[g]||0)+v;}
+        else{var gp=sinCat(m)?'Sin categoría':catInfo(m.categoria).grupo;r.pg[gp]=(r.pg[gp]||0)+v;}}});
+    return r;
+  }
+  function vAnual(){
+    var ys={};(D.sii||[]).forEach(function(d){var y=String(d.periodo||d.fecha||'').slice(0,4);if(y)ys[y]=1;});(D.mov||[]).forEach(function(m){var y=String(m.fecha).slice(0,4);if(y>='2020')ys[y]=1;});
+    var Y=Object.keys(ys).sort(),R={};Y.forEach(function(y){R[y]=datosAnio(y);});
+    var tot=function(f){return Y.reduce(function(a,y){return a+(f(R[y])||0);},0);};
+    function fila(lbl,f,cls,sub){var tds=Y.map(function(y){var v=f(R[y]);return '<td class="mono mf-r '+(cls||'')+'">'+(v?clp(v):'<span class="mf-sub">—</span>')+'</td>';}).join('');
+      return '<tr style="cursor:default;" class="'+(sub?'mf-sub2':'')+'"><td>'+lbl+'</td>'+tds+'<td class="mono mf-r '+(cls||'')+'"><b>'+clp(tot(f))+'</b></td></tr>';}
+    function sec(t){return '<tr class="mf-sec"><td colspan="'+(Y.length+2)+'">'+t+'</td></tr>';}
+    var gE={},gP={};Y.forEach(function(y){Object.keys(R[y].eg).forEach(function(k){gE[k]=1;});Object.keys(R[y].pg).forEach(function(k){gP[k]=1;});});
+    var h='<p class="mf-mut">Todo lo que ha movido el estudio y tú, año por año. Las ventas, compras e IVA del estudio salen del SII (completos desde abril 2020). Sueldos, retiros y gastos personales salen de tus bancos y correos: antes de 2024 hay pocos registros, así que esos años se ven incompletos.</p>';
+    h+='<div class="mf-card mf-np"><table class="mf-t mf-anual"><thead><tr><th></th>'+Y.map(function(y){return '<th class="mf-r">'+y+'</th>';}).join('')+'<th class="mf-r">Total</th></tr></thead><tbody>';
+    h+=sec('ESTUDIO BIANCO SPA · ventas (SII)');
+    h+=fila('<b>Ventas netas</b> (sin IVA)',function(r){return r.vf+r.vb;},'g');
+    h+=fila('· con factura (menos notas de crédito)',function(r){return r.vf;},'',1);
+    h+=fila('· con boleta (tienda)',function(r){return r.vb;},'',1);
+    h+=fila('Total cobrado a clientes (con IVA)',function(r){return r.vt;});
+    h+=sec('ESTUDIO · gastos');
+    h+=fila('Compras con factura (neto, SII)',function(r){return r.cn;},'r');
+    h+=fila('IVA pagado en F29',function(r){return r.f29;},'r');
+    Object.keys(gE).sort().forEach(function(g){h+=fila(g,function(r){return r.eg[g]||0;},'r');});
+    h+=fila('<b>Ventas netas − compras − F29 − gastos registrados</b>',function(r){var g=0;Object.keys(r.eg).forEach(function(k){g+=r.eg[k];});return r.vf+r.vb-r.cn-r.f29-g;},'');
+    h+=fila('Retiros del estudio a tu cuenta',function(r){return r.ret;},'b');
+    h+=fila('· IVA cobrado a clientes (débito)',function(r){return r.ivaD;},'',1);
+    h+=fila('· IVA de compras (crédito)',function(r){return r.ivaC;},'',1);
+    h+=sec('PERSONAL (según bancos y correos)');
+    h+=fila('Ingresos personales (sin retiros)',function(r){return r.pi;},'g');
+    h+=fila('Retiros recibidos del estudio',function(r){return r.ret;},'g');
+    Object.keys(gP).sort().forEach(function(g){h+=fila('Gastos · '+es2(g),function(r){return r.pg[g]||0;},'r',1);});
+    h+=fila('<b>Gastos personales</b>',function(r){var g=0;Object.keys(r.pg).forEach(function(k){g+=r.pg[k];});return g;},'r');
+    h+=sec('DATOS DISPONIBLES');
+    h+='<tr style="cursor:default;" class="mf-sub2"><td>Documentos SII / movimientos de bancos</td>'+Y.map(function(y){return '<td class="mono mf-r">'+R[y].ns+' / '+R[y].n+'</td>';}).join('')+'<td></td></tr>';
+    h+='</tbody></table></div><p class="mf-mut">"Gastos registrados" del estudio son los pagos que aparecen en tus bancos (sueldos, impuestos, proveedores); algunos pueden repetir compras que ya están con factura. El resultado es aproximado: para el oficial, pregúntale a tu contadora por el balance anual.</p>';
+    return h;
+  }
   // ── Empresa (SII): documentos tributarios del RCV y declaraciones F29 de Estudio Bianco SpA ──
   var siiAnio='', siiLibro='Ventas', siiQ='';
   function signo(d){return d.codigo===61?-1:1;}               // nota de crédito resta
@@ -10107,13 +10161,15 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     var anios={};docs.forEach(function(d){if(d.fecha)anios[String(d.fecha).slice(0,4)]=1;});f29.forEach(function(f){anios[f.periodo.slice(0,4)]=1;});
     var ys=Object.keys(anios).sort().reverse();if(!siiAnio||!anios[siiAnio])siiAnio=ys[0];
     var dy=docs.filter(function(d){return String(d.periodo||d.fecha||'').slice(0,4)===siiAnio;});
-    var k={vn:0,vi:0,cn:0,ci:0,nc:0,an:0,fac:0};
+    var k={vn:0,vi:0,cn:0,ci:0,nc:0,an:0,fac:0,vb:0};
+    dy.forEach(function(d){if(d.libro==='Ventas'&&(d.codigo===39||d.codigo===41)&&vale(d))k.vb+=(Number(d.neto)||0)+(Number(d.exento)||0);});
     dy.forEach(function(d){if(d.libro==='Ventas'&&d.codigo!==61&&anulado(d))k.an++;if(!vale(d))return;var s=signo(d),n=(Number(d.neto)||0)+(Number(d.exento)||0),i=Number(d.iva)||0;
       if(d.libro==='Ventas'){k.vn+=s*n;k.vi+=s*i;if(d.codigo===61)k.nc++;else k.fac++;}else{k.cn+=s*n;k.ci+=s*i;}});
     var fy=f29.filter(function(f){return f.periodo.slice(0,4)===siiAnio;}),pag=fy.reduce(function(a,f){return a+(Number(f.total_pagado)||0);},0);
     var imp=fy.filter(function(f){return /impag|girad|observ|pend/i.test(f.estado||'');});
     var h='<div class="mf-bar2"><span class="mf-mut">Estudio Bianco SpA · datos del SII (Registro de Compras y Ventas y F29)</span><select onchange="ebMF.siiAnio(this.value)">'+ys.map(function(y){return '<option'+(y===siiAnio?' selected':'')+'>'+y+'</option>';}).join('')+'</select></div>';
-    h+='<div class="mf-kpi">'+kpi('Ventas netas '+siiAnio,clp(k.vn),'g',k.fac+' documentos'+(k.nc?' · '+k.nc+' notas de crédito':'')+(k.an?' · '+k.an+' anulados':''))
+    h+='<div class="mf-kpi">'+kpi('Ventas con factura '+siiAnio,clp(k.vn-k.vb),'g','neto, menos notas de crédito'+(k.an?' · '+k.an+' anuladas':''))
+      +kpi('Ventas con boleta '+siiAnio,clp(k.vb),k.vb?'g':'','neto · resumen mensual del SII')
       +kpi('IVA de ventas (débito)',clp(k.vi),'')+kpi('Compras netas',clp(k.cn),'r')+kpi('IVA de compras (crédito)',clp(k.ci),'')
       +kpi('F29 pagado en '+siiAnio,clp(pag),'',fy.length+' declaraciones')+kpi('F29 por revisar',String(imp.length),imp.length?'r':'g',imp.length?imp.map(function(f){return f.periodo;}).join(', '):'todo en orden')+'</div>';
     // Mes a mes
@@ -10380,6 +10436,12 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
 #misFinBox .mf-pcr b{font-size:17px;}
 #misFinBox .mf-q textarea{width:100%;box-sizing:border-box;border:1px solid var(--bd);border-radius:6px;padding:8px;font-family:inherit;font-size:13px;}
 #misFinBox .mf-tc{width:70px;height:24px;border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-family:inherit;}
+#misFinBox .mf-sii1{font-size:13px;background:var(--inl);border-color:#C9DAEC;}
+#misFinBox .mf-sii1 a{color:var(--in);font-weight:600;text-decoration:none;margin-left:6px;}
+#misFinBox .mf-anual td:first-child{white-space:nowrap;min-width:220px;}
+#misFinBox .mf-anual tr.mf-sec td{background:var(--s2);font-size:10.5px;letter-spacing:.05em;color:var(--tx2);font-weight:600;padding:7px 10px;}
+#misFinBox .mf-anual tr.mf-sub2 td{font-size:11.5px;color:var(--tx3);}
+#misFinBox .mf-anual tr.mf-sub2 td:first-child{padding-left:22px;}
 #misFinBox .mf-chip.mf-chr{background:var(--dnl);color:var(--dn);}
 #misFinBox .mf-per{margin:-6px 0 8px;font-size:12px;color:var(--tx3);}
 #misFinBox .mf-k small{display:block;font-size:11px;color:var(--tx3);margin-top:3px;}
