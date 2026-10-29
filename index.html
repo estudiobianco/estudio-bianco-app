@@ -9818,10 +9818,11 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     if(per==='semana'){var a=lunes(semRef||hoy());return f>=a&&f<=sumaDias(a,6);}
     return f.slice(0,7)===mes;}
   function anios(){var s={};s[hoy().slice(0,4)]=1;s[mes.slice(0,4)]=1;(D&&D.mov||[]).forEach(function(m){s[String(m.fecha).slice(0,4)]=1;});return Object.keys(s).sort().reverse();}
+  // "de octubre 2026", "del año 2026", "de la semana del 26-10 al 01-11"
   function etiqueta(){
-    if(per==='anio')return 'el año '+mes.slice(0,4);
-    if(per==='semana'){var a=lunes(semRef||hoy());return 'la semana del '+fC(a).slice(0,5)+' al '+fC(sumaDias(a,6)).slice(0,5);}
-    return MES(mes);}
+    if(per==='anio')return 'del año '+mes.slice(0,4);
+    if(per==='semana'){var a=lunes(semRef||hoy());return 'de la semana del '+fC(a).slice(0,5)+' al '+fC(sumaDias(a,6)).slice(0,5);}
+    return 'de '+MES(mes);}
   function movsMes(){return (D.mov||[]).filter(function(m){return enPer(m.fecha)&&(!amb||m.ambito===amb);});}
   function totales(lista){
     var t={ing:0,gas:0,ret:0,aho:0};
@@ -9874,7 +9875,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
       +'<select onchange="ebMF.amb(this.value)"><option value="">Personal y estudio</option>'+AMBS.map(function(a){return '<option'+(amb===a?' selected':'')+'>'+a+'</option>';}).join('')+'</select>';
     h+='<button class="btn" onclick="ebMF.recargar()" title="Volver a cargar">↻</button><button class="btn prim" onclick="ebMF.nuevo(\'fin_movimientos\')">+ Movimiento</button></div></div>';
     h+='<div class="mf-kpi">';
-    h+=kpi('Ingresos de '+etiqueta(),clp(t.ing),'g')+kpi('Gastos',clp(t.gas),'r');
+    h+=kpi('Ingresos '+etiqueta(),clp(t.ing),'g')+kpi('Gastos',clp(t.gas),'r');
     h+=kpi(amb==='Personal'?'Retiros recibidos del estudio':'Retiros del estudio',clp(t.ret),'');
     h+=kpi(per==='anio'?'Resultado del año':per==='semana'?'Resultado de la semana':'Resultado del mes',clp(t.res),t.res<0?'r':'g');
     h+=kpi('Por cobrar a clientes',clp(totPC),'b')+kpi('Deudas registradas',clp(totDeu),totDeu?'w':'');
@@ -9910,7 +9911,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     var cat={},gs=movsMes().filter(function(m){return m.tipo==='Gasto';});
     gs.forEach(function(m){cat[m.categoria]=(cat[m.categoria]||0)+monto(m);});
     var ks=Object.keys(cat).sort(function(a,b){return cat[b]-cat[a];}),mx=ks.length?cat[ks[0]]:1;
-    h+='<div class="mf-card"><h3>Gastos de '+etiqueta()+' por categoría</h3>';
+    h+='<div class="mf-card"><h3>Gastos '+etiqueta()+' por categoría</h3>';
     if(!ks.length)h+='<p class="mf-mut">Sin gastos registrados en este período.</p>';
     ks.forEach(function(k){h+='<div class="mf-bar"><span>'+es2(k)+'</span><div><i style="width:'+Math.max(3,Math.round(cat[k]/mx*100))+'%"></i></div><b class="mono">'+clp(cat[k])+'</b></div>';});
     h+='</div></div>';
@@ -9934,7 +9935,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     var t={};l.forEach(function(m){t[m.tipo]=(t[m.tipo]||0)+monto(m);});
     var h='<div class="mf-bar2"><select onchange="ebMF.tipo(this.value)"><option value="">Todos los tipos</option>'+TIPOS.map(function(x){return '<option'+(fTipo===x?' selected':'')+'>'+x+'</option>';}).join('')+'</select>';
     h+='<input type="search" placeholder="Buscar en todos los meses…" value="'+es2(fQ)+'" onchange="ebMF.buscar(this.value)"><button class="btn" onclick="ebMF.csv()">⬇ Excel (CSV)</button></div>';
-    h+='<p class="mf-mut">'+(fQ?'Resultados en todos los meses':'Movimientos de '+etiqueta())+': '+l.length+' · '+Object.keys(t).map(function(k){return k+' '+clp(t[k]);}).join(' · ')+'</p>';
+    h+='<p class="mf-mut">'+(fQ?'Resultados en todos los meses':'Movimientos '+etiqueta())+': '+l.length+' · '+Object.keys(t).map(function(k){return k+' '+clp(t[k]);}).join(' · ')+'</p>';
     h+='<div class="mf-card mf-np"><table class="mf-t"><thead><tr><th>Fecha</th><th>Detalle</th><th>Tipo</th><th>Categoría</th><th>Ámbito</th><th class="mf-r">Monto</th><th>Fuente</th></tr></thead><tbody>'+(l.length?l.map(filaMov).join(''):'<tr><td colspan="7" class="mf-mut">Sin movimientos.</td></tr>')+'</tbody></table></div>';
     return h;
   }
