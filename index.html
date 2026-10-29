@@ -9983,9 +9983,28 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     r.res=r.ing-r.gas-(amb==='Estudio'?r.ret:0);
     return r;
   }
+  // Fecha de un documento del SII: las boletas vienen en resumen mensual sin fecha, se usa su período
+  function fdoc(d){return d.fecha?String(d.fecha).slice(0,10):(d.periodo?d.periodo+'-28':'');}
+  function ventasSII(){var sv={f:0,b:0,c:0};
+    (D.sii||[]).forEach(function(d){var f=fdoc(d);if(!f||!enPer(f)||!vale(d))return;var n=(Number(d.neto)||0)+(Number(d.exento)||0);
+      if(d.libro==='Ventas'){if(d.codigo===39||d.codigo===41)sv.b+=n;else sv.f+=signo(d)*n;}else sv.c+=signo(d)*n;});
+    return sv;}
   function lista3(obj,n){return Object.keys(obj).sort(function(a,b){return obj[b]-obj[a];}).slice(0,n);}
   function vResumen(){
     var enP=(D.mov||[]).filter(function(m){return enPer(m.fecha)&&(!amb||m.ambito===amb);}), b=balance(enP);
+    // El estudio se cuenta con el SII (ventas y compras netas, sin IVA), porque los bancos antiguos no están completos.
+    // Se reemplazan los ingresos del estudio de los bancos y las compras a proveedores (que ya están con factura).
+    var sv=ventasSII(), conSII=amb!=='Personal'&&(sv.f||sv.b||sv.c);
+    if(conSII){
+      var PROV={'Proveedores estudio':1,'Materiales e impresión':1};
+      enP.forEach(function(m){if(m.ambito!=='Estudio')return;var v=monto(m);
+        if(m.tipo==='Ingreso'){b.ing-=v;var k=m.categoria||'Otro';b.porIng[k]-=v;if(b.porIng[k]<=0)delete b.porIng[k];}
+        else if(m.tipo==='Gasto'&&PROV[m.categoria])b.gas-=v;});
+      b.ing+=sv.f+sv.b;b.gas+=sv.c;
+      if(sv.f)b.porIng['Facturas del estudio']=(b.porIng['Facturas del estudio']||0)+sv.f;
+      if(sv.b)b.porIng['Boletas de la tienda']=(b.porIng['Boletas de la tienda']||0)+sv.b;
+      b.res=b.ing-b.gas-(amb==='Estudio'?b.ret:0);
+    }
     var h='';
     // 1. ¿Cuánto ganaste?
     var top=lista3(b.porIng,4);
@@ -9993,12 +10012,9 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
       +'<div><span>Entró</span><b class="g">'+clp(b.ing)+'</b><small>'+(top.length?top.map(function(k){return es2(k)+' '+clp(b.porIng[k]);}).join(' · '):'Sin ingresos anotados')+(amb==='Personal'&&b.ret?' · retiros del estudio '+clp(b.ret):'')+'</small></div>'
       +'<div><span>Salió</span><b class="r">'+clp(b.gas)+'</b><small>'+(b.gas?'Gastos '+(amb==='Estudio'?'del estudio':amb==='Personal'?'personales':'personales y del estudio'):'Sin gastos anotados')+(b.aho?' · además ahorraste '+clp(b.aho):'')+'</small></div>'
       +'<div class="mf-hres"><span>'+(b.res>=0?'Te quedó':'Gastaste más de lo que entró')+'</span><b class="'+(b.res>=0?'g':'r')+'">'+clp(b.res)+'</b><small>'+(amb==='Estudio'&&b.ret?'Ya descontados '+clp(b.ret)+' que retiraste a tu cuenta':(!amb&&b.ret?clp(b.ret)+' pasaron del estudio a tu cuenta (no se cuentan dos veces)':'Entró − salió'))+'</small></div>'
-      +'</div><p class="mf-hn">Solo suma lo que está anotado. Si falta una cartola o un pago fijo, este número cambia.</p></div>';
+      +'</div><p class="mf-hn">'+(conSII?'El estudio se cuenta con las ventas y compras del SII (sin IVA); lo personal, con lo anotado de tus bancos y correos.':'Solo suma lo que está anotado. Si falta una cartola o un pago fijo, este número cambia.')+'</p></div>';
     // Ventas del estudio según el SII en el mismo período (aunque falten cartolas)
-    if(amb!=='Personal'&&(D.sii||[]).length){var sv={f:0,b:0,c:0};
-      (D.sii||[]).forEach(function(d){if(!d.fecha||!enPer(d.fecha)||!vale(d))return;var n=(Number(d.neto)||0)+(Number(d.exento)||0);
-        if(d.libro==='Ventas'){if(d.codigo===39||d.codigo===41)sv.b+=n;else sv.f+=signo(d)*n;}else sv.c+=signo(d)*n;});
-      if(sv.f||sv.b||sv.c)h+='<div class="mf-card mf-sii1"><b>Según el SII</b>, el estudio vendió <b class="g">'+clp(sv.f+sv.b)+'</b> neto '+enEtiqueta()+' ('+clp(sv.f)+' con factura'+(sv.b?' y '+clp(sv.b)+' con boleta':'')+') y compró <b class="r">'+clp(sv.c)+'</b> con factura. <a href="javascript:void 0" onclick="ebMF.vista(\'anual\')">Ver resumen por año →</a></div>';}
+    if(conSII)h+='<div class="mf-card mf-sii1"><b>Según el SII</b>, el estudio vendió <b class="g">'+clp(sv.f+sv.b)+'</b> neto '+enEtiqueta()+' ('+clp(sv.f)+' con factura'+(sv.b?' y '+clp(sv.b)+' con boleta de la tienda':'')+') y compró <b class="r">'+clp(sv.c)+'</b> con factura. <a href="javascript:void 0" onclick="ebMF.vista(\'anual\')">Ver resumen por año →</a></div>';
     // 2. Debo · pago cada mes · me deben
     var deu=(D.deu||[]).filter(function(d){return !d.cerrada&&(!amb||d.ambito===amb);}), totD=deu.reduce(function(a,d){return a+(Number(d.monto)||0);},0), cuo=deu.reduce(function(a,d){return a+(Number(d.cuota)||0);},0);
     var fij=(D.fij||[]).filter(function(f){return f.activo&&(!amb||f.ambito===amb);}), mens=fij.filter(function(f){return f.frecuencia!=='Anual';});
@@ -10095,7 +10111,8 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
   }
   // Categorías y reglas automáticas
   // ── Resumen por año: el estudio con los datos del SII (ventas, compras, IVA, F29) y lo que registran tus bancos; lo personal con tus movimientos ──
-  var GE={Sueldos:'Sueldos y honorarios','Honorarios externos':'Sueldos y honorarios',Impuestos:'Impuestos y previsión (pagos registrados)','Previsión':'Impuestos y previsión (pagos registrados)','Convenios TGR':'Impuestos y previsión (pagos registrados)'};
+  var PROV_TXT='Pagos a proveedores (bancos; ya están en compras)';
+  var GE={'Proveedores estudio':PROV_TXT,'Materiales e impresión':PROV_TXT,Sueldos:'Sueldos y honorarios','Honorarios externos':'Sueldos y honorarios',Impuestos:'Impuestos y previsión (pagos registrados)','Previsión':'Impuestos y previsión (pagos registrados)','Convenios TGR':'Impuestos y previsión (pagos registrados)'};
   function datosAnio(y){
     var r={vf:0,vb:0,vt:0,ivaD:0,cn:0,ivaC:0,f29:0,nf29:0,ret:0,eg:{},ei:0,pi:0,pg:{},n:0,ns:0};
     (D.sii||[]).forEach(function(d){if(String(d.periodo||d.fecha||'').slice(0,4)!==y||!vale(d))return;r.ns++;var s=signo(d),n=(Number(d.neto)||0)+(Number(d.exento)||0);
@@ -10126,9 +10143,9 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     h+=fila('Total cobrado a clientes (con IVA)',function(r){return r.vt;});
     h+=sec('ESTUDIO · gastos');
     h+=fila('Compras con factura (neto, SII)',function(r){return r.cn;},'r');
-    h+=fila('IVA pagado en F29',function(r){return r.f29;},'r');
+    h+=fila('IVA y PPM pagados en F29 (informativo)',function(r){return r.f29;},'',1);
     Object.keys(gE).sort().forEach(function(g){h+=fila(g,function(r){return r.eg[g]||0;},'r');});
-    h+=fila('<b>Ventas netas − compras − F29 − gastos registrados</b>',function(r){var g=0;Object.keys(r.eg).forEach(function(k){g+=r.eg[k];});return r.vf+r.vb-r.cn-r.f29-g;},'');
+    h+=fila('<b>Resultado aproximado</b> (ventas netas − compras − sueldos − otros gastos)',function(r){var g=0;Object.keys(r.eg).forEach(function(k){if(k!==PROV_TXT)g+=r.eg[k];});return r.vf+r.vb-r.cn-g;},'');
     h+=fila('Retiros del estudio a tu cuenta',function(r){return r.ret;},'b');
     h+=fila('· IVA cobrado a clientes (débito)',function(r){return r.ivaD;},'',1);
     h+=fila('· IVA de compras (crédito)',function(r){return r.ivaC;},'',1);
