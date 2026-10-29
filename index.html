@@ -9962,6 +9962,8 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
       '<td class="mono mf-r '+colorTipo(m)+'">'+(m.tipo==='Gasto'||m.tipo==='Retiro socio'||m.tipo==='Ahorro'?'−':'')+clp(v)+usd+'</td><td class="mf-sub">'+es2(m.fuente)+'</td></tr>';
   }
   // "Octubre 2026", "Año 2026", "Semana del 26-10 al 01-11"
+  // "en octubre 2026", "en el año 2026", "en la semana del …"
+  function enEtiqueta(){return etiqueta().replace(/^de la /,'en la ').replace(/^del /,'en el ').replace(/^de /,'en ');}
   function tituloPer(){var e=etiqueta().replace(/^del? /,'');return e.charAt(0).toUpperCase()+e.slice(1);}
   // Entró, salió y quedó en el período. Los retiros del estudio a tu cuenta son plata tuya que se mueve: no se cuentan dos veces.
   function balance(lista){
@@ -9980,7 +9982,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     var h='';
     // 1. ¿Cuánto ganaste?
     var top=lista3(b.porIng,4);
-    h+='<div class="mf-hero"><div class="mf-hq">¿Cuánto ganaste '+etiqueta()+'?</div><div class="mf-h3">'
+    h+='<div class="mf-hero"><div class="mf-hq">¿Cuánto ganaste '+enEtiqueta()+'?</div><div class="mf-h3">'
       +'<div><span>Entró</span><b class="g">'+clp(b.ing)+'</b><small>'+(top.length?top.map(function(k){return es2(k)+' '+clp(b.porIng[k]);}).join(' · '):'Sin ingresos anotados')+(amb==='Personal'&&b.ret?' · retiros del estudio '+clp(b.ret):'')+'</small></div>'
       +'<div><span>Salió</span><b class="r">'+clp(b.gas)+'</b><small>'+(b.gas?'Gastos '+(amb==='Estudio'?'del estudio':amb==='Personal'?'personales':'personales y del estudio'):'Sin gastos anotados')+(b.aho?' · además ahorraste '+clp(b.aho):'')+'</small></div>'
       +'<div class="mf-hres"><span>'+(b.res>=0?'Te quedó':'Gastaste más de lo que entró')+'</span><b class="'+(b.res>=0?'g':'r')+'">'+clp(b.res)+'</b><small>'+(amb==='Estudio'&&b.ret?'Ya descontados '+clp(b.ret)+' que retiraste a tu cuenta':(!amb&&b.ret?clp(b.ret)+' pasaron del estudio a tu cuenta (no se cuentan dos veces)':'Entró − salió'))+'</small></div>'
@@ -10003,7 +10005,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     h+='</div>';
     // 3. ¿En qué se te va la plata?
     var gk=lista3(b.porGas,12), mx=gk.length?b.porGas[gk[0]]:1;
-    h+='<div class="mf-grid"><div class="mf-card"><h3>¿En qué se te fue la plata '+etiqueta()+'?</h3>';
+    h+='<div class="mf-grid"><div class="mf-card"><h3>¿En qué se te fue la plata '+enEtiqueta()+'?</h3>';
     if(!gk.length)h+='<p class="mf-mut">Sin gastos anotados en este período.</p>';
     else h+='<p class="mf-frase">Lo que más pesó fue <b>'+es2(gk[0])+'</b>: '+Math.round(b.porGas[gk[0]]/(b.gas||1)*100)+'% de tus gastos.</p>';
     gk.forEach(function(k){h+='<div class="mf-bar mf-bar3"><span>'+es2(k)+'</span><div><i style="width:'+Math.max(3,Math.round(b.porGas[k]/mx*100))+'%"'+(k==='Sin categoría'?' class="w"':'')+'></i></div><b class="mono">'+clp(b.porGas[k])+'</b><em>'+Math.round(b.porGas[k]/(b.gas||1)*100)+'%</em></div>';});
@@ -10014,7 +10016,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     h+='<div class="mf-card"><h3>Lo que viene en 14 días</h3>';
     if(!px.length)h+='<p class="mf-mut">Nada que pagar ni cobrar en los próximos 14 días.</p>';
     px.forEach(function(x){var d=enDias(x.fecha),cls=d<0?'r':(d<=3?'w':''),cob=x.tipo==='Por cobrar';
-      h+='<div class="mf-li"><span class="mf-d '+cls+'">'+(d<0?'Atrasado '+(-d)+' d':(d===0?'Hoy':d===1?'Mañana':fC(x.fecha).slice(0,5)))+'</span><span class="mf-tx">'+(cob?'💰 ':'💸 ')+es2(x.txt)+'</span><b class="mono '+(cob?'g':'')+'">'+(x.monto?clp(x.monto):'—')+'</b></div>';});
+      h+='<div class="mf-li"><span class="mf-d '+cls+'">'+(d<0?(-d)+(d===-1?' día tarde':' días tarde'):(d===0?'Hoy':d===1?'Mañana':fC(x.fecha).slice(0,5)))+'</span><span class="mf-tx">'+(cob?'💰 ':'💸 ')+es2(x.txt)+'</span><b class="mono '+(cob?'g':'')+'">'+(x.monto?clp(x.monto):'—')+'</b></div>';});
     h+='</div></div>';
     // 5. Año mes a mes
     if(per==='anio'){var y=mes.slice(0,4),fil='',mxA=1,fs=[];
@@ -10275,7 +10277,9 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
 #misFinBox .mf-bl b{font-family:'DM Mono',monospace;font-weight:500;white-space:nowrap;}
 #misFinBox .mf-bv{margin-top:auto;padding-top:10px;border:0;background:none;color:#4A3B30;font-weight:600;font-size:12.5px;cursor:pointer;text-align:left;font-family:inherit;}
 #misFinBox .mf-frase{font-size:13.5px;margin:0 0 10px;}
-#misFinBox .mf-bar3{grid-template-columns:130px 1fr 96px 38px;}
+#misFinBox .mf-bar.mf-bar3{grid-template-columns:130px 1fr 96px 38px;}
+#misFinBox .mf-hero~.mf-grid .mf-li{grid-template-columns:104px 1fr auto;}
+#misFinBox .mf-hero~.mf-grid .mf-d{white-space:nowrap;}
 #misFinBox .mf-bar3 em{font-style:normal;font-size:11px;color:var(--tx3);text-align:right;}
 #misFinBox .mf-bar i.w{background:#C0843A;}
 #misFinBox .mf-det{margin-top:10px;border-top:1px solid var(--s3);padding-top:8px;}
