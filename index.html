@@ -9774,7 +9774,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
   var FORMS={
     fin_movimientos:{t:'Movimiento',f:[['fecha','Fecha','date'],['tipo','Tipo','sel',TIPOS],['descripcion','Descripción','text'],['contraparte','Contraparte','text'],['categoria','Categoría','cat'],['ambito','Ámbito','sel',AMBS],['monto_clp','Monto en pesos','num'],['monto_usd','Monto en dólares','num'],['medio','Medio de pago','text'],['project_id','Proyecto','proj'],['notas','Notas','area']]},
     fin_deudas:{t:'Deuda',f:[['acreedor','Acreedor','text'],['concepto','Concepto','text'],['ambito','Ámbito','sel',AMBS],['monto','Monto adeudado','num'],['cuota','Cuota mensual','num'],['vencimiento','Vencimiento','date'],['estado','Estado','text'],['cerrada','Pagada o cerrada','chk'],['notas','Notas','area']]},
-    fin_fijos:{t:'Pago fijo',f:[['concepto','Concepto','text'],['proveedor','Proveedor','text'],['monto_clp','Monto en pesos','num'],['monto_usd','Monto en dólares','num'],['frecuencia','Frecuencia','sel',['Mensual','Anual','2–3 veces/mes','Otra']],['dia','Día de cobro','num'],['ambito','Ámbito','sel',AMBS],['medio','Medio de pago','text'],['activo','Activo','chk'],['notas','Notas','area']]},
+    fin_fijos:{t:'Pago fijo',f:[['concepto','Concepto','text'],['proveedor','Proveedor','text'],['monto_clp','Monto en pesos','num'],['monto_usd','Monto en dólares','num'],['frecuencia','Frecuencia','sel',['Mensual','Quincenal','Anual','2–3 veces/mes','Otra']],['dia','Día de pago (31 = último día del mes; quincenal: el 15 y fin de mes)','num'],['ambito','Ámbito','sel',AMBS],['medio','Medio de pago','text'],['categoria','Categoría del pago (para reconocerlo solo)','cat'],['patron','Texto que aparece en el pago (opcional, ej. farias)','text'],['activo','Activo','chk'],['notas','Notas','area']]},
     fin_comisiones:{t:'Comisión',f:[['proyecto','Proyecto','text'],['cliente','Cliente','text'],['proveedor','Proveedor','text'],['base_total','Total cotización del proveedor (con IVA)','num'],['tasa','Tasa (0,15 = 15%)','num'],['monto','Comisión (vacío = se calcula)','num'],['estado','Estado','sel',['Proyectada','Por confirmar','Facturada','Pagada','Anulada']],['fecha_esperada','Fecha esperada','date'],['factura','N° de factura','text'],['project_id','Proyecto en la app','proj'],['notas','Notas','area']]},
     fin_vencimientos:{t:'Vencimiento',f:[['fecha','Fecha','date'],['concepto','Concepto','text'],['tipo','Tipo','sel',['Pago','Por cobrar','Ahorro']],['monto','Monto','num'],['ambito','Ámbito','sel',AMBS],['estado','Estado','sel',['Pendiente','Pagado','Cobrado','Atrasado','Anulado']],['notas','Notas','area']]}
   };
@@ -9992,6 +9992,150 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
       if(d.libro==='Ventas'){if(d.codigo===39||d.codigo===41)sv.b+=n;else sv.f+=signo(d)*n;}else sv.c+=signo(d)*n;});
     return sv;}
   function lista3(obj,n){return Object.keys(obj).sort(function(a,b){return obj[b]-obj[a];}).slice(0,n);}
+  // ── Inicio: pagos de cada mes, alertas, resultado, deuda y cobros ──
+  var yaAb='';   // fila abierta de "Ya lo pagué": 'f:<id fijo>:<fecha>' o 'v:<id vencimiento>:<fecha>'
+  function p2s(n){return (n<10?'0':'')+n;}
+  function ultDia(y,m){return new Date(y,m,0).getDate();}
+  // Fechas de pago de un fijo entre dos fechas. Día 31 (o vacío) = último día del mes; quincenal = día 15 y fin de mes
+  function ciclos(f,desde,hasta){
+    if(f.frecuencia!=='Mensual'&&f.frecuencia!=='Quincenal')return [];
+    var ds=f.frecuencia==='Quincenal'?[Math.min(f.dia||15,27),31]:[f.dia||31],y=+desde.slice(0,4),m=+desde.slice(5,7),out=[];
+    for(var i=0;i<7;i++){ds.forEach(function(d){var fe=y+'-'+p2s(m)+'-'+p2s(Math.min(d,ultDia(y,m)));if(fe>=desde&&fe<=hasta)out.push(fe);});if(++m>12){m=1;y++;}}
+    return out;}
+  // Un movimiento es el pago de un fijo si tiene su categoría y (si lo tiene) su texto
+  function calzaFijo(f,m){
+    if((m.tipo!=='Gasto'&&m.tipo!=='Ahorro')||m.ambito!==f.ambito||(!f.categoria&&!f.patron))return false;
+    if(f.categoria&&m.categoria!==f.categoria)return false;
+    if(f.patron){var t=(String(m.descripcion||'')+' '+String(m.contraparte||'')).toLowerCase();
+      if(!String(f.patron).toLowerCase().split('|').some(function(p){p=p.trim();return p&&t.indexOf(p)>=0;}))return false;}
+    return true;}
+  function vFijo(f){return (Number(f.monto_clp)||0)+(Number(f.monto_usd)||0)*tc();}
+  function esperado(f){var v=vFijo(f);return f.frecuencia==='Quincenal'?Math.round(v/2):v;}
+  // Para cada fijo activo: sus fechas de pago cercanas, cuáles están pagadas, la próxima por pagar y el último pago
+  function estadoFijos(){
+    var h0=hoy(),desde=sumaDias(h0,-75).slice(0,7)+'-01',hasta=sumaDias(h0,70),usados={},out=[];
+    (D.fij||[]).filter(function(f){return f.activo&&(!amb||f.ambito===amb);}).forEach(function(f){
+      var q=f.frecuencia==='Quincenal',cs=ciclos(f,desde,hasta).map(function(fe){return {fecha:fe,pago:null};}),pre='fijo:'+f.id+':';
+      if(!cs.length)return;
+      (D.mov||[]).forEach(function(m){var r=String(m.ref_externa||'');if(r.indexOf(pre)!==0)return;var k=r.slice(pre.length);cs.forEach(function(c){if(c.fecha===k)c.pago=m;});usados[m.id]=1;});
+      var cand=(D.mov||[]).filter(function(m){return !usados[m.id]&&m.fecha>=sumaDias(desde,-10)&&calzaFijo(f,m);}).sort(function(a,b){return a.fecha<b.fecha?-1:a.fecha>b.fecha?1:a.id-b.id;});
+      cs.forEach(function(c){if(c.pago)return;var a=sumaDias(c.fecha,q?-5:-7),z=sumaDias(c.fecha,q?9:20);
+        for(var i=0;i<cand.length;i++){var m=cand[i];if(!usados[m.id]&&m.fecha>=a&&m.fecha<=z){c.pago=m;usados[m.id]=1;break;}}});
+      var lim=sumaDias(h0,-10),pag=cs.filter(function(c){return c.pago;});
+      out.push({f:f,cs:cs,prox:cs.filter(function(c){return !c.pago&&c.fecha>=lim;})[0]||null,ult:pag[pag.length-1]||null});
+    });
+    return out;}
+  function alertas(ef){
+    var a=[],hy=hoy();
+    if(amb!=='Personal')(D.f29||[]).filter(f29Mal).forEach(function(f){a.push({t:'F29 de '+MES(f.periodo)+' de '+nomEmp(f.empresa_rut)+': '+String(f.estado).toLowerCase(),v:'sii',g:1});});
+    (D.deu||[]).forEach(function(d){if(!d.cerrada&&d.vencimiento&&d.vencimiento<hy&&(!amb||d.ambito===amb))a.push({t:d.acreedor+' · '+d.concepto+': venció el '+fC(d.vencimiento),v:'deudas',g:1});});
+    (D.ven||[]).forEach(function(v){if((v.estado==='Pendiente'||v.estado==='Atrasado')&&v.fecha<hy&&v.tipo!=='Por cobrar'&&(!amb||v.ambito===amb))a.push({t:v.concepto+': venció el '+fC(v.fecha),v:'venc',g:1});});
+    ef.forEach(function(x){if(x.prox&&x.prox.fecha<hy)a.push({t:x.f.concepto+': vencía el '+fC(x.prox.fecha).slice(0,5)+' y no aparece pagado. Si ya lo pagaste, márcalo en "Pagos de cada mes".'});});
+    var n=(D.pre||[]).filter(function(p){return p.estado==='Abierta';}).length;
+    if(n)a.push({t:'Tienes '+n+(n===1?' pregunta':' preguntas')+' sin responder sobre tus cuentas',v:'preg'});
+    return a;}
+  // Estado de resultados simple del período: empresas (ventas del SII − costos) y personal (lo que te entra − lo que gastas)
+  function estRes(enP,sv,conSII){
+    var fila=function(l,v,c,t){return '<div class="mf-er'+(t?' t':'')+'"><span>'+l+'</span><b class="mono '+(c||'')+'">'+clp(v)+'</b></div>';},h='',tot=0;
+    if(amb!=='Personal'){
+      var e={v:0,c:0,s:0,i:0,o:0,ret:0},PROV={'Proveedores estudio':1,'Materiales e impresión':1},SUE={Sueldos:1,'Honorarios externos':1},IMP={Impuestos:1,'Previsión':1,'Convenios TGR':1};
+      enP.forEach(function(m){if(m.ambito!=='Estudio')return;var v=monto(m);
+        if(m.tipo==='Ingreso'){if(!conSII)e.v+=v;}
+        else if(m.tipo==='Retiro socio')e.ret+=v;
+        else if(m.tipo==='Gasto'){if(PROV[m.categoria]){if(!conSII)e.c+=v;}else if(SUE[m.categoria])e.s+=v;else if(IMP[m.categoria])e.i+=v;else e.o+=v;}});
+      if(conSII){e.v=sv.f+sv.b;e.c=sv.c;}
+      var r=e.v-e.c-e.s-e.i-e.o;tot+=amb?r:r-e.ret;
+      if(!amb)h+='<h4 class="mf-h4">Empresas</h4>';
+      h+=fila('Ventas netas'+(conSII?' según el SII':''),e.v,'g')+fila('− '+(conSII?'Compras con factura':'Compras y proveedores'),e.c)+fila('− Sueldos y honorarios',e.s)+fila('− Impuestos, previsión y convenios',e.i)+fila('− Otros gastos del estudio',e.o)
+        +fila('Ganó el estudio',r,r>=0?'g':'r',1)+fila('Retiraste a tu cuenta',e.ret,'b');
+      if(e.ret>0&&e.ret>r)h+='<p class="mf-erw">Retiraste '+clp(e.ret-r)+' más de lo que ganó el estudio. Esa diferencia sale de deuda, de impuestos por pagar o de plata de clientes.</p>';
+      else if(e.ret>0)h+='<p class="mf-erk">Tus retiros están dentro de lo que ganó el estudio.</p>';
+    }
+    if(amb!=='Estudio'){
+      var p={i:0,ret:0,g:0,a:0};
+      (D.mov||[]).forEach(function(m){if(!enPer(m.fecha))return;var v=monto(m);
+        if(m.tipo==='Retiro socio')p.ret+=v;else if(m.ambito!=='Personal')return;else if(m.tipo==='Ingreso')p.i+=v;else if(m.tipo==='Gasto')p.g+=v;else if(m.tipo==='Ahorro')p.a+=v;});
+      var q=p.i+p.ret-p.g-p.a;tot+=q;
+      if(!amb)h+='<h4 class="mf-h4">Personal</h4>';
+      h+=fila('Ingresos personales (arriendo del depto y otros)',p.i,'g')+fila('+ Lo que retiraste del estudio',p.ret,'g')+fila('− Gastos personales',p.g)+(p.a?fila('− Ahorro',p.a):'')+fila(q>=0?'Te quedó':'Gastaste más de lo que te entró',q,q>=0?'g':'r',1);
+    }
+    estRes.total=tot;
+    return h+'<p class="mf-hn">'+(conSII?'Las ventas y compras del estudio son netas, sin IVA. ':'')+'Solo suma lo anotado: si falta una cartola, este número cambia.</p>';
+  }
+  // Lo que te entra al mes, en promedio de los últimos 6 meses cerrados con datos
+  function ingresoProm(){
+    var y=+hoy().slice(0,4),m=+hoy().slice(5,7),ms=[];
+    for(var i=0;i<6;i++){if(--m<1){m=12;y--;}ms.push(y+'-'+p2s(m));}
+    var vs=ms.map(function(ym){var v=0;
+      if(amb==='Estudio')(D.sii||[]).forEach(function(d){if(d.libro==='Ventas'&&vale(d)&&fdoc(d).slice(0,7)===ym)v+=signo(d)*((Number(d.neto)||0)+(Number(d.exento)||0));});
+      else (D.mov||[]).forEach(function(x){if(String(x.fecha).slice(0,7)!==ym)return;if(x.tipo==='Retiro socio'||(x.tipo==='Ingreso'&&x.ambito==='Personal'))v+=monto(x);});
+      return v;}).filter(function(v){return v>0;});
+    return {v:vs.length?Math.round(vs.reduce(function(a,b){return a+b;},0)/vs.length):0,txt:'promedio de '+vs.length+(vs.length===1?' mes':' meses')+(amb==='Estudio'?' de ventas':' de ingresos personales y retiros')};}
+  function antig(){
+    var b={pv:0,sf:0,a30:0,a90:0,m90:0};
+    porCobrar().forEach(function(p){if(p.estado==='Finalizado')return;p.etapas.forEach(function(e){
+      if(!e.vence||!/^\d{4}-\d{2}-\d{2}$/.test(e.vence)){b.sf+=e.saldo;return;}
+      var d=enDias(e.vence);if(d>=0)b.pv+=e.saldo;else if(d>=-30)b.a30+=e.saldo;else if(d>=-90)b.a90+=e.saldo;else b.m90+=e.saldo;});});
+    return b;}
+  function lblDia(f){var d=enDias(f);return d<0?'Atrasado':d===0?'Hoy':d===1?'Mañana':fC(f).slice(0,5);}
+  function clsDia(f){var d=enDias(f);return d<0?'r':(d<=3?'w':'');}
+  function formYa(monto0){return '<div class="mf-yaf">¿Cuánto te salió? <input type="number" id="mfYaM" value="'+Math.round(monto0||0)+'"> el <input type="date" id="mfYaF" value="'+hoy()+'"><button class="btn prim" onclick="ebMF.yaOk()">Guardar</button><button class="btn" onclick="ebMF.ya(\'\')">Cancelar</button></div>';}
+  function vPagosMes(ef){
+    var hy=hoy(),lim=sumaDias(hy,30),h='';
+    var rows=ef.filter(function(x){return x.prox;}).sort(function(a,b){return a.prox.fecha<b.prox.fecha?-1:1;});
+    var porPagar=rows.filter(function(x){return x.prox.fecha<=lim;}).reduce(function(a,x){return a+esperado(x.f);},0);
+    var pagMes=0;ef.forEach(function(x){x.cs.forEach(function(c){if(c.pago&&String(c.pago.fecha).slice(0,7)===hy.slice(0,7))pagMes+=monto(c.pago);});});
+    h+='<p class="mf-mut">Por pagar en los próximos 30 días: <b>'+clp(porPagar)+'</b> · ya pagaste <b>'+clp(pagMes)+'</b> en pagos fijos este mes.</p>';
+    rows.forEach(function(x){var c=x.prox,u=x.ult,ex=esperado(x.f),key='f:'+x.f.id+':'+c.fecha,q=x.f.frecuencia==='Quincenal';
+      h+='<div class="mf-px"><span class="mf-d '+clsDia(c.fecha)+'">'+lblDia(c.fecha)+'</span><span class="mf-tx" onclick="ebMF.editar(\'fin_fijos\','+x.f.id+')"><b>'+es2(x.f.concepto)+'</b>'+(q?' <small>quincenal</small>':'')
+        +'<small class="mf-ok">'+(u?'✓ Último pago: '+fC(u.pago.fecha).slice(0,5)+' · '+(monto(u.pago)?clp(monto(u.pago)):'monto sin anotar'):'Sin pagos anotados aún')+'</small></span><b class="mono">'+(ex?clp(ex):'?')+'</b>'
+        +(yaAb===key?'':'<button class="btn mf-ya" onclick="ebMF.ya(\''+key+'\')">Ya lo pagué</button>')+'</div>';
+      if(yaAb===key)h+=formYa(ex);});
+    // Otros: vencimientos, cobros a clientes, cuotas de deudas que no son pagos fijos, y el F29 del mes
+    var ot=[];
+    (D.ven||[]).forEach(function(v){if((v.estado==='Pendiente'||v.estado==='Atrasado')&&v.fecha<=lim&&(!amb||v.ambito===amb))ot.push({fecha:v.fecha,txt:v.concepto,monto:v.monto,key:'v:'+v.id+':'+v.fecha,cob:v.tipo==='Por cobrar'});});
+    if(amb!=='Personal')porCobrar().forEach(function(p){if(p.estado==='Finalizado')return;p.etapas.forEach(function(e){if(e.vence&&/^\d{4}-\d{2}-\d{2}$/.test(e.vence)&&e.vence>=sumaDias(hy,-30)&&e.vence<=lim)ot.push({fecha:e.vence,txt:'Cobrar a '+(p.cliente||p.nombre)+' · '+e.item,monto:e.saldo,pid:p.pid,cob:1});});});
+    var exps=(D.fij||[]).filter(function(f){return f.activo;}).map(esperado);
+    (D.deu||[]).forEach(function(d){var c=Number(d.cuota)||0;if(d.cerrada||!d.vencimiento||d.vencimiento<hy||d.vencimiento>lim||(amb&&d.ambito!==amb))return;
+      if(c&&exps.some(function(v){return Math.abs(v-c)<=Math.max(500,c*0.02);}))return;ot.push({fecha:d.vencimiento,txt:d.acreedor+' · '+d.concepto,monto:c||d.monto,deu:d.id});});
+    if(amb!=='Personal'){var dd=+hy.slice(8,10),y=+hy.slice(0,4),m=+hy.slice(5,7),py=y,pm=m;
+      if(dd<=20){if(--pm<1){pm=12;py--;}}else{if(++m>12){m=1;y++;}}
+      var per=py+'-'+p2s(pm),fe=y+'-'+p2s(m)+'-20';
+      empresas().forEach(function(e){var f=(D.f29||[]).filter(function(x){return x.empresa_rut===e.rut&&x.periodo===per;})[0];
+        if(!f||/por declarar/i.test(f.estado||''))ot.push({fecha:fe,txt:'F29 de '+MES(per)+' · '+(e.corto||e.nombre),monto:null,sii:1});});}
+    if(ot.length){ot.sort(function(a,b){return a.fecha<b.fecha?-1:1;});
+      h+='<h4 class="mf-h4">Otros pagos y cobros con fecha</h4>';
+      ot.forEach(function(o){
+        var acc=o.key?(yaAb===o.key?'':'<button class="btn mf-ya" onclick="ebMF.ya(\''+o.key+'\')">'+(o.cob?'Ya me pagaron':'Ya lo pagué')+'</button>'):o.pid?'<button class="btn mf-ya" onclick="ebMF.abrir(\''+es2(o.pid)+'\')">Abrir</button>':o.sii?'<button class="btn mf-ya" onclick="ebMF.vista(\'sii\')">Ver</button>':'<button class="btn mf-ya" onclick="ebMF.editar(\'fin_deudas\','+o.deu+')">Ver</button>';
+        h+='<div class="mf-px"><span class="mf-d '+clsDia(o.fecha)+'">'+lblDia(o.fecha)+'</span><span class="mf-tx">'+(o.cob?'💰 ':'')+es2(o.txt)+'</span><b class="mono '+(o.cob?'g':'')+'">'+(o.monto?clp(o.monto):'—')+'</b>'+acc+'</div>';
+        if(o.key&&yaAb===o.key)h+=formYa(o.monto);});}
+    return h+'<button class="mf-bv" onclick="ebMF.vista(\'fijos\')">Ver y editar los pagos mensuales ›</button>';
+  }
+  // ── Revisión de cada año: qué falta para tenerlo en orden (se marca como revisado y queda guardado) ──
+  function revAnio(y){
+    var it=[],r=datosAnio(y),hy=hoy(),mf=[];
+    for(var i=1;i<=12;i++){var ym=y+'-'+p2s(i);if(ym>hy.slice(0,7)||ym<'2020-04')continue;
+      if(!(D.mov||[]).some(function(m){return String(m.fecha).slice(0,7)===ym&&!deApp(m)&&!/App \(tienda\)/.test(m.fuente||'');}))mf.push(ym);}
+    if(mf.length)it.push({k:'cartolas',txt:'Sin movimientos de tus bancos en '+(mf.length>=12?'todo el año':mf.map(function(x){return MES(x).slice(0,3);}).join(', ')),acc:'Descarga las cartolas de esos meses, déjalas en Descargas y pídele a Claude que las cargue.'});
+    var fm=(D.f29||[]).filter(function(f){return f.periodo.slice(0,4)===y&&f29Mal(f);});
+    if(fm.length)it.push({k:'f29',g:1,txt:'F29 con problemas: '+fm.map(function(f){return MES(f.periodo).split(' ')[0]+' ('+nomEmp(f.empresa_rut)+', '+String(f.estado).toLowerCase()+')';}).join('; '),acc:'Pregúntale a tu contadora cómo regularizarlos antes de que sumen multas e intereses.'});
+    var gE=0;Object.keys(r.eg).forEach(function(k){if(k!==PROV_TXT)gE+=r.eg[k];});var resE=r.vf+r.vb-r.cn-gE;
+    if(r.ret>0&&r.ret>resE)it.push({k:'retiros',g:1,txt:'Retiraste '+clp(r.ret)+' del estudio y ganó aprox. '+clp(resE),acc:'La diferencia salió de deuda, de impuestos sin pagar o de plata de clientes. Conviene fijarte un sueldo mensual.'});
+    if(r.vt>0&&r.ei<r.vt*0.6)it.push({k:'ventas',txt:'Tus bancos muestran '+clp(r.ei)+' entrando al estudio, pero cobraste '+clp(r.vt)+' según el SII',acc:'Faltan cartolas del estudio o hay cobros que entraron a otra cuenta.'});
+    var cv=0;porCobrar().forEach(function(p){if(p.estado==='Finalizado')return;p.etapas.forEach(function(e){if(e.vence&&String(e.vence).slice(0,4)===y&&e.vence<hy)cv+=e.saldo;});});
+    if(cv)it.push({k:'cobros',g:1,txt:clp(cv)+' en cobros a clientes que vencieron ese año y siguen sin pagar',acc:'<a href="javascript:void 0" onclick="ebMF.vista(\'cobrar\')">Ver quién me debe ›</a>'});
+    var sc=(D.mov||[]).filter(function(m){return String(m.fecha).slice(0,4)===y&&m.tipo==='Gasto'&&sinCat(m);}).length;
+    if(sc)it.push({k:'sincat',txt:sc+(sc===1?' gasto sin categoría':' gastos sin categoría'),acc:'<a href="javascript:void 0" onclick="ebMF.sinCat()">Categorizarlos ›</a>'});
+    var sm=(D.mov||[]).filter(function(m){return String(m.fecha).slice(0,4)===y&&!Number(m.monto_clp)&&!Number(m.monto_usd);}).length;
+    if(sm)it.push({k:'sinmonto',txt:sm+(sm===1?' movimiento sin monto':' movimientos sin monto'),acc:'Búscalos en Movimientos y anota cuánto fue.'});
+    if(y===hy.slice(0,4)){var n=(D.pre||[]).filter(function(p){return p.estado==='Abierta';}).length;if(n)it.push({k:'preg',txt:n+(n===1?' pregunta':' preguntas')+' de Claude sin responder',acc:'<a href="javascript:void 0" onclick="ebMF.vista(\'preg\')">Responder ›</a>'});}
+    var rv=(D.cfg&&D.cfg.revisiones)||{};it.forEach(function(x){x.ok=!!rv[y+'|'+x.k];});
+    return it;}
+  function revItems(y,it){
+    if(!it.length)return '<p class="mf-erk">✓ No encontré nada pendiente en '+y+'.</p>';
+    return it.map(function(x){return '<label class="mf-rv'+(x.ok?' ok':'')+(x.g&&!x.ok?' gr':'')+'"><input type="checkbox" onchange="ebMF.rev(\''+y+'|'+x.k+'\',this.checked)"'+(x.ok?' checked':'')+'><span><b>'+es2(x.txt)+'</b>'+(x.acc?'<small>'+x.acc+'</small>':'')+'</span></label>';}).join('');}
+  function revCard(y){var it=revAnio(y),pend=it.filter(function(x){return !x.ok;}).length;
+    return '<div class="mf-card"><h3>Revisión de '+y+(it.length?' · '+(pend?pend+' por revisar':'todo revisado'):'')+'</h3><p class="mf-mut">Lo que falta para tener '+y+' en orden. Marca cada punto cuando lo hayas revisado: queda guardado. Nada se borra; puedes volver a cualquier año.</p>'+revItems(y,it)+'</div>';}
   function vResumen(){
     var enP=(D.mov||[]).filter(function(m){return enPer(m.fecha)&&(!amb||m.ambito===amb);}), b=balance(enP);
     // El estudio se cuenta con el SII (ventas y compras netas, sin IVA), porque los bancos antiguos no están completos.
@@ -10008,53 +10152,53 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
       b.res=b.ing-b.gas-(amb==='Estudio'?b.ret:0);
     }
     var h='';
-    // 1. ¿Cuánto ganaste?
-    var top=lista3(b.porIng,4);
-    h+='<div class="mf-hero"><div class="mf-hq">¿Cuánto ganaste '+enEtiqueta()+'?</div><div class="mf-h3">'
-      +'<div><span>Entró</span><b class="g">'+clp(b.ing)+'</b><small>'+(top.length?top.map(function(k){return es2(k)+' '+clp(b.porIng[k]);}).join(' · '):'Sin ingresos anotados')+(amb==='Personal'&&b.ret?' · retiros del estudio '+clp(b.ret):'')+'</small></div>'
-      +'<div><span>Salió</span><b class="r">'+clp(b.gas)+'</b><small>'+(b.gas?'Gastos '+(amb==='Estudio'?'del estudio':amb==='Personal'?'personales':'personales y del estudio'):'Sin gastos anotados')+(b.aho?' · además ahorraste '+clp(b.aho):'')+'</small></div>'
-      +'<div class="mf-hres"><span>'+(b.res>=0?'Te quedó':'Gastaste más de lo que entró')+'</span><b class="'+(b.res>=0?'g':'r')+'">'+clp(b.res)+'</b><small>'+(amb==='Estudio'&&b.ret?'Ya descontados '+clp(b.ret)+' que retiraste a tu cuenta':(!amb&&b.ret?clp(b.ret)+' pasaron del estudio a tu cuenta (no se cuentan dos veces)':'Entró − salió'))+'</small></div>'
-      +'</div><p class="mf-hn">'+(conSII?'El estudio se cuenta con las ventas y compras del SII (sin IVA); lo personal, con lo anotado de tus bancos y correos.':'Solo suma lo que está anotado. Si falta una cartola o un pago fijo, este número cambia.')+'</p></div>';
-    // Ventas del estudio según el SII en el mismo período (aunque falten cartolas)
-    if(conSII)h+='<div class="mf-card mf-sii1"><b>Según el SII</b>, el estudio vendió <b class="g">'+clp(sv.f+sv.b)+'</b> neto '+enEtiqueta()+' ('+clp(sv.f)+' con factura'+(sv.b?' y '+clp(sv.b)+' con boleta de la tienda':'')+') y compró <b class="r">'+clp(sv.c)+'</b> con factura. <a href="javascript:void 0" onclick="ebMF.vista(\'anual\')">Ver resumen por año →</a></div>';
-    // 2. Debo · pago cada mes · me deben
+    // 1. Lo que necesita tu atención (multas, intereses, atrasos)
+    var ef=estadoFijos(),al=alertas(ef),er=estRes(enP,sv,conSII),res=estRes.total;
+    if(al.length)h+='<div class="mf-al"><b>'+(al.length===1?'1 cosa necesita tu atención':al.length+' cosas necesitan tu atención')+'</b><ul>'+al.map(function(a){return '<li class="'+(a.g?'gr':'')+'">'+es2(a.t)+(a.v?' <a href="javascript:void 0" onclick="ebMF.vista(\''+a.v+'\')">ver ›</a>':'')+'</li>';}).join('')+'</ul></div>';
+    // 2. Cuatro números
     var deu=(D.deu||[]).filter(function(d){return !d.cerrada&&(!amb||d.ambito===amb);}), totD=deu.reduce(function(a,d){return a+(Number(d.monto)||0);},0), cuo=deu.reduce(function(a,d){return a+(Number(d.cuota)||0);},0);
-    var fij=(D.fij||[]).filter(function(f){return f.activo&&(!amb||f.ambito===amb);}), mens=fij.filter(function(f){return f.frecuencia!=='Anual';});
-    var vF=function(f){return (Number(f.monto_clp)||0)+(Number(f.monto_usd)||0)*tc();}, totF=mens.reduce(function(a,f){return a+vF(f);},0), sinM=mens.filter(function(f){return !vF(f);}).length;
     var pc=porCobrar().filter(function(p){return p.estado!=='Finalizado';}), totC=amb==='Personal'?0:pc.reduce(function(a,p){return a+p.saldo;},0);
-    h+='<div class="mf-3">';
-    h+='<div class="mf-box mf-bw"><div class="mf-bt">💳 Lo que debes</div><b class="mf-bn">'+clp(totD)+'</b><div class="mf-bs">'+(cuo?'Pagas '+clp(cuo)+' al mes en cuotas':'Sin cuotas mensuales anotadas')+'</div>'
-      +deu.slice().sort(function(a,c){return (Number(c.monto)||0)-(Number(a.monto)||0);}).slice(0,4).map(function(d){return '<div class="mf-bl"><span>'+es2(d.acreedor)+'<small>'+es2(d.concepto||'')+'</small></span><b>'+(d.monto!=null?clp(d.monto):'—')+'</b></div>';}).join('')
-      +'<button class="mf-bv" onclick="ebMF.vista(\'deudas\')">Ver todo lo que debo ›</button></div>';
-    h+='<div class="mf-box"><div class="mf-bt">📅 Lo que pagas cada mes</div><b class="mf-bn">'+clp(totF)+'</b><div class="mf-bs">'+mens.length+' pagos fijos'+(sinM?' · '+sinM+' sin monto':'')+'</div>'
-      +mens.slice().sort(function(a,c){return vF(c)-vF(a);}).slice(0,5).map(function(f){return '<div class="mf-bl"><span>'+es2(f.concepto)+'<small>'+(f.dia?'día '+f.dia:es2(f.frecuencia))+'</small></span><b>'+(vF(f)?clp(vF(f)):'?')+'</b></div>';}).join('')
-      +'<button class="mf-bv" onclick="ebMF.vista(\'fijos\')">Ver todos los pagos mensuales ›</button></div>';
     var totCom=amb==='Personal'?0:comPend().reduce(function(a,c){return a+comMonto(c);},0);
-    h+='<div class="mf-box mf-bg"><div class="mf-bt">🤝 Lo que te deben</div><b class="mf-bn">'+clp(totC+totCom)+'</b><div class="mf-bs">Honorarios '+clp(totC)+(totCom?' · comisiones de proveedores '+clp(totCom)+' (proyectadas)':'')+'</div>'
-      +(amb==='Personal'?'':pc.slice(0,4).map(function(p){return '<div class="mf-bl"><span>'+es2(p.cliente||p.nombre)+'<small>'+es2(p.nombre)+'</small></span><b>'+clp(p.saldo)+'</b></div>';}).join(''))
-      +'<button class="mf-bv" onclick="ebMF.vista(\'cobrar\')">Ver quién me debe ›</button></div>';
-    h+='</div>';
-    // 3. ¿En qué se te va la plata?
+    var ip=ingresoProm(), pct=ip.v?Math.round(cuo/ip.v*100):null;
+    h+='<div class="mf-kpi mf-k4">'
+      +kpi('Resultado · '+tituloPer(),clp(res),res>=0?'g':'r',res>=0?'Entró más de lo que salió':'Salió más de lo que entró')
+      +kpi('Me deben',clp(totC+totCom),'g',totCom?'Incluye '+clp(totCom)+' en comisiones':'Honorarios por cobrar')
+      +kpi('Debo',clp(totD),'r',deu.length+' deudas abiertas')
+      +kpi('Pago en cuotas al mes',clp(cuo),pct==null?'':(pct<30?'g':pct<=40?'w':'r'),pct==null?'Cuotas de tus deudas':pct+'% de lo que te entra al mes',pct>40?'r':'')+'</div>';
+    // 3. Resultado del período · pagos de cada mes
+    h+='<div class="mf-grid"><div class="mf-card"><h3>Resultado '+etiqueta()+'</h3>'+er+'</div>';
+    h+='<div class="mf-card"><h3>Pagos de cada mes</h3>'+vPagosMes(ef)+'</div></div>';
+    // 4. Carga de deuda · me deben por antigüedad
+    h+='<div class="mf-grid"><div class="mf-card"><h3>Carga de deuda</h3>';
+    if(pct!=null)h+='<p class="mf-frase">Pagas <b>'+clp(cuo)+'</b> al mes en cuotas: el <b class="'+(pct<30?'g':pct<=40?'w':'r')+'">'+pct+'%</b> de lo que te entra en promedio ('+clp(ip.v)+', '+ip.txt+'). Lo sano es menos del 30%.</p><div class="mf-bar"><span>Cuotas / ingreso</span><div><i class="'+(pct<30?'':'w')+'" style="width:'+Math.min(100,pct)+'%"></i></div><b class="mono">'+pct+'%</b></div>';
+    else h+='<p class="mf-mut">Pagas '+clp(cuo)+' al mes en cuotas. Falta registrar tus ingresos para calcular cuánto pesa.</p>';
+    var ord=deu.filter(function(d){return Number(d.monto);}).sort(function(a,c){return (Number(c.monto)||0)-(Number(a.monto)||0);});
+    h+=ord.slice(0,6).map(function(d){return '<div class="mf-bl"><span>'+es2(d.acreedor)+'<small>'+es2(d.concepto||'')+(d.cuota?' · cuota '+clp(d.cuota):'')+'</small></span><b>'+clp(d.monto)+'</b></div>';}).join('');
+    var sinC=ord.filter(function(d){return !Number(d.cuota)&&/tarjeta/i.test(d.acreedor+' '+d.concepto);});
+    if(sinC.length)h+='<p class="mf-mut" style="margin-top:8px;">'+es2(sinC.map(function(d){return d.acreedor+' '+String(d.concepto||'').toLowerCase();}).slice(0,2).join(' y '))+(sinC.length>2?' y otras':'')+(sinC.length===1?' no tiene':' no tienen')+' cuota fija: si pagas solo el mínimo, es la deuda más cara que tienes.</p>';
+    h+='<button class="mf-bv" onclick="ebMF.vista(\'deudas\')">Ver todo lo que debo ›</button></div>';
+    h+='<div class="mf-card"><h3>Me deben, por antigüedad</h3>';
+    if(amb==='Personal')h+='<p class="mf-mut">Los cobros son del estudio. Elige "Todo" o "Estudio" para verlos.</p>';
+    else{var ag=antig(),filas=[['Por vencer',ag.pv,''],['Sin fecha de cobro',ag.sf,''],['Atrasado hasta 30 días',ag.a30,'w'],['Atrasado 31 a 90 días',ag.a90,'w'],['Atrasado más de 90 días',ag.m90,'r'],['Comisiones de proveedores (proyectadas)',totCom,'b']],mxg=Math.max.apply(null,filas.map(function(f){return f[1];}).concat([1]));
+      h+=filas.map(function(f){return '<div class="mf-bar mf-bar4"><span>'+f[0]+'</span><div><i class="'+f[2]+'" style="width:'+Math.round(f[1]/mxg*100)+'%"></i></div><b class="mono '+(f[1]&&f[2]==='r'?'r':'')+'">'+clp(f[1])+'</b></div>';}).join('');
+      if(ag.m90)h+='<p class="mf-mut" style="margin-top:6px;">Lo atrasado más de 90 días casi nunca se cobra solo: llama o escribe esta semana.</p>';}
+    h+='<button class="mf-bv" onclick="ebMF.vista(\'cobrar\')">Ver quién me debe ›</button></div></div>';
+    if(conSII)h+='<div class="mf-card mf-sii1"><b>Según el SII</b>, el estudio vendió <b class="g">'+clp(sv.f+sv.b)+'</b> neto '+enEtiqueta()+' ('+clp(sv.f)+' con factura o boleta de honorarios'+(sv.b?' y '+clp(sv.b)+' con boleta de la tienda':'')+') y compró <b class="r">'+clp(sv.c)+'</b> con factura. <a href="javascript:void 0" onclick="ebMF.vista(\'anual\')">Ver resumen por año →</a></div>';
+    // 5. ¿En qué se te va la plata?
     var gk=lista3(b.porGas,12), mx=gk.length?b.porGas[gk[0]]:1;
-    h+='<div class="mf-grid"><div class="mf-card"><h3>¿En qué se te fue la plata '+enEtiqueta()+'?</h3>';
+    h+='<div class="mf-card"><h3>¿En qué se te fue la plata '+enEtiqueta()+'?</h3>';
     if(!gk.length)h+='<p class="mf-mut">Sin gastos anotados en este período.</p>';
     else h+='<p class="mf-frase">Lo que más pesó fue <b>'+es2(gk[0])+'</b>: '+Math.round(b.porGas[gk[0]]/(b.gas||1)*100)+'% de tus gastos.</p>';
     gk.forEach(function(k){h+='<div class="mf-bar mf-bar3"><span>'+es2(k)+'</span><div><i style="width:'+Math.max(3,Math.round(b.porGas[k]/mx*100))+'%"'+(k==='Sin categoría'?' class="w"':'')+'></i></div><b class="mono">'+clp(b.porGas[k])+'</b><em>'+Math.round(b.porGas[k]/(b.gas||1)*100)+'%</em></div>';});
     if(gk.length)h+='<details class="mf-det"><summary>Ver el detalle de cada gasto</summary>'+['Personal','Estudio'].filter(function(a){return !amb||amb===a;}).map(function(a){var l=enP.filter(function(m){return m.tipo==='Gasto'&&m.ambito===a;});return l.length?'<h4 class="mf-h4">'+(a==='Personal'?'Personales':'Del estudio')+'</h4>'+arbol(l,a):'';}).join('')+'</details>';
     h+='</div>';
-    // 4. Lo que viene
-    var px=proximos(14);
-    h+='<div class="mf-card"><h3>Lo que viene en 14 días</h3>';
-    if(!px.length)h+='<p class="mf-mut">Nada que pagar ni cobrar en los próximos 14 días.</p>';
-    px.forEach(function(x){var d=enDias(x.fecha),cls=d<0?'r':(d<=3?'w':''),cob=x.tipo==='Por cobrar';
-      h+='<div class="mf-li"><span class="mf-d '+cls+'">'+(d<0?(-d)+(d===-1?' día tarde':' días tarde'):(d===0?'Hoy':d===1?'Mañana':fC(x.fecha).slice(0,5)))+'</span><span class="mf-tx">'+(cob?'💰 ':'💸 ')+es2(x.txt)+'</span><b class="mono '+(cob?'g':'')+'">'+(x.monto?clp(x.monto):'—')+'</b></div>';});
-    h+='</div></div>';
     // 5. Año mes a mes
     if(per==='anio'){var y=mes.slice(0,4),fil='',mxA=1,fs=[];
       for(var i=1;i<=12;i++){var ym=y+'-'+(i<10?'0':'')+i,l=(D.mov||[]).filter(function(m){return String(m.fecha).slice(0,7)===ym&&(!amb||m.ambito===amb);});
         if(!l.length)continue;var bb=balance(l);fs.push([ym,bb]);mxA=Math.max(mxA,bb.ing,bb.gas);}
       fs.forEach(function(f){var bb=f[1];fil+='<tr onclick="ebMF.irMes(\''+f[0]+'\')"><td>'+MES(f[0])+'</td><td><div class="mf-dual"><i class="g" style="width:'+Math.round(bb.ing/mxA*100)+'%"></i><i class="r" style="width:'+Math.round(bb.gas/mxA*100)+'%"></i></div></td><td class="mono mf-r g">'+clp(bb.ing)+'</td><td class="mono mf-r r">'+clp(bb.gas)+'</td><td class="mono mf-r '+(bb.res<0?'r':'g')+'">'+clp(bb.res)+'</td></tr>';});
       h+='<div class="mf-card mf-np"><h3 style="padding:10px 16px 0;">'+y+' mes a mes</h3>'+(fil?'<table class="mf-t"><thead><tr><th>Mes</th><th style="width:30%"></th><th class="mf-r">Entró</th><th class="mf-r">Salió</th><th class="mf-r">Quedó</th></tr></thead><tbody>'+fil+'</tbody></table><p class="mf-mut" style="padding:8px 16px 0;">Toca un mes para verlo en detalle.</p>':'<p class="mf-mut" style="padding:0 16px;">Sin movimientos ese año.</p>')+'</div>';}
+    if(per==='anio')h+=revCard(mes.slice(0,4));
     h+='<p class="mf-mut" style="margin-top:4px;">Dólares convertidos a <input type="number" class="mf-tc" value="'+tc()+'" onchange="ebMF.tc(this.value)"> pesos.</p>';
     return h;
   }
@@ -10149,6 +10293,8 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     function sec(t){return '<tr class="mf-sec"><td colspan="'+(Y.length+2)+'">'+t+'</td></tr>';}
     var gE={},gP={};Y.forEach(function(y){Object.keys(R[y].eg).forEach(function(k){gE[k]=1;});Object.keys(R[y].pg).forEach(function(k){gP[k]=1;});});
     var h='<p class="mf-mut">Todo lo que ha movido el estudio y tú, año por año. Las ventas, compras e IVA del estudio salen del SII (completos desde abril 2020). Sueldos, retiros y gastos personales salen de tus bancos y correos: antes de 2024 hay pocos registros, así que esos años se ven incompletos.</p>';
+    h+='<div class="mf-card"><h3>Qué falta revisar de cada año</h3><p class="mf-mut">Nada se borra: aquí ves qué le falta a cada año para quedar en orden. Marca cada punto cuando lo hayas revisado.</p>'+Y.slice().reverse().map(function(y){var it=revAnio(y),p=it.filter(function(x){return !x.ok;}).length,k='rev|'+y;
+      return '<details class="mf-g mf-ry"'+(abiertos[k]?' open':'')+' data-k="'+k+'" ontoggle="ebMF.tg(this)"><summary><span class="mf-gn">'+y+'</span><span class="'+(p?'w':'g')+'">'+(it.length?(p?p+' por revisar':'✓ todo revisado'):'✓ en orden')+'</span></summary>'+revItems(y,it)+'</details>';}).join('')+'</div>';
     h+='<div class="mf-card mf-np"><table class="mf-t mf-anual"><thead><tr><th></th>'+Y.map(function(y){return '<th class="mf-r">'+y+'</th>';}).join('')+'<th class="mf-r">Total</th></tr></thead><tbody>';
     h+=sec('EMPRESAS · ventas (SII)');
     h+=fila('<b>Ventas netas</b> (sin IVA)',function(r){return r.vf+r.vb;},'g');
@@ -10378,6 +10524,23 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     editar:function(tabla,id){var r=buscarFila(tabla,id);if(r)abrirEditor(tabla,r);},
     cerrar:cerrar, guardar:guardar, borrar:borrar,
     abrir:function(pid){try{openProject(pid);}catch(e){}},
+    // "Ya lo pagué": anota el pago con el monto real (pago fijo o vencimiento)
+    ya:function(k){yaAb=k||'';pintar();if(yaAb)setTimeout(function(){var el=document.getElementById('mfYaM');if(el){el.focus();el.select();}},30);},
+    yaOk:function(){var p=yaAb.split(':'),kind=p[0],id=Number(p[1]),fe=p[2];
+      var M=Number((document.getElementById('mfYaM')||{}).value),F=(document.getElementById('mfYaF')||{}).value||hoy();
+      if(!M){alert('Escribe cuánto pagaste.');return;}
+      var post=function(body){return fetch(SB+'/rest/v1/fin_movimientos',{method:'POST',headers:Object.assign({},H,{Prefer:'return=minimal'}),body:JSON.stringify(body)}).then(function(x){if(!x.ok)return x.text().then(function(t){throw new Error(t);});});},pr;
+      if(kind==='f'){var f=buscarFila('fin_fijos',id);if(!f)return;var q=f.frecuencia==='Quincenal';
+        pr=post({fecha:F,descripcion:f.concepto+' · '+(q?(+fe.slice(8,10)<=15?'1ª':'2ª')+' quincena de ':'')+MES(fe.slice(0,7)),contraparte:f.proveedor||f.concepto,tipo:/ahorro/i.test(f.categoria||'')?'Ahorro':'Gasto',categoria:f.categoria||'Otro',ambito:f.ambito,monto_clp:M,medio:f.medio||null,fuente:'Manual',ref_externa:'fijo:'+id+':'+fe})
+          .then(function(){var nv=q?M*2:M;if(f.monto_usd==null&&Math.abs(nv-(Number(f.monto_clp)||0))>1)return patch('fin_fijos',id,{monto_clp:nv});});}
+      else{var v=buscarFila('fin_vencimientos',id);if(!v)return;var cob=v.tipo==='Por cobrar';
+        pr=post({fecha:F,descripcion:v.concepto,contraparte:v.concepto,tipo:cob?'Ingreso':(v.tipo==='Ahorro'?'Ahorro':'Gasto'),categoria:'Otro',ambito:v.ambito,monto_clp:M,project_id:v.project_id||null,fuente:'App (ya lo pagué)',ref_externa:'venc:'+id})
+          .then(function(){return patch('fin_vencimientos',id,{estado:cob?'Cobrado':'Pagado',monto:M});});}
+      pr.then(function(){yaAb='';aviso('Anotado: '+clp(M));return recargar();}).catch(function(e){alert('No se pudo anotar el pago: '+(e&&e.message||e));});},
+    rev:function(k,v){var o=Object.assign({},(D.cfg&&D.cfg.revisiones)||{});if(v)o[k]=hoy();else delete o[k];
+      fetch(SB+'/rest/v1/fin_config?on_conflict=clave',{method:'POST',headers:Object.assign({},H,{Prefer:'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify({clave:'revisiones',valor:o})})
+        .then(function(x){if(!x.ok)throw 0;D.cfg.revisiones=o;pintar();aviso(v?'Marcado como revisado':'Vuelve a quedar por revisar');}).catch(function(){alert('No se pudo guardar.');pintar();});},
+    sinCat:function(){fCat='__sin';fQ='';vista='mov';pintar();},
     estadoVenc:function(id,est){patch('fin_vencimientos',id,{estado:est}).then(function(){aviso('Vencimiento: '+est);return recargar();}).catch(function(){alert('No se pudo guardar el estado.');pintar();});},
     responder:function(id){var el=document.getElementById('mfq'+id);if(!el)return;var txt=el.value.trim();
       patch('fin_preguntas',id,{respuesta:txt,estado:txt?'Respondida':'Abierta'}).then(function(){aviso('Respuesta guardada');return recargar();}).catch(function(){alert('No se pudo guardar la respuesta.');});},
@@ -10491,6 +10654,39 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
 #misFinBox .mf-anual tr.mf-sub2 td{font-size:11.5px;color:var(--tx3);}
 #misFinBox .mf-anual tr.mf-sub2 td:first-child{padding-left:22px;}
 #misFinBox .mf-chip.mf-chr{background:var(--dnl);color:var(--dn);}
+/* Inicio: alertas, 4 números, resultado, pagos de cada mes, revisión del año */
+#misFinBox .mf-al{background:var(--dnl);border:1px solid #E9C3BC;border-radius:12px;padding:11px 16px;margin-bottom:14px;font-size:13px;color:var(--dn);}
+#misFinBox .mf-al ul{margin:6px 0 0;padding-left:18px;color:var(--tx2);}
+#misFinBox .mf-al li{margin:2px 0;} #misFinBox .mf-al li.gr{color:var(--dn);}
+#misFinBox .mf-al a{color:var(--dn);font-weight:600;text-decoration:none;}
+#misFinBox .mf-k4{grid-template-columns:repeat(4,minmax(0,1fr));}
+@media(max-width:900px){#misFinBox .mf-k4{grid-template-columns:repeat(2,minmax(0,1fr));}}
+#misFinBox .mf-k small.g{color:var(--ac);} #misFinBox .mf-k small.w{color:var(--wn);}
+#misFinBox .mf-er{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--s3);font-size:13px;}
+#misFinBox .mf-er span{color:var(--tx2);} #misFinBox .mf-er b{font-weight:500;white-space:nowrap;}
+#misFinBox .mf-er.t{border-bottom:2px solid var(--bd);} #misFinBox .mf-er.t span{color:var(--tx);font-weight:600;} #misFinBox .mf-er.t b{font-size:15px;}
+#misFinBox .mf-erw{font-size:12.5px;color:var(--wn);background:var(--wnl);border-radius:8px;padding:7px 10px;margin:8px 0 0;}
+#misFinBox .mf-erk{font-size:12.5px;color:var(--ac);margin:8px 0 0;}
+#misFinBox .mf-px{display:grid;grid-template-columns:70px 1fr auto auto;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--s3);font-size:13px;}
+#misFinBox .mf-px .mf-tx{cursor:pointer;min-width:0;}
+#misFinBox .mf-px .mf-tx small{display:block;font-size:11px;color:var(--tx3);margin:1px 0 0;}
+#misFinBox .mf-px .mf-tx small.mf-ok{color:var(--ac);}
+#misFinBox .mf-px>b{font-weight:500;white-space:nowrap;}
+#misFinBox .mf-px .mf-d.r{color:var(--dn);font-weight:600;} #misFinBox .mf-px .mf-d.w{color:var(--wn);font-weight:600;}
+#misFinBox .mf-ya{height:28px;padding:0 10px;font-size:12px;white-space:nowrap;}
+#misFinBox .mf-yaf{display:flex;flex-wrap:wrap;gap:6px;align-items:center;background:var(--s2);border-radius:8px;padding:8px 10px;margin:4px 0 6px;font-size:12.5px;}
+#misFinBox .mf-yaf input{height:30px;border:1px solid var(--bd);border-radius:6px;padding:0 8px;font-family:inherit;font-size:13px;background:#fff;}
+#misFinBox .mf-yaf input[type=number]{width:120px;}
+#misFinBox .mf-yaf .btn{height:30px;}
+#misFinBox .mf-bar.mf-bar4{grid-template-columns:190px 1fr 100px;}
+#misFinBox .mf-bar i.r{background:#B4483C;} #misFinBox .mf-bar i.b{background:#3B6A9A;}
+#misFinBox .mf-rv{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--s3);font-size:13px;cursor:pointer;}
+#misFinBox .mf-rv input{margin-top:3px;}
+#misFinBox .mf-rv small{display:block;font-size:11.5px;color:var(--tx3);margin-top:2px;}
+#misFinBox .mf-rv small a{color:#4A3B30;font-weight:600;text-decoration:none;}
+#misFinBox .mf-rv.gr b{color:var(--dn);} #misFinBox .mf-rv.ok b{text-decoration:line-through;color:var(--tx3);font-weight:500;}
+#misFinBox .mf-ry>summary{grid-template-columns:90px 1fr;}
+#misFinBox .mf-ry{padding-bottom:4px;}
 #misFinBox .mf-per{margin:-6px 0 8px;font-size:12px;color:var(--tx3);}
 #misFinBox .mf-k small{display:block;font-size:11px;color:var(--tx3);margin-top:3px;}
 #misFinBox .mf-k small.r{color:var(--dn);}
