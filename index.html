@@ -9833,7 +9833,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
       q('projects?select=id,name,client,status'),
       q('fin_categorias?select=*&order=orden'),
       q('fin_reglas?select=*&order=prioridad.desc,id.desc'),
-      qTodo('fin_sii_docs?select=id,libro,codigo,tipo,folio,fecha,periodo,rut,razon_social,neto,exento,iva,total,estado,referencia&order=fecha.desc,folio.desc,id'),
+      qTodo('fin_sii_docs?select=id,empresa_rut,libro,codigo,tipo,folio,fecha,periodo,rut,razon_social,neto,exento,iva,otros,total,estado,referencia&order=fecha.desc,folio.desc,id'),
       q('fin_sii_f29?select=*&order=periodo.desc')
     ]).then(function(x){
       var cfg={};(x[5]||[]).forEach(function(c){cfg[c.clave]=c.valor;});
@@ -10114,9 +10114,10 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
   var PROV_TXT='Pagos a proveedores (bancos; ya están en compras)';
   var GE={'Proveedores estudio':PROV_TXT,'Materiales e impresión':PROV_TXT,Sueldos:'Sueldos y honorarios','Honorarios externos':'Sueldos y honorarios',Impuestos:'Impuestos y previsión (pagos registrados)','Previsión':'Impuestos y previsión (pagos registrados)','Convenios TGR':'Impuestos y previsión (pagos registrados)'};
   function datosAnio(y){
-    var r={vf:0,vb:0,vt:0,ivaD:0,cn:0,ivaC:0,f29:0,nf29:0,ret:0,eg:{},ei:0,pi:0,pg:{},n:0,ns:0};
+    var r={vf:0,vb:0,vt:0,ivaD:0,cn:0,ivaC:0,f29:0,nf29:0,ret:0,eg:{},ei:0,pi:0,pg:{},n:0,ns:0,ve:{},bh:0};
     (D.sii||[]).forEach(function(d){if(String(d.periodo||d.fecha||'').slice(0,4)!==y||!vale(d))return;r.ns++;var s=signo(d),n=(Number(d.neto)||0)+(Number(d.exento)||0);
-      if(d.libro==='Ventas'){if(d.codigo===39||d.codigo===41)r.vb+=n;else r.vf+=s*n;r.vt+=s*(Number(d.total)||0);r.ivaD+=s*(Number(d.iva)||0);}
+      if(d.libro==='Ventas'){if(d.codigo===39||d.codigo===41)r.vb+=n;else r.vf+=s*n;r.vt+=s*(esBHE(d)?n:(Number(d.total)||0));r.ivaD+=s*(Number(d.iva)||0);
+        r.ve[d.empresa_rut]=(r.ve[d.empresa_rut]||0)+s*n;if(esBHE(d))r.bh+=Number(d.otros)||0;}
       else{r.cn+=s*n;r.ivaC+=s*(Number(d.iva)||0);}});
     (D.f29||[]).forEach(function(f){if(f.periodo.slice(0,4)===y){r.f29+=Number(f.total_pagado)||0;r.nf29++;}});
     (D.mov||[]).forEach(function(m){if(String(m.fecha).slice(0,4)!==y)return;r.n++;var v=monto(m);
@@ -10136,11 +10137,13 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     var gE={},gP={};Y.forEach(function(y){Object.keys(R[y].eg).forEach(function(k){gE[k]=1;});Object.keys(R[y].pg).forEach(function(k){gP[k]=1;});});
     var h='<p class="mf-mut">Todo lo que ha movido el estudio y tú, año por año. Las ventas, compras e IVA del estudio salen del SII (completos desde abril 2020). Sueldos, retiros y gastos personales salen de tus bancos y correos: antes de 2024 hay pocos registros, así que esos años se ven incompletos.</p>';
     h+='<div class="mf-card mf-np"><table class="mf-t mf-anual"><thead><tr><th></th>'+Y.map(function(y){return '<th class="mf-r">'+y+'</th>';}).join('')+'<th class="mf-r">Total</th></tr></thead><tbody>';
-    h+=sec('ESTUDIO BIANCO SPA · ventas (SII)');
+    h+=sec('EMPRESAS · ventas (SII)');
     h+=fila('<b>Ventas netas</b> (sin IVA)',function(r){return r.vf+r.vb;},'g');
-    h+=fila('· con factura (menos notas de crédito)',function(r){return r.vf;},'',1);
+    if(empresas().length>1)empresas().forEach(function(e){h+=fila('· '+es2(e.corto||e.nombre),function(r){return r.ve[e.rut]||0;},'',1);});
+    h+=fila('· con factura o boleta de honorarios (menos notas de crédito)',function(r){return r.vf;},'',1);
     h+=fila('· con boleta (tienda)',function(r){return r.vb;},'',1);
     h+=fila('Total cobrado a clientes (con IVA)',function(r){return r.vt;});
+    h+=fila('· retenciones de boletas de honorarios',function(r){return r.bh;},'',1);
     h+=sec('ESTUDIO · gastos');
     h+=fila('Compras con factura (neto, SII)',function(r){return r.cn;},'r');
     h+=fila('IVA y PPM pagados en F29 (informativo)',function(r){return r.f29;},'',1);
@@ -10160,7 +10163,11 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     return h;
   }
   // ── Empresa (SII): documentos tributarios del RCV y declaraciones F29 de Estudio Bianco SpA ──
-  var siiAnio='', siiLibro='Ventas', siiQ='';
+  var siiAnio='', siiLibro='Ventas', siiQ='', siiEmp='';
+  // Empresas (fin_config 'empresas'): Estudio Bianco SpA y la sociedad de servicios profesionales
+  function empresas(){var e=(D&&D.cfg&&D.cfg.empresas)||[{rut:'77139753-0',nombre:'Estudio Bianco SpA',corto:'SpA'}];return Array.isArray(e)?e:[];}
+  function nomEmp(r){var e=empresas().filter(function(x){return x.rut===r;})[0];return e?(e.corto||e.nombre):r;}
+  function esBHE(d){return d.codigo===71;}
   function signo(d){return d.codigo===61?-1:1;}               // nota de crédito resta
   // Para sumar: la factura anulada se cuenta y su nota de crédito la resta (queda en cero); lo rechazado no se cuenta
   function vale(d){return d.estado!=='Rechazada';}
@@ -10173,7 +10180,14 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     return c[0]||null;
   }
   function vSii(){
-    var docs=D.sii||[],f29=D.f29||[];
+    var emps=empresas(),conDatos=emps.filter(function(e){return (D.sii||[]).some(function(d){return d.empresa_rut===e.rut;})||(D.f29||[]).some(function(f){return f.empresa_rut===e.rut;});});
+    if(!siiEmp)siiEmp=(conDatos[conDatos.length-1]||emps[0]||{}).rut||'';
+    var selE='<div class="mf-seg mf-emp">'+emps.map(function(e){return '<button class="'+(siiEmp===e.rut?'on':'')+'" onclick="ebMF.siiEmp(\''+e.rut+'\')" title="'+es2(e.nombre)+' · '+e.rut+'">'+es2(e.corto||e.nombre)+'</button>';}).join('')+'</div>';
+    var docs=(D.sii||[]).filter(function(d){return d.empresa_rut===siiEmp;}),f29=(D.f29||[]).filter(function(f){return f.empresa_rut===siiEmp;});
+    if(!docs.length&&!f29.length)return selE+'<div class="mf-card"><p class="mf-mut">Todavía no hay datos del SII de esta empresa.</p></div>';
+    return selE+vSiiEmp(docs,f29);
+  }
+  function vSiiEmp(docs,f29){
     if(!docs.length&&!f29.length)return '<div class="mf-card"><p class="mf-mut">Todavía no hay datos del SII. Claude los carga desde tu Mi SII (Registro de Compras y Ventas y F29).</p></div>';
     var anios={};docs.forEach(function(d){if(d.fecha)anios[String(d.fecha).slice(0,4)]=1;});f29.forEach(function(f){anios[f.periodo.slice(0,4)]=1;});
     var ys=Object.keys(anios).sort().reverse();if(!siiAnio||!anios[siiAnio])siiAnio=ys[0];
@@ -10184,7 +10198,8 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
       if(d.libro==='Ventas'){k.vn+=s*n;k.vi+=s*i;if(d.codigo===61)k.nc++;else k.fac++;}else{k.cn+=s*n;k.ci+=s*i;}});
     var fy=f29.filter(function(f){return f.periodo.slice(0,4)===siiAnio;}),pag=fy.reduce(function(a,f){return a+(Number(f.total_pagado)||0);},0);
     var imp=fy.filter(function(f){return /impag|girad|observ|pend/i.test(f.estado||'');});
-    var h='<div class="mf-bar2"><span class="mf-mut">Estudio Bianco SpA · datos del SII (Registro de Compras y Ventas y F29)</span><select onchange="ebMF.siiAnio(this.value)">'+ys.map(function(y){return '<option'+(y===siiAnio?' selected':'')+'>'+y+'</option>';}).join('')+'</select></div>';
+    var nBHE=dy.filter(function(d){return esBHE(d)&&d.libro==='Ventas'&&vale(d);}),ret=nBHE.reduce(function(a,d){return a+(Number(d.otros)||0);},0);
+    var h='<div class="mf-bar2"><span class="mf-mut">'+es2((empresas().filter(function(e){return e.rut===siiEmp;})[0]||{}).nombre||'')+' · '+siiEmp+' · datos del SII'+(nBHE.length?' · '+nBHE.length+' boletas de honorarios '+siiAnio+', retención '+clp(ret):'')+'</span><select onchange="ebMF.siiAnio(this.value)">'+ys.map(function(y){return '<option'+(y===siiAnio?' selected':'')+'>'+y+'</option>';}).join('')+'</select></div>';
     h+='<div class="mf-kpi">'+kpi('Ventas con factura '+siiAnio,clp(k.vn-k.vb),'g','neto, menos notas de crédito'+(k.an?' · '+k.an+' anuladas':''))
       +kpi('Ventas con boleta '+siiAnio,clp(k.vb),k.vb?'g':'','neto · resumen mensual del SII')
       +kpi('IVA de ventas (débito)',clp(k.vi),'')+kpi('Compras netas',clp(k.cn),'r')+kpi('IVA de compras (crédito)',clp(k.ci),'')
@@ -10200,7 +10215,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     h+='<div class="mf-card mf-np"><table class="mf-t"><thead><tr><th>Fecha</th><th>Documento</th><th>'+(siiLibro==='Ventas'?'Cliente':'Proveedor')+'</th><th class="mf-r">Neto</th><th class="mf-r">IVA</th><th class="mf-r">Total</th><th>Estado</th>'+(siiLibro==='Ventas'?'<th>Pago</th>':'')+'</tr></thead><tbody>';
     h+=l.map(function(d){var an=anulado(d),c=siiLibro==='Ventas'&&!an?cobro(d):null;
       return '<tr class="'+(an?'mf-old':'')+'" style="cursor:default;"><td class="mono">'+fC(d.fecha)+'</td><td>'+es2(d.tipo||('Cód. '+d.codigo))+' <b>N° '+es2(d.folio)+'</b>'+(d.referencia?'<div class="mf-sub">Ref: '+es2(d.referencia)+'</div>':'')+'</td><td>'+es2(d.razon_social)+'<div class="mf-sub">'+es2(d.rut)+'</div></td>'
-        +'<td class="mono mf-r">'+clp(signo(d)*(Number(d.neto)||0)+(Number(d.exento)||0)*signo(d))+'</td><td class="mono mf-r">'+clp(signo(d)*(Number(d.iva)||0))+'</td><td class="mono mf-r"><b>'+clp(signo(d)*(Number(d.total)||0))+'</b></td>'
+        +'<td class="mono mf-r">'+clp(signo(d)*(Number(d.neto)||0)+(Number(d.exento)||0)*signo(d))+'</td><td class="mono mf-r">'+(esBHE(d)?'<small class="mf-sub">ret.</small> '+clp(Number(d.otros)||0):clp(signo(d)*(Number(d.iva)||0)))+'</td><td class="mono mf-r"><b>'+clp(signo(d)*(Number(d.total)||0))+'</b></td>'
         +'<td><span class="mf-chip'+(an?' mf-chr':'')+'">'+es2(d.estado)+'</span></td>'
         +(siiLibro==='Ventas'?'<td class="mf-sub">'+(d.codigo===61||an?'—':c?'<span class="g">✓ '+fC(c.fecha)+'</span><div>'+es2(c.contraparte||'')+'</div>':'<span class="w">sin pago encontrado</span>')+'</td>':'')+'</tr>';}).join('')||'<tr><td colspan="8" class="mf-mut">Sin documentos.</td></tr>';
     h+='</tbody></table></div><p class="mf-mut">"Pago" busca entre tus ingresos del estudio uno de monto parecido (total, neto o con 5% de descuento) hasta 4 meses después. Es una ayuda: confírmalo antes de cobrar.</p>';
@@ -10342,6 +10357,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     cerradas:function(v){verCerradas=v;pintar();},
     recargar:function(){D=null;pintar();recargar();},
     siiAnio:function(v){siiAnio=v;pintar();},
+    siiEmp:function(v){siiEmp=v;siiAnio='';pintar();},
     siiLibro:function(v){siiLibro=v;pintar();},
     siiBuscar:function(v){siiQ=v||'';pintar();},
     nuevo:function(tabla){var r={};if(tabla==='fin_movimientos'){r={fecha:hoy(),tipo:'Gasto',categoria:'Otro',ambito:'Personal'};}else if(tabla==='fin_vencimientos'){r={fecha:hoy(),tipo:'Pago',estado:'Pendiente',ambito:'Personal'};}else if(tabla==='fin_fijos'){r={frecuencia:'Mensual',activo:true,ambito:'Personal'};}else r={ambito:'Personal',estado:'Pendiente'};abrirEditor(tabla,r);},
@@ -10453,6 +10469,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
 #misFinBox .mf-pcr b{font-size:17px;}
 #misFinBox .mf-q textarea{width:100%;box-sizing:border-box;border:1px solid var(--bd);border-radius:6px;padding:8px;font-family:inherit;font-size:13px;}
 #misFinBox .mf-tc{width:70px;height:24px;border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-family:inherit;}
+#misFinBox .mf-emp{margin-bottom:12px;}
 #misFinBox .mf-sii1{font-size:13px;background:var(--inl);border-color:#C9DAEC;}
 #misFinBox .mf-sii1 a{color:var(--in);font-weight:600;text-decoration:none;margin-left:6px;}
 #misFinBox .mf-anual td:first-child{white-space:nowrap;min-width:220px;}
