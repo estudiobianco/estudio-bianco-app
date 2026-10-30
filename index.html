@@ -9775,6 +9775,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     fin_movimientos:{t:'Movimiento',f:[['fecha','Fecha','date'],['tipo','Tipo','sel',TIPOS],['descripcion','Descripción','text'],['contraparte','Contraparte','text'],['categoria','Categoría','cat'],['ambito','Ámbito','sel',AMBS],['monto_clp','Monto en pesos','num'],['monto_usd','Monto en dólares','num'],['medio','Medio de pago','text'],['project_id','Proyecto','proj'],['notas','Notas','area']]},
     fin_deudas:{t:'Deuda',f:[['acreedor','Acreedor','text'],['concepto','Concepto','text'],['ambito','Ámbito','sel',AMBS],['monto','Monto adeudado','num'],['cuota','Cuota mensual','num'],['vencimiento','Vencimiento','date'],['estado','Estado','text'],['cerrada','Pagada o cerrada','chk'],['notas','Notas','area']]},
     fin_fijos:{t:'Pago fijo',f:[['concepto','Concepto','text'],['proveedor','Proveedor','text'],['monto_clp','Monto en pesos','num'],['monto_usd','Monto en dólares','num'],['frecuencia','Frecuencia','sel',['Mensual','Anual','2–3 veces/mes','Otra']],['dia','Día de cobro','num'],['ambito','Ámbito','sel',AMBS],['medio','Medio de pago','text'],['activo','Activo','chk'],['notas','Notas','area']]},
+    fin_comisiones:{t:'Comisión',f:[['proyecto','Proyecto','text'],['cliente','Cliente','text'],['proveedor','Proveedor','text'],['base_total','Total cotización del proveedor (con IVA)','num'],['tasa','Tasa (0,15 = 15%)','num'],['monto','Comisión (vacío = se calcula)','num'],['estado','Estado','sel',['Proyectada','Por confirmar','Facturada','Pagada','Anulada']],['fecha_esperada','Fecha esperada','date'],['factura','N° de factura','text'],['project_id','Proyecto en la app','proj'],['notas','Notas','area']]},
     fin_vencimientos:{t:'Vencimiento',f:[['fecha','Fecha','date'],['concepto','Concepto','text'],['tipo','Tipo','sel',['Pago','Por cobrar','Ahorro']],['monto','Monto','num'],['ambito','Ámbito','sel',AMBS],['estado','Estado','sel',['Pendiente','Pagado','Cobrado','Atrasado','Anulado']],['notas','Notas','area']]}
   };
 
@@ -9834,10 +9835,11 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
       q('fin_categorias?select=*&order=orden'),
       q('fin_reglas?select=*&order=prioridad.desc,id.desc'),
       qTodo('fin_sii_docs?select=id,empresa_rut,libro,codigo,tipo,folio,fecha,periodo,rut,razon_social,neto,exento,iva,otros,total,estado,referencia&order=fecha.desc,folio.desc,id'),
-      q('fin_sii_f29?select=*&order=periodo.desc')
+      q('fin_sii_f29?select=*&order=periodo.desc'),
+      q('fin_comisiones?select=*&order=estado,fecha_esperada.nullslast,id')
     ]).then(function(x){
       var cfg={};(x[5]||[]).forEach(function(c){cfg[c.clave]=c.valor;});
-      D={mov:x[0],deu:x[1],fij:x[2],ven:x[3],pre:x[4],cfg:cfg,hon:x[6],proj:x[7],cat:x[8],reg:x[9],sii:x[10]||[],f29:x[11]||[]};error='';
+      D={mov:x[0],deu:x[1],fij:x[2],ven:x[3],pre:x[4],cfg:cfg,hon:x[6],proj:x[7],cat:x[8],reg:x[9],sii:x[10]||[],f29:x[11]||[],com:x[12]||[]};error='';
     }).catch(function(e){error='No se pudieron cargar tus finanzas ('+(e&&e.message||e)+'). Revisa tu conexión o vuelve a iniciar sesión.';});
   }
 
@@ -10027,7 +10029,8 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     h+='<div class="mf-box"><div class="mf-bt">📅 Lo que pagas cada mes</div><b class="mf-bn">'+clp(totF)+'</b><div class="mf-bs">'+mens.length+' pagos fijos'+(sinM?' · '+sinM+' sin monto':'')+'</div>'
       +mens.slice().sort(function(a,c){return vF(c)-vF(a);}).slice(0,5).map(function(f){return '<div class="mf-bl"><span>'+es2(f.concepto)+'<small>'+(f.dia?'día '+f.dia:es2(f.frecuencia))+'</small></span><b>'+(vF(f)?clp(vF(f)):'?')+'</b></div>';}).join('')
       +'<button class="mf-bv" onclick="ebMF.vista(\'fijos\')">Ver todos los pagos mensuales ›</button></div>';
-    h+='<div class="mf-box mf-bg"><div class="mf-bt">🤝 Lo que te deben</div><b class="mf-bn">'+clp(totC)+'</b><div class="mf-bs">Honorarios por cobrar a clientes</div>'
+    var totCom=amb==='Personal'?0:comPend().reduce(function(a,c){return a+comMonto(c);},0);
+    h+='<div class="mf-box mf-bg"><div class="mf-bt">🤝 Lo que te deben</div><b class="mf-bn">'+clp(totC+totCom)+'</b><div class="mf-bs">Honorarios '+clp(totC)+(totCom?' · comisiones de proveedores '+clp(totCom)+' (proyectadas)':'')+'</div>'
       +(amb==='Personal'?'':pc.slice(0,4).map(function(p){return '<div class="mf-bl"><span>'+es2(p.cliente||p.nombre)+'<small>'+es2(p.nombre)+'</small></span><b>'+clp(p.saldo)+'</b></div>';}).join(''))
       +'<button class="mf-bv" onclick="ebMF.vista(\'cobrar\')">Ver quién me debe ›</button></div>';
     h+='</div>';
@@ -10074,8 +10077,18 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     h+='<div class="mf-card mf-np"><table class="mf-t"><thead><tr><th>Fecha</th><th>Detalle</th><th>Tipo</th><th>Categoría</th><th>Ámbito</th><th class="mf-r">Monto</th><th>Fuente</th></tr></thead><tbody>'+(l.length?l.map(filaMov).join(''):'<tr><td colspan="7" class="mf-mut">Sin movimientos.</td></tr>')+'</tbody></table></div>';
     return h;
   }
+  // Comisiones de proveedores (ej. Estudio Tarugo, 15% de la cotización con IVA): proyectadas, por confirmar o facturadas
+  function comMonto(c){return c.monto!=null?Number(c.monto):Math.round((Number(c.base_total)||0)*(Number(c.tasa)||0));}
+  function comPend(){return (D.com||[]).filter(function(c){return c.estado!=='Pagada'&&c.estado!=='Anulada';});}
+  function vComisiones(){
+    var l=D.com||[],pend=comPend(),tot=pend.reduce(function(a,c){return a+comMonto(c);},0);
+    var h='<div class="mf-card"><div class="mf-pc"><div><b>Comisiones de proveedores</b><div class="mf-sub">Lo que te deben los mueblistas por los proyectos que les traes. Con Estudio Tarugo: 15% del total de su cotización final, IVA incluido.</div></div><div class="mf-pcr"><b class="mono b">'+clp(tot)+'</b><button class="btn" onclick="ebMF.nuevo(\'fin_comisiones\')">+ Comisión</button></div></div>';
+    h+='<table class="mf-t"><thead><tr><th>Proyecto</th><th>Proveedor</th><th class="mf-r">Cotización (con IVA)</th><th class="mf-r">Comisión</th><th>Estado</th><th>Fecha esperada</th></tr></thead><tbody>';
+    h+=l.map(function(c){return '<tr class="'+(c.estado==='Pagada'||c.estado==='Anulada'?'mf-old':'')+'" onclick="ebMF.editar(\'fin_comisiones\','+c.id+')"><td><b>'+es2(c.proyecto)+'</b><div class="mf-sub">'+es2(c.cliente)+(c.notas?' · '+es2(c.notas).slice(0,110)+(c.notas.length>110?'…':''):'')+'</div></td><td>'+es2(c.proveedor)+'</td><td class="mono mf-r">'+(c.base_total!=null?clp(c.base_total):'—')+'</td><td class="mono mf-r b"><b>'+clp(comMonto(c))+'</b><div class="mf-sub">'+Math.round((Number(c.tasa)||0)*100)+'%</div></td><td><span class="mf-chip'+(c.estado==='Pagada'?' t-Ingreso':'')+'">'+es2(c.estado)+'</span>'+(c.factura?'<div class="mf-sub">Factura '+es2(c.factura)+'</div>':'')+'</td><td class="mono">'+fC(c.fecha_esperada)+'</td></tr>';}).join('')||'<tr><td colspan="6" class="mf-mut">Sin comisiones.</td></tr>';
+    return h+'</tbody></table><p class="mf-mut" style="margin-top:8px;">"Proyectada" = cotización aproximada; "Por confirmar" = esperando que el proveedor confirme el monto; cuando la factures o te paguen, cámbiala aquí.</p></div>';
+  }
   function vCobrar(pc){
-    var h='<p class="mf-mut">Sale de los honorarios de cada proyecto. Para cambiar un monto o marcar un pago, hazlo en Honorarios del proyecto.</p>';
+    var h=vComisiones()+'<h3 class="mf-h4">Honorarios por cobrar a clientes</h3><p class="mf-mut">Sale de los honorarios de cada proyecto. Para cambiar un monto o marcar un pago, hazlo en Honorarios del proyecto.</p>';
     if(!pc.length)return h+'<div class="mf-card"><p class="mf-mut">No hay honorarios por cobrar.</p></div>';
     pc.forEach(function(p){
       h+='<div class="mf-card'+(p.estado==='Finalizado'?' mf-old':'')+'"><div class="mf-pc"><div><b>'+es2(p.nombre)+'</b><div class="mf-sub">'+es2(p.cliente||'')+(p.estado?' · '+es2(p.estado):'')+(p.estado==='Finalizado'?' · ¿quedó algo sin cobrar o falta marcarlo pagado?':'')+'</div></div><div class="mf-pcr"><b class="mono b">'+clp(p.saldo)+'</b><button class="btn" onclick="ebMF.abrir(\''+es2(p.pid)+'\')">Abrir proyecto</button></div></div>';
@@ -10170,7 +10183,8 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
   function esBHE(d){return d.codigo===71;}
   function signo(d){return d.codigo===61?-1:1;}               // nota de crédito resta
   // Para sumar: la factura anulada se cuenta y su nota de crédito la resta (queda en cero); lo rechazado no se cuenta
-  function vale(d){return d.estado!=='Rechazada';}
+  function vale(d){return d.estado!=='Rechazada'&&!(d.codigo===71&&d.estado==='Anulada');} // la boleta de honorarios anulada no tiene nota de crédito: no se cuenta
+  function f29Mal(f){var s=String(f.estado||'').toLowerCase();return /impag|girad|pendiente|sin declarar|no declarad/.test(s)||(/observ/.test(s)&&!/sin observ/.test(s));}
   function anulado(d){return d.estado==='Anulada'||d.estado==='Rechazada';}
   // Busca el pago de una factura entre los ingresos del estudio (monto parecido, hasta 4 meses después)
   function cobro(d){
@@ -10197,7 +10211,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     dy.forEach(function(d){if(d.libro==='Ventas'&&d.codigo!==61&&anulado(d))k.an++;if(!vale(d))return;var s=signo(d),n=(Number(d.neto)||0)+(Number(d.exento)||0),i=Number(d.iva)||0;
       if(d.libro==='Ventas'){k.vn+=s*n;k.vi+=s*i;if(d.codigo===61)k.nc++;else k.fac++;}else{k.cn+=s*n;k.ci+=s*i;}});
     var fy=f29.filter(function(f){return f.periodo.slice(0,4)===siiAnio;}),pag=fy.reduce(function(a,f){return a+(Number(f.total_pagado)||0);},0);
-    var imp=fy.filter(function(f){return /impag|girad|observ|pend/i.test(f.estado||'');});
+    var imp=fy.filter(function(f){return f29Mal(f);});
     var nBHE=dy.filter(function(d){return esBHE(d)&&d.libro==='Ventas'&&vale(d);}),ret=nBHE.reduce(function(a,d){return a+(Number(d.otros)||0);},0);
     var h='<div class="mf-bar2"><span class="mf-mut">'+es2((empresas().filter(function(e){return e.rut===siiEmp;})[0]||{}).nombre||'')+' · '+siiEmp+' · datos del SII'+(nBHE.length?' · '+nBHE.length+' boletas de honorarios '+siiAnio+', retención '+clp(ret):'')+'</span><select onchange="ebMF.siiAnio(this.value)">'+ys.map(function(y){return '<option'+(y===siiAnio?' selected':'')+'>'+y+'</option>';}).join('')+'</select></div>';
     h+='<div class="mf-kpi">'+kpi('Ventas con factura '+siiAnio,clp(k.vn-k.vb),'g','neto, menos notas de crédito'+(k.an?' · '+k.an+' anuladas':''))
@@ -10207,7 +10221,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     // Mes a mes
     var fil='';for(var m=12;m>=1;m--){var p=siiAnio+'-'+(m<10?'0':'')+m,dm=dy.filter(function(d){return (d.periodo||String(d.fecha).slice(0,7))===p&&vale(d);}),f=f29.filter(function(x){return x.periodo===p;})[0];
       if(!dm.length&&!f)continue;var a={vn:0,vi:0,cn:0,ci:0};dm.forEach(function(d){var s=signo(d),n=(Number(d.neto)||0)+(Number(d.exento)||0);if(d.libro==='Ventas'){a.vn+=s*n;a.vi+=s*(Number(d.iva)||0);}else{a.cn+=s*n;a.ci+=s*(Number(d.iva)||0);}});
-      fil+='<tr style="cursor:default;"><td>'+MES(p)+'</td><td class="mono mf-r g">'+clp(a.vn)+'</td><td class="mono mf-r">'+clp(a.vi)+'</td><td class="mono mf-r r">'+clp(a.cn)+'</td><td class="mono mf-r">'+clp(a.ci)+'</td><td>'+(f?'<span class="mf-chip'+(/impag|girad|observ|pend/i.test(f.estado||'')?' mf-chr':'')+'">'+es2(f.estado||f.tipo||'Presentado')+'</span> <small class="mf-sub">'+(f.total_pagado!=null?clp(f.total_pagado):'')+(f.fecha_pago?' · '+fC(f.fecha_pago):'')+'</small>':'<span class="mf-sub">sin F29 cargado</span>')+'</td></tr>';}
+      fil+='<tr style="cursor:default;"><td>'+MES(p)+'</td><td class="mono mf-r g">'+clp(a.vn)+'</td><td class="mono mf-r">'+clp(a.vi)+'</td><td class="mono mf-r r">'+clp(a.cn)+'</td><td class="mono mf-r">'+clp(a.ci)+'</td><td>'+(f?'<span class="mf-chip'+(f29Mal(f)?' mf-chr':'')+'">'+es2(f.estado||f.tipo||'Presentado')+'</span> <small class="mf-sub">'+(f.total_pagado!=null?clp(f.total_pagado):'')+(f.fecha_pago?' · '+fC(f.fecha_pago):'')+'</small>':'<span class="mf-sub">sin F29 cargado</span>')+'</td></tr>';}
     h+='<div class="mf-card mf-np"><h3 style="padding:10px 16px 0;">'+siiAnio+' mes a mes</h3><table class="mf-t"><thead><tr><th>Mes</th><th class="mf-r">Ventas netas</th><th class="mf-r">IVA débito</th><th class="mf-r">Compras netas</th><th class="mf-r">IVA crédito</th><th>F29</th></tr></thead><tbody>'+(fil||'<tr><td colspan="6" class="mf-mut">Sin datos.</td></tr>')+'</tbody></table></div>';
     // Documentos
     var l=dy.filter(function(d){if(d.libro!==siiLibro)return false;if(siiQ){var s=(d.razon_social+' '+d.rut+' '+d.folio+' '+d.tipo).toLowerCase();if(s.indexOf(siiQ.toLowerCase())<0)return false;}return true;});
@@ -10303,7 +10317,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
   }
   function patch(tabla,id,body){return fetch(SB+'/rest/v1/'+tabla+'?id=eq.'+id,{method:'PATCH',headers:Object.assign({},H,{Prefer:'return=minimal'}),body:JSON.stringify(body)}).then(function(x){if(!x.ok)throw new Error('HTTP '+x.status);});}
   function recargar(){return cargar().then(pintar);}
-  function buscarFila(tabla,id){var k={fin_movimientos:'mov',fin_deudas:'deu',fin_fijos:'fij',fin_vencimientos:'ven'}[tabla];return (D[k]||[]).filter(function(x){return x.id===id;})[0];}
+  function buscarFila(tabla,id){var k={fin_movimientos:'mov',fin_deudas:'deu',fin_fijos:'fij',fin_vencimientos:'ven',fin_comisiones:'com'}[tabla];return (D[k]||[]).filter(function(x){return x.id===id;})[0];}
 
   window.ebMisFin=function(){pestana();pintar();recargar();};
   window.ebMF={
@@ -10360,7 +10374,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     siiEmp:function(v){siiEmp=v;siiAnio='';pintar();},
     siiLibro:function(v){siiLibro=v;pintar();},
     siiBuscar:function(v){siiQ=v||'';pintar();},
-    nuevo:function(tabla){var r={};if(tabla==='fin_movimientos'){r={fecha:hoy(),tipo:'Gasto',categoria:'Otro',ambito:'Personal'};}else if(tabla==='fin_vencimientos'){r={fecha:hoy(),tipo:'Pago',estado:'Pendiente',ambito:'Personal'};}else if(tabla==='fin_fijos'){r={frecuencia:'Mensual',activo:true,ambito:'Personal'};}else r={ambito:'Personal',estado:'Pendiente'};abrirEditor(tabla,r);},
+    nuevo:function(tabla){var r={};if(tabla==='fin_movimientos'){r={fecha:hoy(),tipo:'Gasto',categoria:'Otro',ambito:'Personal'};}else if(tabla==='fin_vencimientos'){r={fecha:hoy(),tipo:'Pago',estado:'Pendiente',ambito:'Personal'};}else if(tabla==='fin_fijos'){r={frecuencia:'Mensual',activo:true,ambito:'Personal'};}else if(tabla==='fin_comisiones'){r={proveedor:'Estudio Tarugo',tasa:0.15,estado:'Proyectada'};}else r={ambito:'Personal',estado:'Pendiente'};abrirEditor(tabla,r);},
     editar:function(tabla,id){var r=buscarFila(tabla,id);if(r)abrirEditor(tabla,r);},
     cerrar:cerrar, guardar:guardar, borrar:borrar,
     abrir:function(pid){try{openProject(pid);}catch(e){}},
