@@ -135,7 +135,7 @@ function pagadoDe(x) {
 // "Cómo va tu proyecto": etapa, próximas reuniones marcadas para el cliente y avances de obra.
 // Solo sale lo que el estudio marcó "Mostrar al cliente"; las partidas de obra y los hitos salen salvo que se desmarquen.
 async function seguimientoDe(p) {
-  const ls = (await sb('logs?select=id,date,due_date,type,title,status,category,extra,description,commits&project_id=eq.' + encodeURIComponent(p.id) + '&or=(category.is.null,category.not.in.(cliente,visita,actividad,lamina,render))&order=date')) || [];
+  const ls = (await sb('logs?select=id,date,due_date,type,title,status,category,extra,description,commits&project_id=eq.' + encodeURIComponent(p.id) + '&or=(category.is.null,category.not.in.(cliente,visita,actividad,lamina,render,cotizacion))&order=date')) || [];
   const hoy = hoySantiago(), proximas = [], avances = [], reuniones = [];
   ls.forEach(l => {
     let x = {}; try { x = l.extra ? JSON.parse(l.extra) : {}; } catch (e) {}
@@ -219,12 +219,12 @@ async function respuestaDoc(p, b, res) {
   if (!(docId > 0) || decision === null) return res.status(400).json({ ok: false, error: 'Respuesta no válida.' });
   if (!decision && !comentario) return res.status(400).json({ ok: false, error: 'Escribe un comentario.' });
   if (decision === 'Cambios solicitados' && !comentario) return res.status(400).json({ ok: false, error: 'Cuéntanos qué cambio quieres.' });
-  const d = await sb('logs?select=id,title,category,extra&project_id=eq.' + encodeURIComponent(p.id) + '&id=eq.' + docId + '&category=in.(lamina,render)&limit=1');
+  const d = await sb('logs?select=id,title,category,extra&project_id=eq.' + encodeURIComponent(p.id) + '&id=eq.' + docId + '&category=in.(lamina,render,cotizacion)&limit=1');
   if (!d || !d[0]) return res.status(404).json({ ok: false, error: 'Documento no encontrado.' });
   let x = {}; try { x = d[0].extra ? JSON.parse(d[0].extra) : {}; } catch (e) {}
   if (x.oculto) return res.status(404).json({ ok: false, error: 'Documento no encontrado.' });
   if (decision) await sb('logs?project_id=eq.' + encodeURIComponent(p.id) + '&id=eq.' + docId, { method: 'PATCH', headers: H({ Prefer: 'return=minimal' }), body: JSON.stringify({ status: decision === 'Por revisar' ? '' : decision }) });
-  const titulo = (decision === 'Por revisar' ? 'Cliente deshizo su respuesta' : decision ? 'Cliente: ' + decision : 'Comentario del cliente') + ' · ' + (d[0].title || (d[0].category === 'render' ? 'render' : 'lámina'));
+  const titulo = (decision === 'Por revisar' ? 'Cliente deshizo su respuesta' : decision ? 'Cliente: ' + decision : 'Comentario del cliente') + ' · ' + (d[0].title || (d[0].category === 'render' ? 'render' : d[0].category === 'cotizacion' ? 'cotización' : 'lámina'));
   await sb('logs', { method: 'POST', headers: H({ Prefer: 'return=minimal' }), body: JSON.stringify({
     id: Date.now() * 10 + Math.floor(Math.random() * 10), project_id: p.id, date: hoySantiago(), type: 'Nota general', title: titulo.slice(0, 200),
     description: comentario, commits: '', responsible: nombre, due_date: '', status: 'Completada', amount: 0, category: 'cliente', item_id: null,
@@ -280,10 +280,10 @@ module.exports = async function handler(req, res) {
       // mismo orden manual que en la app del estudio (sin orden guardado, el de creación)
       items.sort((a, b) => (a.sort_order == null ? a.id : a.sort_order) - (b.sort_order == null ? b.id : b.sort_order));
       const provs = await proveedoresDe(items);
-      const docsRaw = (await sb('logs?select=id,date,title,description,status,category,extra&project_id=eq.' + encodeURIComponent(p.id) + '&category=in.(lamina,render)&order=id')) || [];
+      const docsRaw = (await sb('logs?select=id,date,title,description,status,category,extra&project_id=eq.' + encodeURIComponent(p.id) + '&category=in.(lamina,render,cotizacion)&order=id')) || [];
       const docs = docsRaw.map(d => { let x = {}; try { x = d.extra ? JSON.parse(d.extra) : {}; } catch (e) {} return { d, x }; })
         .filter(o => !o.x.oculto && o.x.url)
-        .map(o => ({ id: o.d.id, tipo: o.d.category, titulo: o.d.title || '', nota: o.d.description || '', estado: o.d.status || '', fecha: o.d.date || '', url: o.x.url, pdf: /pdf/i.test(o.x.mime || '') || /\.pdf($|\?)/i.test(o.x.url), espacio: o.x.espacio || '', version: (o.x.versiones || []).length + 1, anteriores: (o.x.versiones || []).map(v => ({ url: v.url, pdf: /pdf/i.test(v.mime || ''), fecha: v.fecha || '' })) }));
+        .map(o => ({ id: o.d.id, tipo: o.d.category, titulo: o.d.title || '', nota: o.d.description || '', estado: o.d.status || '', fecha: o.d.date || '', url: o.x.url, pdf: /pdf/i.test(o.x.mime || '') || /\.pdf($|\?)/i.test(o.x.url), espacio: o.x.espacio || '', proveedor: o.x.proveedor || '', version: (o.x.versiones || []).length + 1, anteriores: (o.x.versiones || []).map(v => ({ url: v.url, pdf: /pdf/i.test(v.mime || ''), fecha: v.fecha || '' })) }));
       const resp = (await sb('logs?select=id,date,title,description,responsible,item_id,extra&project_id=eq.' + encodeURIComponent(p.id) + '&category=eq.cliente&order=id.desc&limit=200')) || [];
       return res.status(200).json({
         ok: true,
