@@ -6637,8 +6637,9 @@ select.sel-esp{width:100%;cursor:pointer;background:transparent;}
 .ebp-resp{margin:6px 0 0 12px;padding:6px 10px;border-left:3px solid #4A3B30;background:#F6F2ED;border-radius:0 6px 6px 0;}
 .ebp-resp b{font-size:11.5px;color:#4A3B30;}
 .ebp-rbox{margin-top:6px;}
-.ebp-rbox textarea{width:100%;border:1px solid var(--bd2);border-radius:6px;padding:7px 9px;font-family:inherit;font-size:12.5px;resize:vertical;}
-.ebp-racts{display:flex;justify-content:flex-end;gap:6px;margin-top:4px;}
+.ebp-rbox textarea{width:100%;min-height:84px;border:1px solid var(--bd2);border-radius:6px;padding:8px 10px;font-family:inherit;font-size:13.5px;line-height:1.45;resize:vertical;}
+.ebp-racts{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-top:4px;}
+.ebp-guard{margin-right:auto;font-size:11px;color:var(--tx3);}
 .ebp-rbtn{border:1px solid var(--bd2);background:var(--surface);border-radius:6px;cursor:pointer;font-size:11.5px;padding:4px 10px;font-family:inherit;color:var(--tx2);}
 .ebp-rbtn.prim{background:#4A3B30;color:#fff;border-color:#4A3B30;}
 .ebp-i div{margin-top:3px;color:var(--tx2);}
@@ -8795,7 +8796,8 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   function aviso(){
     var box=document.getElementById('portalAviso'); if(box)box.innerHTML='';
     try{montar();}catch(x){}
-    try{repintarKPI();if(document.getElementById('ebPanel')&&document.getElementById('ebPanel').classList.contains('open')&&panelVista==='nov')pintarNov();}catch(x){}
+    // Si estás escribiendo una respuesta, no se redibuja el panel: se hace cuando sales del cuadro
+    try{repintarKPI();if(document.getElementById('ebPanel')&&document.getElementById('ebPanel').classList.contains('open')&&panelVista==='nov'){if(escribiendo())repintarDespues=true;else pintarNov();}}catch(x){}
   }
   function avisoAnterior(){
     var box=document.getElementById('portalAviso'); if(!box)return;
@@ -8913,7 +8915,21 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
     return p;
   }
   window.ebPanelCerrar=function(){var p=document.getElementById('ebPanel');if(p)p.classList.remove('open');panelVista='';};
-  document.addEventListener('keydown',function(ev){if(ev.key==='Escape')window.ebPanelCerrar();});
+  // Esc cierra el panel, salvo que estés escribiendo una respuesta (ahí solo sale del cuadro)
+  document.addEventListener('keydown',function(ev){if(ev.key!=='Escape')return;var a=document.activeElement;if(a&&a.tagName==='TEXTAREA'&&a.closest&&a.closest('#ebPanel')){a.blur();return;}window.ebPanelCerrar();});
+  // Borradores de respuestas: se guardan mientras escribes (sobreviven al redibujo, al cierre y a recargar)
+  var BORR_K='eb_resp_borradores', borr={};
+  try{borr=JSON.parse(localStorage.getItem(BORR_K)||'{}')||{};}catch(x){borr={};}
+  function guardarBorr(){try{localStorage.setItem(BORR_K,JSON.stringify(borr));}catch(x){}}
+  function escribiendo(){var a=document.activeElement;return !!(a&&a.tagName==='TEXTAREA'&&a.closest&&a.closest('#ebpBody'));}
+  var repintarDespues=false;
+  window.ebBorr=function(id,v){borr[id]=v;guardarBorr();};
+  // Cuando dejas el cuadro, si llegaron novedades mientras escribías, se muestran ahora
+  document.addEventListener('focusout',function(ev){if(!repintarDespues||!ev.target||!ev.target.closest||!ev.target.closest('#ebpBody'))return;setTimeout(function(){if(!escribiendo()&&repintarDespues){repintarDespues=false;pintarNov();}},300);});
+  function cajaResp(id){
+    return '<textarea id="ebpT'+id+'" rows="4" placeholder="Escribe tu respuesta para el cliente…" oninput="ebBorr('+id+',this.value)">'+e(borr[id]||'')+'</textarea>'
+      +'<div class="ebp-racts"><span class="ebp-guard">'+((borr[id]||'').trim()?'Borrador guardado':'')+'</span><button class="ebp-rbtn" onclick="ebRespCancelar('+id+')">Cancelar</button><button class="ebp-rbtn prim" onclick="ebResponder('+id+')">Enviar respuesta</button></div>';
+  }
   // Novedades del portal: agrupadas por producto, con "Sin leer" y "Todas"
   // Javiera también lo abre (para responder dudas); a ella no se le muestran visitas ni actividad
   window.ebNovedades=function(t){
@@ -8955,18 +8971,26 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
         var rr=respuestasDe(l.id);
         h+='<div class="ebp-i'+(esLeido(pid,l)?'':' nuevo')+'"><b>'+e(l.responsible||'Cliente')+'</b>'+(dec?' · <span class="pc-d">'+e(dec==='Rechazado'?'Descartado':dec==='Por revisar'?'Deshizo su respuesta':dec)+'</span>':'')+' <span class="pc-f">'+e(cuando(l))+'</span>'+(l.description?'<div>'+e(String(l.description).slice(0,400))+'</div>':'')
           +rr.map(function(x){return '<div class="ebp-resp"><b>↳ '+e(x.responsible&&x.responsible!=='Estudio Bianco'?x.responsible+' (Estudio Bianco)':'Estudio Bianco')+'</b> <span class="pc-f">'+e(cuando(x))+'</span><div>'+e(String(x.description||''))+'</div></div>';}).join('')
-          +(l.description?'<div class="ebp-rbox" id="ebpR'+l.id+'"><button class="ebp-rbtn" onclick="ebResponderAbrir('+l.id+')">↩ '+(rr.length?'Responder de nuevo':'Responder')+'</button></div>':'')
+          +(l.description?'<div class="ebp-rbox" id="ebpR'+l.id+'">'+(borr[l.id]!=null?cajaResp(l.id):'<button class="ebp-rbtn" onclick="ebResponderAbrir('+l.id+')">↩ '+(rr.length?'Responder de nuevo':'Responder')+'</button>')+'</div>':'')
           +'</div>';
       });
       h+='</div>';
     });
-    document.getElementById('ebpBody').innerHTML=h;
+    // Mantiene la posición del panel y el cursor donde estaban
+    var body=document.getElementById('ebpBody'), sc=body.scrollTop, a=document.activeElement, aid=a&&a.id&&body.contains(a)?a.id:'', s0=aid?a.selectionStart:0, s1=aid?a.selectionEnd:0;
+    body.innerHTML=h; body.scrollTop=sc;
+    if(aid){var n=document.getElementById(aid);if(n){n.focus();try{n.setSelectionRange(s0,s1);}catch(x){}}}
   }
   // Responder un comentario del cliente: queda en la conversación del producto y el cliente lo ve en su portal
   window.ebResponderAbrir=function(id){
     var box=document.getElementById('ebpR'+id); if(!box)return;
-    box.innerHTML='<textarea id="ebpT'+id+'" rows="3" placeholder="Escribe tu respuesta para el cliente…"></textarea><div class="ebp-racts"><button class="ebp-rbtn" onclick="pintarNovPublico()">Cancelar</button><button class="ebp-rbtn prim" onclick="ebResponder('+id+')">Enviar respuesta</button></div>';
-    var t=document.getElementById('ebpT'+id); if(t)t.focus();
+    if(borr[id]==null){borr[id]='';guardarBorr();}
+    box.innerHTML=cajaResp(id);
+    var t=document.getElementById('ebpT'+id); if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length);}
+  };
+  window.ebRespCancelar=function(id){
+    if((borr[id]||'').trim()&&!confirm('¿Borrar lo que escribiste?'))return;
+    delete borr[id]; guardarBorr(); pintarNov();
   };
   window.pintarNovPublico=function(){pintarNov();};
   window.ebResponder=function(id){
@@ -8979,7 +9003,7 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
       extra:JSON.stringify({cliente:true,autor:'estudio',respondeA:id,docId:+x.docId||0,at:new Date().toISOString()}),source:'app'};
     var btn=document.querySelector('#ebpR'+id+' .prim'); if(btn){btn.disabled=true;btn.textContent='Enviando…';}
     fetch(SB+'/rest/v1/logs?on_conflict=project_id,id',{method:'POST',headers:Object.assign({},H,{Prefer:'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(row)})
-      .then(function(r){if(!r.ok)throw r.status;ultimas.unshift(row);var o=leidos(pid);o[id]=1;try{localStorage.setItem('eb_portal_leidos_'+pid,JSON.stringify(o));}catch(x){}pintarNov();repintarKPI();try{tst('✓ Respuesta enviada al cliente');}catch(x){}})
+      .then(function(r){if(!r.ok)throw r.status;ultimas.unshift(row);delete borr[id];guardarBorr();var o=leidos(pid);o[id]=1;try{localStorage.setItem('eb_portal_leidos_'+pid,JSON.stringify(o));}catch(x){}if(document.activeElement)document.activeElement.blur();pintarNov();repintarKPI();try{tst('✓ Respuesta enviada al cliente');}catch(x){}})
       .catch(function(){if(btn){btn.disabled=false;btn.textContent='Enviar respuesta';}alert('No se pudo enviar la respuesta. Revisa tu conexión e intenta de nuevo.');});
   };
   window.ebLeer=function(ids){var pid=currentProjId,o=leidos(pid);String(ids).split(',').forEach(function(i){if(i)o[i]=1;});try{localStorage.setItem('eb_portal_leidos_'+pid,JSON.stringify(o));}catch(x){}pintarNov();repintarKPI();};
