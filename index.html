@@ -6627,6 +6627,9 @@ select.sel-esp{width:100%;cursor:pointer;background:transparent;}
 .ebp-prod{display:flex;gap:12px;align-items:flex-start;padding:10px;background:var(--s2);}
 .ebp-foto{width:96px;height:96px;flex-shrink:0;border-radius:8px;background:#fff;border:1px solid var(--bd);overflow:hidden;display:flex;align-items:center;justify-content:center;}
 .ebp-foto img{width:100%;height:100%;object-fit:contain;}
+.ebp-foto a{display:flex;width:100%;height:100%;align-items:center;justify-content:center;text-decoration:none;}
+.ebp-foto.ancha{width:206px;height:96px;cursor:zoom-in;}
+.ebp-foto.ancha img{object-fit:cover;}
 .ebp-sinfoto{font-size:11px;color:var(--tx3);}
 .ebp-pi{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;font-size:12px;}
 .ebp-pi b{font-size:14px;color:var(--tx);}
@@ -8932,10 +8935,18 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   }
   // Novedades del portal: agrupadas por producto, con "Sin leer" y "Todas"
   // Javiera también lo abre (para responder dudas); a ella no se le muestran visitas ni actividad
+  // Láminas y renders del proyecto (para mostrar su imagen junto al comentario del cliente)
+  var docsDe={pid:'',m:{}};
+  function cargarDocs(){
+    var pid=currentProjId; if(!pid)return Promise.resolve();
+    return fetch(SB+'/rest/v1/logs?select=id,title,extra&project_id=eq.'+encodeURIComponent(pid)+'&category=in.(lamina,render)&limit=500',{headers:H})
+      .then(function(r){return r.ok?r.json():[];}).then(function(a){if(pid!==currentProjId)return;var m={};(a||[]).forEach(function(d){var x=exDe(d);if(x.url)m[d.id]={url:x.url,pdf:/pdf/i.test(x.mime||'')||/\.pdf($|\?)/i.test(x.url),t:d.title||''};});docsDe={pid:pid,m:m};}).catch(function(){});
+  }
   window.ebNovedades=function(t){
     if(t)novTab=t; var p=panel(); panelVista='nov';
     document.getElementById('ebpTit').textContent=esAdm()?'Novedades del portal del cliente':'Comentarios de los clientes';
     pintarNov(); p.classList.add('open');
+    if(docsDe.pid!==currentProjId)cargarDocs().then(function(){if(panelVista==='nov'&&!escribiendo())pintarNov();});
   };
   function pintarNov(){
     var pid=currentProjId, rs=respuestas(), nSin=sinLeer().length;
@@ -8957,9 +8968,11 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
       var nom=x0.docId?String(l0.title||'Lámina').replace(/^Cliente[^·]*·\s*/,''):(it?it.item:String(l0.title||'Producto').replace(/^Cliente[^·]*·\s*/,''));
       var nuevos=ls.some(function(l){return !esLeido(pid,l);});
       // Ficha del producto arriba (foto, nombre, espacio, precio, estado) para saber de qué se habla sin salir del panel
-      var foto=it&&it.imageUrl?'<img src="'+e(it.imageUrl)+'" alt="" loading="lazy">':'<span class="ebp-sinfoto">'+(x0.docId?'Lámina':'Sin foto')+'</span>';
+      var dd=x0.docId&&docsDe.pid===pid?docsDe.m[+x0.docId]:null;
+      var foto=dd?(dd.pdf?'<a href="'+e(dd.url)+'" target="_blank" rel="noopener" class="ebp-sinfoto" title="Abrir PDF">📄 PDF</a>':'<a href="'+e(dd.url)+'" target="_blank" rel="noopener" title="Ver en grande"><img src="'+e(dd.url)+'" alt="" loading="lazy"></a>')
+        :it&&it.imageUrl?'<img src="'+e(it.imageUrl)+'" alt="" loading="lazy">':'<span class="ebp-sinfoto">'+(x0.docId?'Lámina':'Sin foto')+'</span>';
       var precio=it?(typeof rT==='function'?rT(it):(it.qty||1)*(it.unit||0)):0;
-      h+='<div class="ebp-g"><div class="ebp-prod"><div class="ebp-foto">'+foto+'</div><div class="ebp-pi"><b>'+e(nom)+'</b>'
+      h+='<div class="ebp-g"><div class="ebp-prod"><div class="ebp-foto'+(dd&&!dd.pdf?' ancha':'')+'">'+foto+'</div><div class="ebp-pi"><b>'+e(nom)+'</b>'
         +'<span>'+[it&&it.space,it&&it.supplier].filter(Boolean).map(e).join(' · ')+'</span>'
         +(it?'<span class="ebp-pp">'+(precio>0?fm(precio):'Por cotizar')+(it.clientStatus?' · '+e(it.clientStatus==='Rechazado'?'Descartado':it.clientStatus):'')+'</span>':'')
         +'<a href="#" onclick="ebPanelCerrar();portalIr('+(+l0.item_id||0)+','+(+x0.docId||0)+');return false;">Ver en el listado ↗</a></div>'
