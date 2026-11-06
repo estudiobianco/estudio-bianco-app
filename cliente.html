@@ -518,7 +518,7 @@ details.sv-det[open] summary h3::after{transform:rotate(-135deg) translateY(-1px
   var D=null, filtro='', agrupar='esp', pend=null;
   // Siempre parte viendo por espacio (no se recuerda la vista por categoría)
   try{localStorage.removeItem('ebc_agrupar');}catch(e){}
-  var vista='compras'; try{var _v=localStorage.getItem('ebc_vista');if(['prov','lamina','render','avance'].indexOf(_v)>=0)vista=_v;}catch(e){}
+  var vista='compras'; try{var _v=localStorage.getItem('ebc_vista');if(['prov','lamina','render','cotizacion','avance'].indexOf(_v)>=0)vista=_v;}catch(e){}
   function e(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   function m(n){return '$'+Math.round(n).toLocaleString('es-CL');}
   function fuera(it){return it.grupo&&!it.elegida;}
@@ -626,8 +626,8 @@ details.sv-det[open] summary h3::after{transform:rotate(-135deg) translateY(-1px
     its.forEach(function(it){cuenta[est(it)]=(cuenta[est(it)]||0)+1;});
     var porCotizar=its.some(function(it){return !fuera(it)&&!(+it.precio>0);});
     document.title=(D.proyecto.nombre||'Tu proyecto')+' · Estudio Bianco';
-    var docs=D.documentos||[], nLam=docs.filter(function(d){return d.tipo==='lamina';}).length, nRen=docs.filter(function(d){return d.tipo==='render';}).length, nProv=(D.proveedores||[]).length;
-    if((vista==='lamina'&&!nLam)||(vista==='render'&&!nRen)||(vista==='prov'&&!nProv))vista='compras';
+    var docs=D.documentos||[], nLam=docs.filter(function(d){return d.tipo==='lamina';}).length, nRen=docs.filter(function(d){return d.tipo==='render';}).length, nCot=docs.filter(function(d){return d.tipo==='cotizacion';}).length, nProv=(D.proveedores||[]).length;
+    if((vista==='lamina'&&!nLam)||(vista==='render'&&!nRen)||(vista==='cotizacion'&&!nCot)||(vista==='prov'&&!nProv))vista='compras';
     if(vista==='avance'&&!D.seguimiento)vista='compras';
     // Cabecera calma: logo chico y portada con el último render del proyecto (como la pantalla "Proyecto" de la app)
     colorProyecto();
@@ -639,11 +639,11 @@ details.sv-det[open] summary h3::after{transform:rotate(-135deg) translateY(-1px
     // Punto rojo en la pestaña donde hay algo nuevo para el cliente
     var nv=novedades();
     function tab(v,t,n){var dot=(v==='compras'&&(nv.resp||nv.porRev))||(v==='lamina'&&nv.lam)||(v==='render'&&nv.ren)||(v==='avance'&&(nv.etapa||nv.reunion));return '<button class="'+(vista===v?'on':'')+'" onclick="ebV(\''+v+'\')">'+t+(n!=null?' <i>'+n+'</i>':'')+(dot&&vista!==v&&!tabVisto[v]?'<span class="tab-dot" title="Hay novedades"></span>':'')+'</button>';}
-    h+='<div class="tabs">'+tab('compras','Listado de compras')+(D.seguimiento?tab('avance','Cómo va tu proyecto'):'')+(nLam?tab('lamina','Planos y láminas',nLam):'')+(nRen?tab('render','Looks y renders',nRen):'')+(nProv?tab('prov','Proveedores',nProv):'')+'</div>';
+    h+='<div class="tabs">'+tab('compras','Listado de compras')+(D.seguimiento?tab('avance','Cómo va tu proyecto'):'')+(nLam?tab('lamina','Planos y láminas',nLam):'')+(nRen?tab('render','Looks y renders',nRen):'')+(nCot?tab('cotizacion','Cotizaciones',nCot):'')+(nProv?tab('prov','Proveedores',nProv):'')+'</div>';
     var pie='<footer><b>Estudio Bianco®</b> · Plataforma de gestión de proyectos de diseño y desarrollo exclusivo de Estudio Bianco.<br>Estudio Bianco es una marca registrada. Este contenido es confidencial y de uso exclusivo del cliente; prohibida su reproducción total o parcial.</footer>';
     if(vista==='avance'){h+=htmlAvance()+pie;document.getElementById('app').innerHTML=h;barra(false);return;}
     if(vista==='prov'){h+=htmlProveedores()+pie;document.getElementById('app').innerHTML=h;barra(false);return;}
-    if(vista==='lamina'||vista==='render'){h+=htmlDocs(vista)+pie;document.getElementById('app').innerHTML=h;barra(false);return;}
+    if(vista==='lamina'||vista==='render'||vista==='cotizacion'){h+=htmlDocs(vista)+pie;document.getElementById('app').innerHTML=h;barra(false);return;}
     h+='<div class="intro"><div class="imp"><b>Ojo</b>Este listado puede estar incompleto: se va ajustando según nuestras reuniones. Aun así, es una aproximación fiel al presupuesto total.</div></div>';
     var revisados=its.length-(cuenta['Por revisar']||0), pct=its.length?Math.round(revisados/its.length*100):0;
     var pctP=total>0?Math.round(pagado/total*100):0;
@@ -701,7 +701,7 @@ details.sv-det[open] summary h3::after{transform:rotate(-135deg) translateY(-1px
   // Láminas o renders para aprobar
   function htmlDocs(tipo){
     var arr=(D.documentos||[]).filter(function(d){return d.tipo===tipo;});
-    var h='<p class="sub" style="margin:0 0 16px;">'+(tipo==='lamina'?'Planos y láminas de tu proyecto. Toca una imagen para verla en grande y cuéntanos si la apruebas o qué cambiarías.':'Looks, conceptos y renders de tu proyecto. Toca una imagen para verla en grande y cuéntanos qué te parece.')+'</p><div class="gal">';
+    var h='<p class="sub" style="margin:0 0 16px;">'+(tipo==='lamina'?'Planos y láminas de tu proyecto. Toca una imagen para verla en grande y cuéntanos si la apruebas o qué cambiarías.':tipo==='cotizacion'?'Cotizaciones que nos enviaron los proveedores para tu proyecto. Ábrelas, revísalas y cuéntanos si las apruebas o qué te gustaría cambiar.':'Looks, conceptos y renders de tu proyecto. Toca una imagen para verla en grande y cuéntanos qué te parece.')+'</p><div class="gal">';
     // Galería: todas las imágenes del mismo tamaño, sin marco; botones sobre la foto
     arr.forEach(function(d){
       var es_=est(d), nC=(D.respuestas||[]).filter(function(x){return x.docId===d.id&&x.comentario;}).length;
@@ -709,7 +709,7 @@ details.sv-det[open] summary h3::after{transform:rotate(-135deg) translateY(-1px
       h+='<div class="g-t">'+(d.pdf?'<div class="g-pdf" onclick="ebVerDoc('+d.id+')"><b>PDF</b>Abrir documento</div>':'<div class="g-bg" style="background-image:url(\''+e(d.url)+'\')"></div><img src="'+e(d.url)+'" alt="'+e(d.titulo)+'" loading="lazy" onclick="ebVerDoc('+d.id+')">')
         +bdg
         +'<div class="g-ab"><button class="g-ap'+(es_==='Aprobado'?' on':'')+'" onclick="ebR('+d.id+',\'Aprobado\',1)" title="Aprobar">✓ Aprobar</button><button class="g-re'+(es_==='Rechazado'?' on':'')+'" onclick="ebR('+d.id+',\'Rechazado\',1)" title="Rechazar">✕ Rechazar</button></div>'
-        +'<div class="g-pie"><div class="g-tx" onclick="ebVerDoc('+d.id+')"><b>'+e(d.titulo)+'</b><span>'+[d.espacio,d.version>1?'Versión '+d.version:'',d.fecha?fechaCorta(d.fecha):''].filter(Boolean).map(e).join(' · ')+(d.nota?' · 📝 nota del estudio':'')+(nC?' · 💬 '+nC:'')+'</span></div>'
+        +'<div class="g-pie"><div class="g-tx" onclick="ebVerDoc('+d.id+')"><b>'+e(d.titulo)+'</b><span>'+[d.proveedor,d.espacio,d.version>1?'Versión '+d.version:'',d.fecha?fechaCorta(d.fecha):''].filter(Boolean).map(e).join(' · ')+(d.nota?' · 📝 nota del estudio':'')+(nC?' · 💬 '+nC:'')+'</span></div>'
         +'<button class="g-cm" onclick="ebR('+d.id+',\'Cambios solicitados\',1)">💬 Pedir cambios / comentar</button></div></div>';
     });
     return h+'</div>';
@@ -959,7 +959,7 @@ details.sv-det[open] summary h3::after{transform:rotate(-135deg) translateY(-1px
     var porRev=its.filter(function(it){return est(it)==='Por revisar';}).length;
     its.filter(function(it){return it.llego;}).forEach(function(it){ultimo.push({f:it.llego,t:'✓ Llegó '+it.item});});
     its.filter(function(it){return it.pedido&&!it.llego;}).forEach(function(it){ultimo.push({f:it.pedido,t:'🛒 Pedido: '+it.item});});
-    (D.documentos||[]).forEach(function(d){if(d.fecha)ultimo.push({f:d.fecha,t:(d.tipo==='lamina'?'📐 Nueva lámina: ':'🖼 Nuevo render: ')+d.titulo});});
+    (D.documentos||[]).forEach(function(d){if(d.fecha)ultimo.push({f:d.fecha,t:(d.tipo==='lamina'?'📐 Nueva lámina: ':d.tipo==='cotizacion'?'📄 Nueva cotización: ':'🖼 Nuevo render: ')+d.titulo});});
     (sg.reuniones||[]).forEach(function(r){ultimo.push({f:r.fecha,t:'🗓 Reunión: '+r.titulo});});
     (sg.avances||[]).forEach(function(a){ultimo.push({f:a.fecha,t:'🏗 '+a.titulo});});
     ((sv&&sv.cuotas)||[]).forEach(function(c){if(c.pagada&&c.fechaPago)ultimo.push({f:c.fechaPago,t:'💳 Recibimos tu pago: '+c.concepto});});

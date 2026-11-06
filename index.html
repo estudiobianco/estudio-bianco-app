@@ -1020,7 +1020,7 @@ body.col-resizing *{cursor:col-resize !important;}
     
     <div class="ni" onclick="go('pendientes')" id="nav-pendientes" style="display:none;"><span class="ic">⏳</span>Pagos pendientes</div>
     <div class="ni" onclick="go('seguimiento')" id="nav-seguimiento"><span class="ic">📅</span>Seguimiento</div>
-    <div class="ni" onclick="go('laminas')" id="nav-laminas"><span class="ic">🖼</span>Láminas y renders</div>
+    <div class="ni" onclick="go('laminas')" id="nav-laminas"><span class="ic">🖼</span>Láminas y cotizaciones</div>
     <div class="ni" onclick="go('cotizaciones')" id="nav-cotizaciones"><span class="ic">📄</span>Cotizaciones</div>
     <div class="ni" onclick="go('proveedores')" id="nav-proveedores"><span class="ic">🏪</span>Proveedores</div>
     <div class="ni" onclick="go('pagosprov')" id="nav-pagosprov"><span class="ic">💸</span>Pagos</div>
@@ -4885,7 +4885,7 @@ function renderGantt(){
       .then(function(data){
         // Base del guardado seguro: todos los registros que hay en la nube (aunque no se muestren)
         if(data){BASE_OK.logs[pid]=true;recordar('logs',pid,data.map(function(x){var r=logToRow(logFromRow(x),pid);if(window.__logsNoItemId)delete r.item_id;return r;}));}
-        if(data)data=data.filter(function(x){return x.category!=='lamina'&&x.category!=='render'&&x.category!=='visita'&&x.category!=='actividad';}); cb(data&&data.length?data.map(logFromRow):null); })
+        if(data)data=data.filter(function(x){return x.category!=='lamina'&&x.category!=='render'&&x.category!=='cotizacion'&&x.category!=='visita'&&x.category!=='actividad';}); cb(data&&data.length?data.map(logFromRow):null); })
       .catch(function(){ cb(null); });
   };
   window.sbDeleteLog=function(pid,logId){
@@ -8939,7 +8939,7 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   var docsDe={pid:'',m:{}};
   function cargarDocs(){
     var pid=currentProjId; if(!pid)return Promise.resolve();
-    return fetch(SB+'/rest/v1/logs?select=id,title,extra&project_id=eq.'+encodeURIComponent(pid)+'&category=in.(lamina,render)&limit=500',{headers:H})
+    return fetch(SB+'/rest/v1/logs?select=id,title,extra&project_id=eq.'+encodeURIComponent(pid)+'&category=in.(lamina,render,cotizacion)&limit=500',{headers:H})
       .then(function(r){return r.ok?r.json():[];}).then(function(a){if(pid!==currentProjId)return;var m={};(a||[]).forEach(function(d){var x=exDe(d);if(x.url)m[d.id]={url:x.url,pdf:/pdf/i.test(x.mime||'')||/\.pdf($|\?)/i.test(x.url),t:d.title||''};});docsDe={pid:pid,m:m};}).catch(function(){});
   }
   window.ebNovedades=function(t){
@@ -9125,7 +9125,8 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   var BUCKET='Imagenes app estudio bianco';
   var H={apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'};
   var docs=[], coms=[], cargadoPid=null;
-  var TIPOS={lamina:'Planos y láminas',render:'Looks y renders'};
+  var TIPOS={lamina:'Planos y láminas',render:'Looks y renders',cotizacion:'Cotizaciones de proveedores'};
+  var SING={lamina:'lámina',render:'render',cotizacion:'cotización'};
   function e(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   function hoy(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
   function ex(d){if(!d.extra||typeof d.extra!=='object'){try{d.extra=d.extra?JSON.parse(d.extra):{};}catch(x){d.extra={};}}return d.extra;}
@@ -9134,13 +9135,13 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   function cargar(cb){
     var pid=currentProjId; if(!pid)return;
     Promise.all([
-      fetch(SB+'/rest/v1/logs?select=*&project_id=eq.'+encodeURIComponent(pid)+'&category=in.(lamina,render)&order=id',{headers:H}).then(function(r){return r.ok?r.json():[];}),
+      fetch(SB+'/rest/v1/logs?select=*&project_id=eq.'+encodeURIComponent(pid)+'&category=in.(lamina,render,cotizacion)&order=id',{headers:H}).then(function(r){return r.ok?r.json():[];}),
       fetch(SB+'/rest/v1/logs?select=id,date,title,description,responsible,extra&project_id=eq.'+encodeURIComponent(pid)+'&category=eq.cliente&order=id.desc&limit=300',{headers:H}).then(function(r){return r.ok?r.json():[];})
     ]).then(function(x){if(pid!==currentProjId)return;docs=x[0]||[];docs.forEach(ex);coms=(x[1]||[]).map(function(c){ex(c);return c;}).filter(function(c){return c.extra.docId;});cargadoPid=pid;if(cb)cb();})
     .catch(function(){if(cb)cb();});
   }
   function guardar(d){
-    var row={id:d.id,project_id:currentProjId,date:d.date||hoy(),type:d.category==='render'?'Render':'Lámina',title:d.title||'',description:d.description||'',commits:'',responsible:'',due_date:'',status:d.status||'',amount:0,category:d.category,item_id:null,extra:JSON.stringify(ex(d))};
+    var row={id:d.id,project_id:currentProjId,date:d.date||hoy(),type:d.category==='render'?'Render':d.category==='cotizacion'?'Cotización':'Lámina',title:d.title||'',description:d.description||'',commits:'',responsible:'',due_date:'',status:d.status||'',amount:0,category:d.category,item_id:null,extra:JSON.stringify(ex(d))};
     return fetch(SB+'/rest/v1/logs?on_conflict=project_id,id',{method:'POST',headers:Object.assign({},H,{Prefer:'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(row)}).then(function(r){if(!r.ok)throw r.status;});
   }
   function subir(file){
@@ -9157,11 +9158,11 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
 
   function pintar(){
     var b=document.getElementById('lamBody'); if(!b)return;
-    var h='<h1 class="lm-h1">Láminas y renders</h1><p class="lm-sub">Lo que subas aquí lo ve tu cliente en su portal, en las pestañas "Planos y láminas" y "Looks y renders", y puede aprobarlo o pedir cambios. Acepta imágenes o PDF de hasta 50 MB. Si un plano pesa más, súbelo a OneDrive y usa "🔗 Pegar link".</p>';
-    ['lamina','render'].forEach(function(cat){
+    var h='<h1 class="lm-h1">Láminas, renders y cotizaciones</h1><p class="lm-sub">Lo que subas aquí lo ve tu cliente en su portal, en las pestañas "Planos y láminas", "Looks y renders" y "Cotizaciones", y puede aprobarlo o pedir cambios. Acepta imágenes o PDF de hasta 50 MB. Si un archivo pesa más, súbelo a OneDrive y usa "🔗 Pegar link".</p>';
+    ['lamina','render','cotizacion'].forEach(function(cat){
       var arr=docs.filter(function(d){return d.category===cat;});
-      h+='<div class="lm-sec"><h2>'+TIPOS[cat]+'</h2><span style="display:flex;gap:6px;"><button class="btn" onclick="lmLink(\''+cat+'\')" title="Para archivos de más de 50 MB: pega el link de OneDrive">🔗 Pegar link</button><label class="btn prim" style="cursor:pointer;">+ Agregar '+(cat==='lamina'?'lámina':'render')+'<input type="file" accept="image/*,application/pdf" multiple style="display:none;" onchange="lmAgregar(\''+cat+'\',this)"></label></span></div>';
-      if(!arr.length){h+='<div class="lm-empty">Aún no hay '+(cat==='lamina'?'láminas':'renders')+'. Sube '+(cat==='lamina'?'plantas, elevaciones o detalles de muebles a medida':'imágenes de concepto, looks o renders')+'.</div>';return;}
+      h+='<div class="lm-sec"><h2>'+TIPOS[cat]+'</h2><span style="display:flex;gap:6px;"><button class="btn" onclick="lmLink(\''+cat+'\')" title="Para archivos de más de 50 MB: pega el link de OneDrive">🔗 Pegar link</button><label class="btn prim" style="cursor:pointer;">+ Agregar '+SING[cat]+'<input type="file" accept="image/*,application/pdf" multiple style="display:none;" onchange="lmAgregar(\''+cat+'\',this)"></label></span></div>';
+      if(!arr.length){h+='<div class="lm-empty">Aún no hay '+(cat==='lamina'?'láminas':cat==='render'?'renders':'cotizaciones')+'. Sube '+(cat==='lamina'?'plantas, elevaciones o detalles de muebles a medida':cat==='render'?'imágenes de concepto, looks o renders':'los PDF de cotizaciones que te enviaron los proveedores (cortinas, muebles, obra…)')+'.</div>';return;}
       h+='<div class="lm-grid">'+arr.map(tarjeta).join('')+'</div>';
     });
     b.innerHTML=h;
@@ -9171,7 +9172,7 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
     var cs=coms.filter(function(c){return +c.extra.docId===+d.id;}).slice(0,3);
     return '<div class="lm-card'+(x.oculto?' oculto':'')+'"><div class="lm-th" onclick="lmVer('+d.id+')">'+(esPdf(d)?'<div class="pdf"><b>PDF</b>Ver documento</div>':'<img src="'+e(x.url)+'" alt="" loading="lazy">')
       +'<span class="lm-st '+e(cls)+'">'+(st==='Aprobado'?'✓ Aprobado':st==='Cambios solicitados'?'Cambios pedidos':st==='Rechazado'?'Descartado':'Por revisar')+'</span></div>'
-      +'<div class="lm-bd"><div class="lm-t">'+e(d.title||'Sin nombre')+'</div><div class="lm-m">'+[x.espacio,'Versión '+n,d.date].filter(Boolean).map(e).join(' · ')+(x.oculto?' · <b>oculto al cliente</b>':'')+'</div>'
+      +'<div class="lm-bd"><div class="lm-t">'+e(d.title||'Sin nombre')+'</div><div class="lm-m">'+[x.proveedor,x.espacio,'Versión '+n,d.date].filter(Boolean).map(e).join(' · ')+(x.oculto?' · <b>oculto al cliente</b>':'')+'</div>'
       +(d.description?'<div class="lm-n">'+e(d.description)+'</div>':'')
       +'<div class="lm-acts"><button onclick="lmEditar('+d.id+')">Editar</button><label>Nueva versión<input type="file" accept="image/*,application/pdf" style="display:none;" onchange="lmVersion('+d.id+',this)"></label><button onclick="lmOcultar('+d.id+')">'+(x.oculto?'Mostrar al cliente':'Ocultar')+'</button><button onclick="lmBorrar('+d.id+')" style="color:var(--dn);">Borrar</button></div></div>'
       +(cs.length?'<div class="lm-com">'+cs.map(function(c){return '<div><b>'+e(c.responsible||'Cliente')+'</b> · '+e(String(c.title||'').replace(/^Cliente: /,'').split(' · ')[0])+(c.description?': '+e(c.description):'')+' <span style="color:var(--tx3);">'+e(c.date||'')+'</span></div>';}).join('')+'</div>':'')+'</div>';
@@ -9183,7 +9184,7 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
       if(i>=fs.length){pintar();tst('✓ Listo');return;}
       var f=fs[i++], nombre=(f.name||'').replace(/\.[a-z0-9]+$/i,'').replace(/[_-]+/g,' ').trim();
       subir(f).then(function(url){
-        var d={id:Date.now()*10+Math.floor(Math.random()*10),category:cat,date:hoy(),title:nombre||(cat==='lamina'?'Lámina':'Render'),description:'',status:'',extra:{url:url,mime:f.type,versiones:[],espacio:'',oculto:false}};
+        var d={id:Date.now()*10+Math.floor(Math.random()*10),category:cat,date:hoy(),title:nombre||(cat==='lamina'?'Lámina':cat==='render'?'Render':'Cotización'),description:'',status:'',extra:{url:url,mime:f.type,versiones:[],espacio:'',proveedor:'',oculto:false}};
         return guardar(d).then(function(){docs.push(d);siguiente();});
       }).catch(function(m){alert(typeof m==='string'?m:'No se pudo guardar.');siguiente();});
     })();
@@ -9193,8 +9194,8 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
     var u=prompt('Pega el link para compartir del archivo (OneDrive: clic derecho → Compartir → Copiar vínculo, con acceso "Cualquier persona con el vínculo"):','');
     if(u==null)return; u=u.trim();
     if(!/^https:\/\/\S+$/i.test(u)){alert('El link debe empezar con https://');return;}
-    var t=prompt('Nombre de la '+(cat==='lamina'?'lámina':'imagen')+' (lo ve el cliente):',cat==='lamina'?'Set de planos':'Render'); if(t==null)return;
-    var d={id:Date.now()*10+Math.floor(Math.random()*10),category:cat,date:hoy(),title:(t.trim()||(cat==='lamina'?'Lámina':'Render')),description:'',status:'',extra:{url:u,mime:'application/pdf',link:true,versiones:[],espacio:'',oculto:false}};
+    var t=prompt('Nombre de la '+(cat==='lamina'?'lámina':cat==='render'?'imagen':'cotización')+' (lo ve el cliente):',cat==='lamina'?'Set de planos':cat==='render'?'Render':'Cotización'); if(t==null)return;
+    var d={id:Date.now()*10+Math.floor(Math.random()*10),category:cat,date:hoy(),title:(t.trim()||(cat==='lamina'?'Lámina':cat==='render'?'Render':'Cotización')),description:'',status:'',extra:{url:u,mime:'application/pdf',link:true,versiones:[],espacio:'',oculto:false}};
     guardar(d).then(function(){docs.push(d);pintar();tst('✓ Link publicado');}).catch(function(){alert('No se pudo guardar el link.');});
   };
   window.lmVersion=function(id,input){
@@ -9206,7 +9207,8 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   };
   window.lmEditar=function(id){
     var d=docs.find(function(x){return x.id===id;}); if(!d)return;
-    var t=prompt('Nombre de la lámina o render:',d.title||''); if(t==null)return;
+    var t=prompt('Nombre de la '+(SING[d.category]||'lámina')+':',d.title||''); if(t==null)return;
+    if(d.category==='cotizacion'){var pv=prompt('Proveedor (ej: Decoroller, Estudio Tarugo):',ex(d).proveedor||''); if(pv!=null)ex(d).proveedor=pv.trim();}
     var es_=prompt('Espacio (opcional, ej: Comedor):',ex(d).espacio||''); if(es_==null)es_=ex(d).espacio||'';
     var n=prompt('Nota para el cliente (opcional):',d.description||''); if(n==null)n=d.description||'';
     d.title=t.trim()||d.title; ex(d).espacio=es_.trim(); d.description=n.trim();
@@ -11094,6 +11096,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
         if(/Aprobado/.test(l.title))d.ap++;else if(/Rechazado/.test(l.title))d.re++;else if(/compr/.test(l.title))d.cp++;else if(/Comentario|respondi/.test(l.title))d.co++;
         d.det.push(String(l.title||'').replace(/^Cliente:\s*/,'')+(l.description?': '+corta(l.description,120):''));return;}
       if(cat==='actividad'){var k2=l.date;(eqDia[k2]=eqDia[k2]||{date:l.date,who:l.responsible||'Equipo',n:0,c:0});eqDia[k2].n++;eqDia[k2].c+=(+x.cambios||0);return;}
+      if(cat==='cotizacion'){E.push({date:l.date,k:'prov',t:'Cotización: '+(l.title||'proveedor'),s:x.proveedor||'',p:l.description||''});return;}
       if(cat==='render'||cat==='lamina'){var k3=l.date;(renDia[k3]=renDia[k3]||{date:l.date,th:[],n:0});renDia[k3].n++;if(x.url)renDia[k3].th.push([x.url,l.title||'',/pdf/i.test(x.mime||x.url)]);return;}
       if(cat==='gcal'){E.push({date:l.date,k:'reu',t:String(l.title||'').replace(/^.*?·\s*/,''),s:[x.start?x.start+(x.end?' a '+x.end:''):'',x.loc||''].filter(Boolean).join(' · '),p:l.description||'',done:/Completad/i.test(l.status||'')});return;}
       if(/Tarea|Compromiso|Lámina|Render/.test(tipo))return;
