@@ -45,30 +45,52 @@ async function proyectoDe(k) {
 }
 
 // Link con nombre (clientes.../tulio-pulgar) + clave de 4 numeros.
-// Tras 5 claves incorrectas, ese link queda bloqueado 15 minutos (evita probar las 10.000 combinaciones).
+// La clave esta cifrada en la base (bcrypt): este servidor solo pregunta "¿es correcta?" con portal_verificar().
+// Bloqueo escalonado por link (5 fallos: 15 min, 10: 1 hora, 20: 24 horas) y por direccion IP (30 fallos: 1 hora).
+// A los 20 fallos seguidos se avisa a la administradora en sus pendientes.
 function slugValido(s) { return typeof s === 'string' && /^[a-z0-9][a-z0-9-]{2,60}$/.test(s); }
+function minutosBloqueo(f) { return f >= 20 ? 24 * 60 : f >= 10 ? 60 : f >= 5 ? 15 : 0; }
+async function intentos(clave) {
+  const e = ((await sb('portal_intentos?select=fallos,bloqueado_hasta,updated_at&slug=eq.' + encodeURIComponent(clave))) || [])[0];
+  if (!e) return { fallos: 0 };
+  // Si el ultimo fallo fue hace mas de un dia, el contador parte de nuevo
+  if (e.updated_at && Date.now() - new Date(e.updated_at).getTime() > 24 * 3600000 && !(e.bloqueado_hasta && new Date(e.bloqueado_hasta) > new Date())) return { fallos: 0 };
+  return e;
+}
+async function anotarFallo(clave, f, min) {
+  await sb('portal_intentos?on_conflict=slug', { method: 'POST', headers: H({ Prefer: 'resolution=merge-duplicates,return=minimal' }), body: JSON.stringify({ slug: clave, fallos: f, bloqueado_hasta: min ? new Date(Date.now() + min * 60000).toISOString() : null, updated_at: new Date().toISOString() }) });
+}
+async function avisarAdmin(slug, pid) {
+  try {
+    await sb('pendientes', { method: 'POST', headers: H({ Prefer: 'return=minimal' }), body: JSON.stringify({ texto: '⚠ Seguridad: el portal "' + slug + '" recibió 20 claves incorrectas seguidas y quedó bloqueado 24 horas. Si no fue tu cliente, cámbiale la clave.', project_id: pid, prioridad: 'Alta', responsable: 'Ankel', hecho: false }) });
+  } catch (e) {}
+}
 async function acceso(q) {
   if (q.k) { const p = await proyectoDe(q.k); return p ? { p: p } : { cod: 404 }; }
   if (!slugValido(q.s)) return { cod: 404 };
-  const lk = await sb('portal_links?select=project_id,pin&slug=eq.' + encodeURIComponent(q.s) + '&limit=1');
-  if (!lk || !lk[0] || !/^\d{4}$/.test(lk[0].pin || '')) return { cod: 404 };
+  const lk = await sb('portal_links?select=project_id&slug=eq.' + encodeURIComponent(q.s) + '&pin=not.is.null&limit=1');
+  if (!lk || !lk[0]) return { cod: 404 };
   const r = await sb('projects?select=' + CAMPOS_PROY + '&id=eq.' + encodeURIComponent(lk[0].project_id) + '&limit=1');
   if (!r || !r[0]) return { cod: 404 };
-  r[0].portal_pin = lk[0].pin;
-  const est = ((await sb('portal_intentos?select=fallos,bloqueado_hasta&slug=eq.' + encodeURIComponent(q.s))) || [])[0];
-  if (est && est.bloqueado_hasta && new Date(est.bloqueado_hasta) > new Date()) return { cod: 429 };
+  const ipClave = 'ip:' + String(q.ip || '').slice(0, 60);
+  const est = await intentos(q.s), estIp = q.ip ? await intentos(ipClave) : { fallos: 0 };
+  const bloq = [est, estIp].map(e => e.bloqueado_hasta ? new Date(e.bloqueado_hasta) : null).filter(d => d && d > new Date()).sort((a, b) => b - a)[0];
+  if (bloq) return { cod: 429, min: Math.max(1, Math.ceil((bloq - Date.now()) / 60000)) };
   const pin = String(q.pin || '').replace(/\D/g, '');
   if (!pin) return { cod: 401 };
-  if (pin !== r[0].portal_pin) {
-    const f = (est ? est.fallos : 0) + 1, bloquea = f >= 5;
-    await sb('portal_intentos?on_conflict=slug', { method: 'POST', headers: H({ Prefer: 'resolution=merge-duplicates,return=minimal' }), body: JSON.stringify({ slug: q.s, fallos: bloquea ? 0 : f, bloqueado_hasta: bloquea ? new Date(Date.now() + 15 * 60000).toISOString() : null, updated_at: new Date().toISOString() }) });
-    return { cod: bloquea ? 429 : 401, mala: true, quedan: bloquea ? 0 : 5 - f };
+  const ok = await sb('rpc/portal_verificar', { method: 'POST', body: JSON.stringify({ p_slug: q.s, p_pin: pin }) });
+  if (ok !== true) {
+    const f = (est.fallos || 0) + 1, min = minutosBloqueo(f);
+    await anotarFallo(q.s, f, min);
+    if (q.ip) { const fi = (estIp.fallos || 0) + 1; await anotarFallo(ipClave, fi, fi >= 30 ? 60 : 0); }
+    if (f === 20) await avisarAdmin(q.s, lk[0].project_id);
+    return { cod: min ? 429 : 401, mala: true, quedan: min ? 0 : Math.max(0, (f >= 10 ? 20 : f >= 5 ? 10 : 5) - f), min: min };
   }
-  if (est && (est.fallos || est.bloqueado_hasta)) await sb('portal_intentos?slug=eq.' + encodeURIComponent(q.s), { method: 'PATCH', headers: H({ Prefer: 'return=minimal' }), body: JSON.stringify({ fallos: 0, bloqueado_hasta: null, updated_at: new Date().toISOString() }) });
-  const p = r[0]; delete p.portal_pin; return { p: p };
+  if (est.fallos || est.bloqueado_hasta) await sb('portal_intentos?slug=eq.' + encodeURIComponent(q.s), { method: 'PATCH', headers: H({ Prefer: 'return=minimal' }), body: JSON.stringify({ fallos: 0, bloqueado_hasta: null, updated_at: new Date().toISOString() }) });
+  return { p: r[0] };
 }
 function negar(res, a) {
-  if (a.cod === 429) return res.status(429).json({ ok: false, bloqueado: true, error: 'Hubo demasiados intentos con una clave incorrecta. Intenta de nuevo en 15 minutos.' });
+  if (a.cod === 429) return res.status(429).json({ ok: false, bloqueado: true, error: 'Hubo demasiados intentos con una clave incorrecta. Intenta de nuevo en ' + (a.min >= 90 ? Math.round(a.min / 60) + ' horas' : (a.min || 15) + ' minutos') + '.' });
   if (a.cod === 401) return res.status(401).json({ ok: false, pin: true, error: a.mala ? 'La clave no es correcta.' + (a.quedan ? ' Te quedan ' + a.quedan + ' intento' + (a.quedan === 1 ? '' : 's') + '.' : '') : '' });
   return res.status(404).json({ ok: false, error: 'Este link no es válido o fue desactivado.' });
 }
@@ -251,7 +273,7 @@ module.exports = async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const q = req.query || {};
-      const a = await acceso({ k: q.k, s: q.s, pin: req.headers['x-clave'] });
+      const a = await acceso({ k: q.k, s: q.s, pin: req.headers['x-clave'], ip: String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() });
       if (!a.p) return negar(res, a);
       const p = a.p;
       const items = (await sb('items?select=' + CAMPOS_ITEM + '&project_id=eq.' + encodeURIComponent(p.id) + '&cat=neq.Honorarios&order=id')) || [];
@@ -289,7 +311,7 @@ module.exports = async function handler(req, res) {
     if (req.method === 'POST') {
       let b = req.body || {};
       if (typeof b === 'string') { try { b = JSON.parse(b); } catch (e) { b = {}; } }
-      const a = await acceso({ k: b.k, s: b.s, pin: b.pin });
+      const a = await acceso({ k: b.k, s: b.s, pin: b.pin, ip: String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() });
       if (!a.p) return negar(res, a);
       const p = a.p;
       if (b.accion === 'visita') return await visita(p, limpio(b.nombre, 80), req, res);
