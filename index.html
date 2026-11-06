@@ -5173,7 +5173,7 @@ function renderGantt(){
     var _f=document.getElementById('ppmFile'); if(_f)_f.value='';
     document.getElementById('ppmComp').value = editRow ? (editRow.comprobante||'') : '';
     var _pv=document.getElementById('ppmCompPreview');
-    if(_pv) _pv.innerHTML = (editRow&&editRow.comprobante) ? '<img src="'+editRow.comprobante+'" style="max-height:70px;border-radius:6px;border:1px solid var(--bd2);"> <span style="color:var(--tx3);font-size:11px;">Comprobante actual</span>' : '';
+    if(_pv) _pv.innerHTML = (editRow&&editRow.comprobante) ? '<img data-comp="'+editRow.comprobante+'" style="max-height:70px;border-radius:6px;border:1px solid var(--bd2);"> <span style="color:var(--tx3);font-size:11px;">Comprobante actual</span>' : '';
     setTimeout(function(){ document.getElementById('ppmAmount').focus(); },50);
   };
   window.cerrarFormPagoProv=function(){ var m=document.getElementById('provPayModal'); if(m)m.style.display='none'; };
@@ -5190,15 +5190,16 @@ function renderGantt(){
     if(prev)prev.innerHTML='<span style="color:var(--tx3);font-size:11px;">Subiendo comprobante…</span>';
     var ext=(file.name.split('.').pop()||'jpg').toLowerCase();
     var path='comprobantes/'+(currentProjId||'x')+'_'+Date.now()+'.'+ext;
-    fetch(SB_URL+'/storage/v1/object/'+encodeURIComponent(SB_BUCKET)+'/'+path,{
+    // Los comprobantes van al almacén privado "comprobantes" (solo la administradora los ve)
+    fetch(SB_URL+'/storage/v1/object/comprobantes/'+path,{
       method:'POST',
       headers:{ 'apikey':SB_KEY, 'Authorization':'Bearer '+SB_KEY, 'Content-Type':file.type||'image/jpeg' },
       body:file
     }).then(function(r){
       if(!r.ok) throw new Error('upload');
-      var url=SB_URL+'/storage/v1/object/public/'+encodeURIComponent(SB_BUCKET)+'/'+path;
+      var url=SB_URL+'/storage/v1/object/authenticated/comprobantes/'+path;
       document.getElementById('ppmComp').value=url;
-      if(prev)prev.innerHTML='<img src="'+url+'" style="max-height:70px;border-radius:6px;border:1px solid var(--bd2);"> <span style="color:var(--ac);font-size:11px;">✓ Comprobante listo</span>';
+      if(prev)prev.innerHTML='<img data-comp="'+url+'" style="max-height:70px;border-radius:6px;border:1px solid var(--bd2);"> <span style="color:var(--ac);font-size:11px;">✓ Comprobante listo</span>';
     }).catch(function(){
       if(prev)prev.innerHTML='<span style="color:#B83030;font-size:11px;">No se pudo subir. Intenta de nuevo.</span>';
     });
@@ -6041,8 +6042,8 @@ window.pdfResumenCliente = function(){
     if(prev)prev.innerHTML='<span style="color:var(--tx3);font-size:11px;">Subiendo…</span>';
     var ext=(file.name.split('.').pop()||'jpg').toLowerCase();
     var path='comprobantes/'+(currentProjId||'x')+'_it'+fichaId+'_'+Date.now()+'.'+ext;
-    fetch(SBF_URL+'/storage/v1/object/'+encodeURIComponent(SBF_BUCKET)+'/'+path,{method:'POST',headers:{'apikey':SBF_KEY,'Authorization':'Bearer '+SBF_KEY,'Content-Type':file.type||'image/jpeg'},body:file})
-    .then(function(rr){if(!rr.ok)throw 0;var url=SBF_URL+'/storage/v1/object/public/'+encodeURIComponent(SBF_BUCKET)+'/'+path;document.getElementById('fpComp').value=url;if(prev)prev.innerHTML='<img src="'+url+'" style="max-height:60px;border-radius:4px;border:1px solid var(--bd);"> <span style="color:var(--ac);font-size:11px;">Listo</span>';})
+    fetch(SBF_URL+'/storage/v1/object/comprobantes/'+path,{method:'POST',headers:{'apikey':SBF_KEY,'Authorization':'Bearer '+SBF_KEY,'Content-Type':file.type||'image/jpeg'},body:file})
+    .then(function(rr){if(!rr.ok)throw 0;var url=SBF_URL+'/storage/v1/object/authenticated/comprobantes/'+path;document.getElementById('fpComp').value=url;if(prev)prev.innerHTML='<img data-comp="'+url+'" style="max-height:60px;border-radius:4px;border:1px solid var(--bd);"> <span style="color:var(--ac);font-size:11px;">Listo</span>';})
     .catch(function(){if(prev)prev.innerHTML='<span style="color:var(--dn);font-size:11px;">No se pudo subir. Intenta de nuevo.</span>';});
   };
 
@@ -6455,12 +6456,12 @@ window.pdfResumenCliente = function(){
     var btn=document.getElementById('ingSaveBtn'); if(btn)btn.disabled=true;
     var ext=(file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'');
     var path='comprobantes/'+(currentProjId||'x')+'_ing'+(st.editId||st.newId)+'_'+Date.now()+'.'+ext;
-    fetch(SBI_URL+'/storage/v1/object/'+encodeURIComponent(SBI_BUCKET)+'/'+path,{method:'POST',headers:{'apikey':SBI_KEY,'Authorization':'Bearer '+SBI_KEY,'Content-Type':file.type||'application/octet-stream'},body:file})
+    fetch(SBI_URL+'/storage/v1/object/comprobantes/'+path,{method:'POST',headers:{'apikey':SBI_KEY,'Authorization':'Bearer '+SBI_KEY,'Content-Type':file.type||'application/octet-stream'},body:file})
     .then(function(rr){
       if(!rr.ok)throw 0;
-      var url=SBI_URL+'/storage/v1/object/public/'+encodeURIComponent(SBI_BUCKET)+'/'+path;
+      var url=SBI_URL+'/storage/v1/object/authenticated/comprobantes/'+path;
       document.getElementById('ingComp').value=url; st.dirty=true;
-      prev.innerHTML=(/^image\//.test(file.type)?'<img src="'+url+'" style="max-height:60px;border-radius:4px;border:1px solid var(--bd);"> ':'<a href="'+url+'" target="_blank" rel="noopener">'+eI(file.name)+'</a> ')+'<span style="color:var(--ac);font-size:11px;">Listo</span>';
+      prev.innerHTML=(/^image\//.test(file.type)?'<img data-comp="'+url+'" style="max-height:60px;border-radius:4px;border:1px solid var(--bd);"> ':'<a href="'+url+'" target="_blank" rel="noopener">'+eI(file.name)+'</a> ')+'<span style="color:var(--ac);font-size:11px;">Listo</span>';
     })
     .catch(function(){prev.innerHTML='<span style="color:var(--dn);font-size:11px;">No se pudo subir el archivo. Intenta de nuevo; el ingreso se puede guardar sin comprobante.</span>';input.value='';})
     .then(function(){if(btn)btn.disabled=false;});
@@ -8664,10 +8665,14 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
   function pinNuevo(){var b=new Uint16Array(1);crypto.getRandomValues(b);return String(1000+(b[0]%9000));}
   var portalDatos={};
   // Los links viven en la tabla portal_links, que solo puede leer la administradora
-  function leerToken(pid){return fetch(SB+'/rest/v1/portal_links?select=token,slug,pin&project_id=eq.'+encodeURIComponent(pid),{headers:H}).then(function(r){return r.ok?r.json():Promise.reject(r.status);}).then(function(a){var x=a&&a[0]?a[0]:{};portalDatos={portal_token:x.token||'',portal_slug:x.slug||'',portal_pin:x.pin||''};return portalDatos.portal_token;});}
+  // La clave se guarda cifrada (bcrypt) por la función portal_set_pin: aquí solo se sabe si existe ("••••").
+  // La clave en claro se muestra una sola vez, cuando se crea, para que Ankel la anote y la envíe.
+  function leerToken(pid){return fetch(SB+'/rest/v1/portal_links?select=token,slug,pin&project_id=eq.'+encodeURIComponent(pid),{headers:H}).then(function(r){return r.ok?r.json():Promise.reject(r.status);}).then(function(a){var x=a&&a[0]?a[0]:{};portalDatos={portal_token:x.token||'',portal_slug:x.slug||'',portal_pin:x.pin?'••••':'',pin_claro:''};return portalDatos.portal_token;});}
   function guardarLink(pid,campos){return fetch(SB+'/rest/v1/portal_links?on_conflict=project_id',{method:'POST',headers:Object.assign({},H,{Prefer:'resolution=merge-duplicates,return=minimal'}),body:JSON.stringify(Object.assign({project_id:pid,updated_at:new Date().toISOString()},campos))}).then(function(r){if(r.ok)return;return r.text().then(function(t){return Promise.reject(/duplicate|23505|unique/i.test(t)?'repetido':r.status);});});}
   function guardarToken(pid,t){return guardarLink(pid,{token:t||null});}
-  function guardarSlug(pid,slug,pin){return guardarLink(pid,{slug:slug||null,pin:pin||null});}
+  function guardarPin(pid,pin){return fetch(SB+'/rest/v1/rpc/portal_set_pin',{method:'POST',headers:H,body:JSON.stringify({p_project_id:pid,p_pin:pin||null})}).then(function(r){if(r.ok)return;return Promise.reject(r.status);});}
+  // pin === undefined: no toca la clave; '' : la borra; '1234': la guarda cifrada
+  function guardarSlug(pid,slug,pin){return guardarLink(pid,{slug:slug||null}).then(function(){if(pin===undefined)return;return guardarPin(pid,pin);});}
 
   window.portalAbrir=function(){
     if(!currentProjId)return;
@@ -8680,9 +8685,10 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
     var h='<h3>Portal del cliente</h3>';
     if(sl&&pin){
       var L=BASE_CLIENTES+'/'+sl;
-      h+='<p>Link de <b>'+nom+'</b>. Al entrar, tu cliente escribe la clave una sola vez y su equipo la recuerda. Tras 5 claves incorrectas el link se bloquea 15 minutos.</p>'
+      h+='<p>Link de <b>'+nom+'</b>. Al entrar, tu cliente escribe la clave una sola vez y su equipo la recuerda. Tras varias claves incorrectas el link se bloquea, cada vez por más tiempo.</p>'
         +'<div class="lk"><input id="portalLink" readonly value="'+e(L)+'" onclick="this.select()"><button class="btn prim" onclick="portalCopiar()">Copiar link</button></div>'
-        +'<div class="pl-pin">Clave: <b>'+e(pin)+'</b> <button class="btn" onclick="portalCopiarMsj()">Copiar mensaje con link y clave</button> <button class="btn" onclick="portalNuevaClave()">Cambiar clave</button></div>'
+        +(portalDatos.pin_claro?'<div class="pl-pin">Clave: <b>'+e(portalDatos.pin_claro)+'</b> <span style="color:#8C2F39;font-size:12px;">Anótala ahora: por seguridad no se vuelve a mostrar.</span> <button class="btn" onclick="portalCopiarMsj()">Copiar mensaje con link y clave</button></div>'
+          :'<div class="pl-pin">Clave: <b>••••</b> <span style="color:var(--tx3);font-size:12px;">guardada cifrada; si no la tienes anotada, crea una nueva</span> <button class="btn" onclick="portalNuevaClave()">Cambiar clave</button></div>')
         +'<div class="bt" style="justify-content:space-between;"><span><button class="btn" onclick="window.open(\''+e(L)+'\',\'_blank\')">Ver como cliente ↗</button> <button class="btn" onclick="portalEditarSlug()">Cambiar nombre del link</button></span><span><button class="btn" style="color:var(--dn);" onclick="portalQuitarSlug()">Desactivar</button> <button class="btn" onclick="portalCerrar()">Listo</button></span></div>';
     }else{
       h+=(sl?'<p class="nota" style="color:#8C2F39;margin-bottom:10px;"><b>La clave anterior se anuló por seguridad.</b> El link sigue siendo el mismo: elige una clave nueva, guárdala y mándasela solo a tu cliente.</p>':'<p>Crea el link de <b>'+nom+'</b> para que tu cliente vea su listado con fotos y precios, apruebe o pida cambios, y vea cómo va su proyecto. No ve pagos del estudio a proveedores, notas internas ni otros proyectos.</p>')
@@ -8703,26 +8709,27 @@ body.nav-mini main{padding-left:24px;padding-right:24px;}
     if(sl.length<3){alert('El nombre del link debe tener al menos 3 letras o números.');return;}
     if(['api','cliente','index','admin','app','www'].indexOf(sl)>=0){alert('Ese nombre está reservado. Usa otro, por ejemplo el apellido del cliente.');return;}
     if(pin.length!==4){alert('La clave debe tener 4 números.');return;}
-    guardarSlug(pid,sl,pin).then(function(){portalDatos.portal_slug=sl;portalDatos.portal_pin=pin;pintarModal(pid,portalDatos.portal_token||'');tst('✓ Link creado');})
+    guardarSlug(pid,sl,pin).then(function(){portalDatos.portal_slug=sl;portalDatos.portal_pin='••••';portalDatos.pin_claro=pin;pintarModal(pid,portalDatos.portal_token||'');tst('✓ Link creado');})
       .catch(function(s){alert(s==='repetido'?'Ese nombre de link ya lo usa otro proyecto. Elige otro.':'No se pudo guardar ('+s+'). Intenta de nuevo.');});
   };
   window.portalNuevaClave=function(){
     if(!confirm('¿Cambiar la clave? Tu cliente tendrá que escribir la nueva la próxima vez que entre.'))return;
     var pid=currentProjId, pin=pinNuevo();
-    guardarSlug(pid,portalDatos.portal_slug,pin).then(function(){portalDatos.portal_pin=pin;pintarModal(pid,portalDatos.portal_token||'');tst('✓ Clave nueva: '+pin);}).catch(function(){alert('No se pudo cambiar la clave. Intenta de nuevo.');});
+    guardarSlug(pid,portalDatos.portal_slug,pin).then(function(){portalDatos.portal_pin='••••';portalDatos.pin_claro=pin;pintarModal(pid,portalDatos.portal_token||'');tst('✓ Clave nueva: '+pin);}).catch(function(){alert('No se pudo cambiar la clave. Intenta de nuevo.');});
   };
   window.portalEditarSlug=function(){
     var n=prompt('Nuevo nombre del link (solo letras, números y guiones):',portalDatos.portal_slug||''); if(n===null)return;
     var sl=slugDe(n), pid=currentProjId; if(sl.length<3){alert('Debe tener al menos 3 letras o números.');return;}
-    guardarSlug(pid,sl,portalDatos.portal_pin).then(function(){portalDatos.portal_slug=sl;pintarModal(pid,portalDatos.portal_token||'');tst('✓ Link actualizado');})
+    guardarSlug(pid,sl,undefined).then(function(){portalDatos.portal_slug=sl;pintarModal(pid,portalDatos.portal_token||'');tst('✓ Link actualizado');})
       .catch(function(s){alert(s==='repetido'?'Ese nombre de link ya lo usa otro proyecto.':'No se pudo guardar.');});
   };
   window.portalQuitarSlug=function(){
     if(!confirm('¿Desactivar este link? Tu cliente ya no podrá entrar con él.'))return;
-    var pid=currentProjId; guardarSlug(pid,'','').then(function(){portalDatos.portal_slug='';portalDatos.portal_pin='';pintarModal(pid,portalDatos.portal_token||'');tst('Link desactivado');}).catch(function(){alert('No se pudo desactivar.');});
+    var pid=currentProjId; guardarSlug(pid,'','').then(function(){portalDatos.portal_slug='';portalDatos.portal_pin='';portalDatos.pin_claro='';pintarModal(pid,portalDatos.portal_token||'');tst('Link desactivado');}).catch(function(){alert('No se pudo desactivar.');});
   };
   window.portalCopiarMsj=function(){
-    var txt='Hola, este es el link de tu proyecto en Estudio Bianco: '+BASE_CLIENTES+'/'+portalDatos.portal_slug+'\nTu clave es: '+portalDatos.portal_pin;
+    if(!portalDatos.pin_claro){alert('Por seguridad la clave guardada no se puede volver a ver. Si no la tienes anotada, toca "Cambiar clave" y envía la nueva.');return;}
+    var txt='Hola, este es el link de tu proyecto en Estudio Bianco: '+BASE_CLIENTES+'/'+portalDatos.portal_slug+'\nTu clave es: '+portalDatos.pin_claro;
     try{navigator.clipboard.writeText(txt).then(function(){tst('✓ Mensaje copiado, pégalo en WhatsApp o en un correo');});}catch(x){prompt('Copia este mensaje:',txt);}
   };
   // Historial de ingresos al portal (en la ventana del link)
@@ -11131,5 +11138,35 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
 })();
 </script>
 
+<script>
+// ══ COMPROBANTES PRIVADOS ══
+// Los comprobantes de pago viven en el almacén privado "comprobantes" (solo la administradora).
+// Sus URLs guardadas son .../storage/v1/object/authenticated/comprobantes/<archivo>: no abren solas.
+// Al tocar un link o mostrar una miniatura se pide una URL firmada que dura 10 minutos.
+(function(){
+  var SB='https://iucjhzsnlotojvpyjcfo.supabase.co', MARCA='/storage/v1/object/authenticated/comprobantes/';
+  function firmar(url){
+    var key=url.split(MARCA)[1]; if(!key)return Promise.resolve(url);
+    return fetch(SB+'/storage/v1/object/sign/comprobantes/'+key,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({expiresIn:600})})
+      .then(function(r){if(!r.ok)throw r.status;return r.json();}).then(function(j){return SB+'/storage/v1'+j.signedURL;});
+  }
+  window.ebComprobanteAbrir=function(url){firmar(url).then(function(u){window.open(u,'_blank','noopener');}).catch(function(){alert('No se pudo abrir el comprobante. Solo la administradora puede verlos.');});};
+  // Links a comprobantes: se firman al hacer clic
+  document.addEventListener('click',function(ev){
+    var a=ev.target&&ev.target.closest?ev.target.closest('a[href*="'+MARCA+'"]'):null; if(!a)return;
+    ev.preventDefault(); ev.stopPropagation(); window.ebComprobanteAbrir(a.getAttribute('href'));
+  },true);
+  // Miniaturas: <img data-comp="url"> reciben su src firmado al aparecer
+  function pintar(root){
+    (root.querySelectorAll?root.querySelectorAll('img[data-comp]:not([data-firmada])'):[]).forEach(function(img){
+      img.setAttribute('data-firmada','1'); var u=img.getAttribute('data-comp');
+      if(u.indexOf(MARCA)<0){img.src=u;return;}
+      firmar(u).then(function(s){img.src=s;}).catch(function(){img.alt='Comprobante (sin acceso)';});
+    });
+  }
+  new MutationObserver(function(ms){ms.forEach(function(m){m.addedNodes.forEach(function(n){if(n.nodeType===1)pintar(n);});});}).observe(document.documentElement,{childList:true,subtree:true});
+  pintar(document);
+})();
+</script>
 </body>
 </html>
