@@ -13,7 +13,7 @@
 
 const SB_URL = 'https://iucjhzsnlotojvpyjcfo.supabase.co';
 const DECISIONES = ['Aprobado', 'Cambios solicitados', 'Rechazado', 'Por revisar', '']; // 'Por revisar' = deshacer la respuesta
-const CAMPOS_ITEM = 'id,cat,item,supplier,qty,unit,space,specs,product_url,image_url,delivery_status,client_status,opt_group,opt_sel,opt_rec,sort_order,client_note,order_date,est_delivery,actual_delivery,order_num,delivery_resp,ship_cost,pay_status,p1amt,p2amt,p3amt,p4amt,p1date,p2date,p3date,p4date,install_date,vence';
+const CAMPOS_ITEM = 'id,cat,item,supplier,qty,unit,space,specs,product_url,image_url,delivery_status,client_status,opt_group,opt_sel,opt_rec,sort_order,client_note,order_date,est_delivery,actual_delivery,order_num,delivery_resp,ship_cost,pay_status,p1amt,p2amt,p3amt,p4amt,p1date,p2date,p3date,p4date,p1method,p2method,p3method,p4method,install_date,vence';
 const CAMPOS_PROY = 'id,name,client,status,stage,stage_dates,addr,start_date,facturacion,requisitos,color,portada';
 // A quién puede escribir el cliente (sección "Datos del proyecto y contactos" del portal)
 const DCTO_TRANSF = 0.05; // descuento por pago con transferencia en los honorarios del estudio
@@ -124,12 +124,13 @@ async function servicioDe(p) {
   return { incluye: sv ? sv.incluye || '' : '', cotizacion: cotizacion, cotizacionNombre: sv ? sv.cotizacion_nombre || '' : '', cuotas: cuotas, total: total, pagado: pagado, saldo: saldo, saldoDcto: saldoDcto, dcto: DCTO_TRANSF };
 }
 
-// Cuánto está pagado de cada producto: lo registrado por el estudio o, si lo pagó el cliente, el total
+// Cuánto está pagado de cada producto: las cuotas con fecha o medio de pago (una cuota sin fecha ni medio
+// es un pago planificado, no hecho) o, si el producto está marcado "Pagado", el total (error 11-11-2026)
 function pagadoDe(x) {
   const tot = (+x.qty || 1) * (+x.unit || 0) + (+x.ship_cost || 0);
-  const pp = ['p1amt', 'p2amt', 'p3amt', 'p4amt'].reduce((a, k) => a + (+x[k] || 0), 0);
-  if (pp > 0) return Math.min(pp, tot);
-  return (x.pay_status === 'Pagado' || x.delivery_resp === 'Cliente') ? tot : 0;
+  const pp = [1, 2, 3, 4].reduce((a, n) => a + ((+x['p' + n + 'amt'] > 0 && (String(x['p' + n + 'date'] || '').trim() || String(x['p' + n + 'method'] || '').trim())) ? +x['p' + n + 'amt'] : 0), 0);
+  if (x.pay_status === 'Pagado') return tot;
+  return Math.min(pp, tot);
 }
 
 // Plan de pagos: bloques que arma el estudio (fecha + productos del listado). El monto se suma solo
