@@ -13,7 +13,7 @@
 
 const SB_URL = 'https://iucjhzsnlotojvpyjcfo.supabase.co';
 const DECISIONES = ['Aprobado', 'Cambios solicitados', 'Rechazado', 'Por revisar', '']; // 'Por revisar' = deshacer la respuesta
-const CAMPOS_ITEM = 'id,cat,item,supplier,qty,unit,space,specs,product_url,image_url,delivery_status,client_status,opt_group,opt_sel,opt_rec,sort_order,client_note,order_date,est_delivery,actual_delivery,order_num,delivery_resp,ship_cost,pay_status,p1amt,p2amt,p3amt,p4amt';
+const CAMPOS_ITEM = 'id,cat,item,supplier,qty,unit,space,specs,product_url,image_url,delivery_status,client_status,opt_group,opt_sel,opt_rec,sort_order,client_note,order_date,est_delivery,actual_delivery,order_num,delivery_resp,ship_cost,pay_status,p1amt,p2amt,p3amt,p4amt,p1date,p2date,p3date,p4date,install_date,vence';
 const CAMPOS_PROY = 'id,name,client,status,stage,stage_dates,addr,start_date,facturacion,requisitos,color,portada';
 // A quién puede escribir el cliente (sección "Datos del proyecto y contactos" del portal)
 const DCTO_TRANSF = 0.05; // descuento por pago con transferencia en los honorarios del estudio
@@ -130,6 +130,21 @@ function pagadoDe(x) {
   const pp = ['p1amt', 'p2amt', 'p3amt', 'p4amt'].reduce((a, k) => a + (+x[k] || 0), 0);
   if (pp > 0) return Math.min(pp, tot);
   return (x.pay_status === 'Pagado' || x.delivery_resp === 'Cliente') ? tot : 0;
+}
+
+// Plan de pagos: bloques que arma el estudio (fecha + productos del listado). El monto se suma solo
+// con los productos del bloque (por el porcentaje si es un adelanto), salvo que el estudio fije un monto.
+async function planDe(p, items) {
+  const bl = (await sb('plan_pagos?select=id,titulo,fecha,fecha_txt,item_ids,porcentaje,monto,estado,nota,color,orden&project_id=eq.' + encodeURIComponent(p.id) + '&order=orden,fecha,id')) || [];
+  const porId = {}; items.forEach(x => { porId[x.id] = x; });
+  return bl.map(b => {
+    const its = (b.item_ids || []).map(i => porId[i]).filter(Boolean);
+    const base = its.reduce((a, x) => a + (+x.qty || 1) * (+x.unit || 0) + (+x.ship_cost || 0), 0);
+    const pct = b.porcentaje == null || b.porcentaje === '' ? 100 : +b.porcentaje;
+    const monto = b.monto != null && b.monto !== '' ? +b.monto : Math.round(base * pct / 100);
+    const provs = []; its.forEach(x => { if (x.supplier && provs.indexOf(x.supplier) < 0) provs.push(x.supplier); });
+    return { id: b.id, titulo: b.titulo || '', fecha: b.fecha || '', fechaTxt: b.fecha_txt || '', monto: monto, porcentaje: pct, estado: b.estado || 'Pendiente', nota: b.nota || '', color: b.color || '', items: its.map(x => x.id), proveedores: provs };
+  });
 }
 
 // "Cómo va tu proyecto": etapa, próximas reuniones marcadas para el cliente y avances de obra.
@@ -296,8 +311,11 @@ module.exports = async function handler(req, res) {
           espacio: x.space || '', specs: x.specs || '', link: x.product_url || '', imagen: x.image_url || '',
           entrega: x.delivery_status || 'Por pedir', estado: x.client_status || '',
           compra: x.order_date ? { fecha: x.order_date, entrega: x.est_delivery || '', orden: x.order_num || '', por: x.delivery_resp === 'Cliente' ? 'cliente' : 'estudio' } : null, grupo: x.opt_group || '', elegida: x.opt_sel === '1', recomendada: x.opt_rec === '1', nota: x.client_note || '',
-          pagado: pagadoDe(x), llega: x.est_delivery || '', llego: x.actual_delivery || '', pedido: x.order_date || ''
+          pagado: pagadoDe(x), llega: x.est_delivery || '', llego: x.actual_delivery || '', pedido: x.order_date || '',
+          instala: x.install_date || '', vence: x.vence || '',
+          pagos: [1, 2, 3, 4].filter(n => +x['p' + n + 'amt'] > 0 && x['p' + n + 'date']).map(n => ({ monto: +x['p' + n + 'amt'], fecha: x['p' + n + 'date'] }))
         })),
+        plan: await planDe(p, items).catch(() => []),
         proveedores: provs,
         documentos: docs,
         respuestas: resp.map(l => {
