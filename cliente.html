@@ -915,28 +915,16 @@ details.sv-det[open] summary h3::after{transform:rotate(-135deg) translateY(-1px
     // 1. Datos del proyecto y contactos
     var P=D.proyecto||{}, cts=D.contactos||[];
     var dat=[['Proyecto',P.nombre],['Cliente',P.cliente],['Dirección',P.direccion],['Inicio',P.inicio?fechaCorta(P.inicio):'']].filter(function(x){return x[1];});
-    h+='<div class="av-sec"><h3>Datos del proyecto</h3>'+(dat.length?'<div class="datos">'+dat.map(function(x){return '<div><span>'+x[0]+'</span>'+e(x[1])+'</div>';}).join('')
+    // Plegables, cerrados por defecto (se recuerda si el cliente los abre mientras navega)
+    h+='<details class="av-sec sv-det"'+(plg.datos?' open':'')+' ontoggle="ebPlg.datos=this.open"><summary><h3>Datos del proyecto</h3><span class="sv-res">'+e(P.direccion||P.nombre||'Ver datos')+'</span></summary><div class="sv-c">'+(dat.length?'<div class="datos">'+dat.map(function(x){return '<div><span>'+x[0]+'</span>'+e(x[1])+'</div>';}).join('')
         +[['Datos de facturación',P.facturacion],['Requisitos especiales',P.requisitos]].map(function(x){return '<div class="d-full"><span>'+x[0]+'</span>'+(x[1]?'<p>'+e(x[1])+'</p>':'<p class="d-vacio">—</p>')+'</div>';}).join('')+'</div>':'')
-      +'</div>'
-      +(cts.length?'<div class="av-sec"><h3>Equipo Estudio Bianco</h3><p class="meta" style="margin:0 0 8px;">Para que tu consulta llegue más rápido, escríbele directo a quien corresponda:</p><div class="contactos">'+cts.map(function(c){return '<div class="ct"><small>'+e(c.area)+'</small><b>'+e(c.nombre)+'</b>'+(c.para?'<span class="ct-para">'+e(c.para)+'</span>':'')+(c.telefono?'<a href="tel:'+e(String(c.telefono).replace(/[^\d+]/g,''))+'">☎ '+e(c.telefono)+'</a>':'')+(c.correo?'<a href="mailto:'+e(c.correo)+'">✉ '+e(c.correo)+'</a>':'')+'</div>';}).join('')+'</div></div>':'');
-    // 2. Proceso de diseño: cada etapa con su ícono; abajo la explicación de la etapa en curso (o de la que el cliente toque)
-    if(Array.isArray(fe._proceso)&&fe._proceso.length){h+=procesoPersonalizado(fe,et,hoyS);}else{
-    var etIni=cerrado?ETAPAS.length-1:idx;
-    // Reuniones adicionales: van entre las etapas según su fecha, en un tono más claro
-    var extras=(sg.reuniones||[]).filter(function(r){return r.adicional&&r.fecha;}).sort(function(a,b){return a.fecha.localeCompare(b.fecha);}); etExtras=extras;
-    // Etapas que el estudio ocultó para este proyecto (stage_dates._ocultas)
-    var ocultas=Array.isArray(fe._ocultas)?fe._ocultas:[];
-    var porEt={}; extras.forEach(function(r,n){var k=0;ETAPAS.forEach(function(x,i){if(ocultas.indexOf(x[0])<0&&fe[x[0]]&&fe[x[0]]<=r.fecha)k=i;});(porEt[k]=porEt[k]||[]).push(n);});
-    function nodoExtra(n){var r=extras[n], ok=r.fecha<=hoyS;return '<div class="et extra'+(ok?' hecha':'')+'" data-x="'+n+'" onclick="ebEtX('+n+')" role="button" tabindex="0"><span class="et-p">'+ICO_REU+(ok?'<i class="et-ok">✓</i>':'')+'</span><b>Reunión adicional</b><small>'+e(fechaCorta(r.fecha))+'</small></div>';}
-    h+='<div class="av-sec proc"><h3 class="h-up">Proceso de diseño</h3><div class="etapas" id="etw">'+ETAPAS.map(function(x,i){if(ocultas.indexOf(x[0])>=0)return '';var st=i<idx?'hecha':(i===idx?'actual':'');return '<div class="et '+st+(i===etIni?' sel':'')+'" data-i="'+i+'" onclick="ebEt('+i+')" role="button" tabindex="0"><span class="et-p">'+ET_ICO[i]+(st==='hecha'?'<i class="et-ok">✓</i>':'')+'</span><b>'+x[1]+'</b>'+(fe[x[0]]?'<small>'+e(fechaCorta(fe[x[0]]))+'</small>':'')+(st==='actual'?'<em>Estamos aquí</em>':'')+'</div>'+(porEt[i]||[]).map(nodoExtra).join('');}).join('')+'</div>'
-      +'<div class="et-d" id="etd">'+etTexto(etIni)+'</div>'
-      +(cerrado?'<p class="meta" style="margin-top:10px;">✓ Tu proyecto está terminado. ¡Gracias por confiar en nosotros!</p>':'')+'</div>';
-    }
-    // 3. Detalles de tu servicio (plegable): qué incluye, cotización, resumen y etapas de pago
+      +'</div></details>'
+      +(cts.length?'<details class="av-sec sv-det"'+(plg.equipo?' open':'')+' ontoggle="ebPlg.equipo=this.open"><summary><h3>Equipo Estudio Bianco</h3><span class="sv-res">'+cts.length+' personas</span></summary><div class="sv-c"><p class="meta" style="margin:0;">Para que tu consulta llegue más rápido, escríbele directo a quien corresponda:</p><div class="contactos">'+cts.map(function(c){return '<div class="ct"><small>'+e(c.area)+'</small><b>'+e(c.nombre)+'</b>'+(c.para?'<span class="ct-para">'+e(c.para)+'</span>':'')+(c.telefono?'<a href="tel:'+e(String(c.telefono).replace(/[^\d+]/g,''))+'">☎ '+e(c.telefono)+'</a>':'')+(c.correo?'<a href="mailto:'+e(c.correo)+'">✉ '+e(c.correo)+'</a>':'')+'</div>';}).join('')+'</div></div></details>':'');
+    // Detalles de tu servicio (plegable), justo bajo el equipo: qué incluye, cotización, resumen y etapas de pago
     var sv=D.servicio;
     if(sv){
       var pdto=Math.round((sv.dcto||0.05)*100);
-      h+='<details class="av-sec sv-det"'+(svAbierto?' open':'')+' ontoggle="svAbierto=this.open"><summary><h3>Detalles de tu servicio</h3><span class="sv-res">'+(sv.total?(sv.saldo>0?'Por pagar '+m(sv.saldo):'Al día ✓'):'Ver detalle')+'</span></summary><div class="sv-c">'
+      h+='<details class="av-sec sv-det"'+(plg.servicio?' open':'')+' ontoggle="ebPlg.servicio=this.open"><summary><h3>Detalles de tu servicio</h3><span class="sv-res">'+(sv.total?(sv.saldo>0?'Por pagar '+m(sv.saldo):'Al día ✓'):'Ver detalle')+'</span></summary><div class="sv-c">'
         +(sv.cotizacion?'<a class="sv-cot2" href="'+e(sv.cotizacion)+'" target="_blank" rel="noopener"><span class="sv-pdf">PDF</span><span class="sv-cn"><b>Cotización del servicio</b>'+(sv.cotizacionNombre?'<small>'+e(sv.cotizacionNombre)+'</small>':'')+'</span><span class="sv-ab">Abrir ↗</span></a>':'')
         +(sv.incluye?'<div class="sv-inc"><span>Qué incluye</span><p>'+e(sv.incluye)+'</p></div>':'')
         +((sv.cuotas||[]).length?'<div class="sv-tot"><div><span>Total del servicio</span><b>'+m(sv.total)+'</b></div><div><span>Pagado</span><b>'+m(sv.pagado)+'</b></div><div class="'+(sv.saldo>0?'pend':'')+'"><span>Por pagar</span><b>'+m(sv.saldo)+'</b>'+(sv.saldo>0&&sv.saldoDcto<sv.saldo?'<small>'+m(sv.saldoDcto)+' por transferencia</small>':'')+'</div></div>'
@@ -951,6 +939,19 @@ details.sv-det[open] summary h3::after{transform:rotate(-135deg) translateY(-1px
           }).join('')+'</div>'
           +'<p class="sv-nota">Pagando por transferencia tienes un '+pdto+'% de descuento sobre el valor de cada etapa.</p>':'')
         +'</div></details>';
+    }
+    // 2. Proceso de diseño: cada etapa con su ícono; abajo la explicación de la etapa en curso (o de la que el cliente toque)
+    if(Array.isArray(fe._proceso)&&fe._proceso.length){h+=procesoPersonalizado(fe,et,hoyS);}else{
+    var etIni=cerrado?ETAPAS.length-1:idx;
+    // Reuniones adicionales: van entre las etapas según su fecha, en un tono más claro
+    var extras=(sg.reuniones||[]).filter(function(r){return r.adicional&&r.fecha;}).sort(function(a,b){return a.fecha.localeCompare(b.fecha);}); etExtras=extras;
+    // Etapas que el estudio ocultó para este proyecto (stage_dates._ocultas)
+    var ocultas=Array.isArray(fe._ocultas)?fe._ocultas:[];
+    var porEt={}; extras.forEach(function(r,n){var k=0;ETAPAS.forEach(function(x,i){if(ocultas.indexOf(x[0])<0&&fe[x[0]]&&fe[x[0]]<=r.fecha)k=i;});(porEt[k]=porEt[k]||[]).push(n);});
+    function nodoExtra(n){var r=extras[n], ok=r.fecha<=hoyS;return '<div class="et extra'+(ok?' hecha':'')+'" data-x="'+n+'" onclick="ebEtX('+n+')" role="button" tabindex="0"><span class="et-p">'+ICO_REU+(ok?'<i class="et-ok">✓</i>':'')+'</span><b>Reunión adicional</b><small>'+e(fechaCorta(r.fecha))+'</small></div>';}
+    h+='<div class="av-sec proc"><h3 class="h-up">Proceso de diseño</h3><div class="etapas" id="etw">'+ETAPAS.map(function(x,i){if(ocultas.indexOf(x[0])>=0)return '';var st=i<idx?'hecha':(i===idx?'actual':'');return '<div class="et '+st+(i===etIni?' sel':'')+'" data-i="'+i+'" onclick="ebEt('+i+')" role="button" tabindex="0"><span class="et-p">'+ET_ICO[i]+(st==='hecha'?'<i class="et-ok">✓</i>':'')+'</span><b>'+x[1]+'</b>'+(fe[x[0]]?'<small>'+e(fechaCorta(fe[x[0]]))+'</small>':'')+(st==='actual'?'<em>Estamos aquí</em>':'')+'</div>'+(porEt[i]||[]).map(nodoExtra).join('');}).join('')+'</div>'
+      +'<div class="et-d" id="etd">'+etTexto(etIni)+'</div>'
+      +(cerrado?'<p class="meta" style="margin-top:10px;">✓ Tu proyecto está terminado. ¡Gracias por confiar en nosotros!</p>':'')+'</div>';
     }
     // 4. Últimas novedades (lo que viene y lo último que pasó)
     var viene=[], ultimo=[];
@@ -994,6 +995,8 @@ details.sv-det[open] summary h3::after{transform:rotate(-135deg) translateY(-1px
     return h;
   }
   var svAbierto=false;
+  // Qué plegables dejó abiertos el cliente (Datos del proyecto, Equipo, Detalles de tu servicio): todos parten cerrados
+  var plg=window.ebPlg={datos:false,equipo:false,servicio:false};
   var tabVisto={};
   window.ebV=function(v){vista=v;tabVisto[v]=1;try{localStorage.setItem('ebc_vista',v);}catch(x){}pintar();window.scrollTo(0,0);};
   // Proveedores en lista tipo acordeón: el nombre y al abrir, sus datos
