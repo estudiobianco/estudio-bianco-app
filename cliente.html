@@ -509,6 +509,7 @@ html{overflow-x:clip;}
 .pg-res span{font-size:12px;color:var(--ink3);display:block;}
 .pg-res b{font-family:var(--fd);font-weight:500;font-size:19px;}
 .pg-res .pend b{color:var(--ambar);}
+.pg-res .pg-det{flex-basis:100%;grid-column:1/-1;font-size:11.5px;color:var(--ink3);margin-top:-4px;}
 .pg-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
 .pg-card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:20px 22px;min-width:0;}
 .pg-card h2{font-size:17px;font-weight:500;margin:0;}
@@ -695,8 +696,10 @@ html{overflow-x:clip;}
   // ══ PAGOS: calendario con todo lo que pasa en el listado (compras, llegadas, instalaciones, pagos)
   // y el plan de pagos que arma el estudio (D.plan: bloques con fecha, productos y monto que se suma solo)
   var pgMes='', pgDia='';
-  var PG_TIPOS={pago:'Pago por hacer',pagado:'Pagado',compra:'Compra',llega:'Llega',llego:'Llegó',instala:'Instalación',vence:'Vence pago'};
-  var PG_COL={pagado:'#4CA36A',compra:'#7E9AA8',llega:'#C9A27E',llego:'#A3B18A',instala:'#9A8FB5',vence:'#D9962B'};
+  var PG_TIPOS={pago:'Pago por hacer',hon:'Honorarios',pagado:'Pagado',compra:'Compra',llega:'Llega',llego:'Llegó',instala:'Instalación',vence:'Vence pago'};
+  var PG_COL={hon:'#5B6770',pagado:'#4CA36A',compra:'#7E9AA8',llega:'#C9A27E',llego:'#A3B18A',instala:'#9A8FB5',vence:'#D9962B'};
+  // Cuotas de honorarios del estudio (vienen en D.servicio.cuotas: concepto, monto, vence, pagada, pagado, fechaPago)
+  function pgHon(){return (D.servicio&&D.servicio.cuotas)||[];}
   var PG_MES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   function pgHoy(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
   function pgFecha(s){s=String(s||'').slice(0,10);return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:'';}
@@ -719,6 +722,10 @@ html{overflow-x:clip;}
       ev.push({f:g.f,t:g.t,color:PG_COL[g.t],txt:TXT[g.t][uno?0:1]+(uno?g.n[0]:g.n.length+' productos'),sub:[uno?'':g.n.slice(0,3).join(', ')+(g.n.length>3?' y '+(g.n.length-3)+' más':''),g.t==='llega'?'fecha estimada':'',g.monto?m(g.monto):''].filter(Boolean).join(' · ')});});
     (D.plan||[]).forEach(function(b){var f=pgFecha(b.fecha);if(!f)return;var ok=b.estado==='Pagado';
       ev.push({f:f,t:ok?'pagado':'pago',color:ok?PG_COL.pagado:(b.color||pgAcento()),txt:(ok?'Pagado: ':'Pago: ')+(b.titulo||'Pago'),sub:m(b.monto)+(ok?'':' · '+b.estado)});});
+    pgHon().forEach(function(c){
+      if(c.pagada){var fp=pgFecha(c.fechaPago);if(fp)ev.push({f:fp,t:'pagado',color:PG_COL.pagado,txt:'Honorarios pagados: '+(c.concepto||'Etapa'),sub:m(c.pagado||c.monto)});return;}
+      var fv=pgFecha(c.vence);if(fv)ev.push({f:fv,t:'hon',color:PG_COL.hon,txt:'Honorarios: '+(c.concepto||'Etapa'),sub:m(Math.max(0,c.monto-(+c.pagado||0)))+' · Pendiente'});
+    });
     ev.sort(function(a,b){return a.f<b.f?-1:a.f>b.f?1:0;});
     return ev;
   }
@@ -727,8 +734,11 @@ html{overflow-x:clip;}
     if(!pgMes){pgMes=hoy.slice(0,7);var fut=ev.filter(function(x){return x.f>=pgMes+'-01';});if(!ev.some(function(x){return x.f.slice(0,7)===pgMes;})&&fut.length)pgMes=fut[0].f.slice(0,7);}
     var y=+pgMes.slice(0,4), mo=+pgMes.slice(5,7), pri=new Date(y,mo-1,1), dias=new Date(y,mo,0).getDate(), off=(pri.getDay()+6)%7;
     var porDia={}, tipos={}; ev.forEach(function(x){(porDia[x.f]=porDia[x.f]||[]).push(x);tipos[x.t]=x.t==='pago'?pgAcento():x.color;});
-    // Franja de arriba: total, pagado y lo que falta
-    var h='<div class="pg-res"><div><span>Total de compras</span><b>'+m(total)+'</b></div><div><span>Pagado</span><b>'+m(pagado)+'</b></div><div class="pend"><span>Por pagar</span><b>'+m(Math.max(0,total-pagado))+'</b></div></div>';
+    // Franja de arriba: total, pagado y lo que falta (compras + honorarios del estudio)
+    var hc=pgHon(), hT=hc.reduce(function(a,c){return a+(+c.monto||0);},0), hP=hc.reduce(function(a,c){return a+Math.min(+c.pagado||0,+c.monto||0);},0);
+    var T=total+hT, P=pagado+hP;
+    var h='<div class="pg-res"><div><span>Total</span><b>'+m(T)+'</b></div><div><span>Pagado</span><b>'+m(P)+'</b></div><div class="pend"><span>Por pagar</span><b>'+m(Math.max(0,T-P))+'</b></div>'
+      +(hc.length?'<p class="pg-det">Compras '+m(total)+' (pagado '+m(pagado)+') · Honorarios del estudio '+m(hT)+' (pagado '+m(hP)+')</p>':'')+'</div>';
     // Calendario
     var cal='<div class="pg-card pg-calc"><div class="pg-calh"><h2>'+e(pri.toLocaleDateString('es-CL',{month:'long',year:'numeric'}))+'</h2><span class="pg-nav"><button onclick="ebPgMes(-1)" aria-label="Mes anterior">‹</button><button onclick="ebPgMes(1)" aria-label="Mes siguiente">›</button></span></div><div class="pg-cal">'
       +['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'].map(function(d){return '<div class="d">'+d+'</div>';}).join('');
@@ -756,17 +766,25 @@ html{overflow-x:clip;}
       return '<div class="pg-fila"><i style="background:'+(b.color||pgAcento())+(b.estado==='Contra entrega'?';opacity:.45':'')+'"></i><span class="f">'+(f?pgCorta(f):e(b.fechaTxt||'Por definir'))+'</span><div><h3>'+e(b.titulo||'Pago')+'</h3>'+(linea?'<p>'+e(linea)+'</p>':'')+'</div><div class="m">'+m(b.monto)+'<small>'+e(b.estado)+'</small></div>'
         +(its.length?'<details><summary>Ver '+(its.length===1?'el producto':'los '+its.length+' productos')+'</summary>'+its.map(function(it){return '<div><span>'+e(it.item)+'</span><span>'+m(sub(it))+'</span></div>';}).join('')+(+b.porcentaje<100?'<div><span>Este pago es el '+(+b.porcentaje)+'% del total</span><span></span></div>':'')+'</details>':'')+'</div>';
     }
+    // Honorarios pendientes entran al plan como filas propias; los pagados van a "Ya pagado"
+    var honPend=hc.filter(function(c){return !c.pagada;}), honOk=hc.filter(function(c){return c.pagada;});
+    function filaHon(c){
+      var f=pgFecha(c.vence), falta=Math.max(0,(+c.monto||0)-(+c.pagado||0));
+      return '<div class="pg-fila"><i style="background:'+PG_COL.hon+'"></i><span class="f">'+(f?pgCorta(f):'Por definir')+'</span><div><h3>'+e(c.concepto||'Etapa')+'</h3><p>Honorarios Estudio Bianco'+(+c.pagado>0?' · ya abonaste '+m(c.pagado):'')+'</p></div><div class="m">'+m(falta)+'<small>Pendiente</small></div></div>';
+    }
+    var todas=pend.map(function(b){return {f:pgFecha(b.fecha)||'9999',html:fila(b)};}).concat(honPend.map(function(c){return {f:pgFecha(c.vence)||'9999',html:filaHon(c)};}));
+    todas.sort(function(a,b){return a.f<b.f?-1:a.f>b.f?1:0;});
     var pl='<div class="pg-card pg-plan"><h2 style="margin-bottom:4px;">Plan de pagos</h2>';
-    if(pend.length)pl+=pend.map(fila).join('');
-    else if(!ok.length)pl+='<p class="pg-vacio">Estamos armando el plan de pagos de tu proyecto. Apenas esté listo lo verás aquí, con sus fechas y montos.</p>';
+    if(todas.length)pl+=todas.map(function(x){return x.html;}).join('');
+    else if(!ok.length&&!honOk.length)pl+='<p class="pg-vacio">Estamos armando el plan de pagos de tu proyecto. Apenas esté listo lo verás aquí, con sus fechas y montos.</p>';
     else pl+='<p class="pg-vacio">No tienes pagos pendientes en el plan.</p>';
-    if(ok.length){var nom=ok.map(function(b){return b.titulo||'Pago';});pl+='<div class="pg-ok">✓ Ya pagado: '+e(nom.length>3?nom.slice(0,3).join(', ')+' y '+(nom.length-3)+' más':nom.join(', '))+' · '+m(ok.reduce(function(a,b){return a+(+b.monto||0);},0))+'</div>';}
+    if(ok.length||honOk.length){var nom=ok.map(function(b){return b.titulo||'Pago';}).concat(honOk.map(function(c){return 'honorarios '+(c.concepto||'etapa');}));pl+='<div class="pg-ok">✓ Ya pagado: '+e(nom.length>3?nom.slice(0,3).join(', ')+' y '+(nom.length-3)+' más':nom.join(', '))+' · '+m(ok.reduce(function(a,b){return a+(+b.monto||0);},0)+honOk.reduce(function(a,c){return a+(+c.pagado||+c.monto||0);},0))+'</div>';}
     pl+='</div>';
     return h+'<div class="pg-cols">'+cal+pl+'</div>';
   }
   window.ebPgMes=function(n){var y=+pgMes.slice(0,4),mo=+pgMes.slice(5,7)-1+n,x=new Date(y,mo,1);pgMes=x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0');pgDia='';pintar();};
   window.ebPgDia=function(f){pgDia=pgDia===f?'':f;pintar();};
-  function hayPagos(){if((D.plan||[]).length)return true;return (D.items||[]).some(function(it){return !fuera(it)&&(it.pedido||it.llega||it.llego||it.instala||it.vence||(it.pagos||[]).length);});}
+  function hayPagos(){if((D.plan||[]).length||pgHon().length)return true;return (D.items||[]).some(function(it){return !fuera(it)&&(it.pedido||it.llega||it.llego||it.instala||it.vence||(it.pagos||[]).length);});}
 
   function pintar(){
     var its=D.items, sumable=function(it){return !fuera(it)&&est(it)!=='Rechazado';};
