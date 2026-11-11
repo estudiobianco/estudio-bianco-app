@@ -1547,7 +1547,7 @@ function mg(i){
   if(_dm[i.deliveryStatus])i.deliveryStatus=_dm[i.deliveryStatus];
   var _cm={'Solicita cambios':'Cambios solicitados'};
   if(_cm[i.clientStatus])i.clientStatus=_cm[i.clientStatus];
-  var _paid=(i.p1amt||0)+(i.p2amt||0)+(i.p3amt||0)+(i.p4amt||0);
+  var _paid=tp(i);
   var _tot=(i.qty||1)*(i.unit||0);
   if(_paid>0&&i.payStatus==='Pendiente'){i.payStatus=_paid>=_tot?'Pagado':'Pagado parcialmente';}
   const pm={'Pendiente':'Pendiente','Pagado':'Pagado','En proceso':'Pendiente','Por confirmar':'Pendiente'};
@@ -1619,7 +1619,9 @@ const es=s=>(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&qu
 function tst(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
 function go(id){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+id).classList.add('active');document.getElementById('nav-'+id).classList.add('active');({compras:rC,pagados:function(){rPag();setTimeout(rPend2,50);},pendientes:rPend,seguimiento:function(){try{rSeguimiento();}catch(e){try{console.error(e);}catch(x){}}},cotizaciones:rCot,honorarios:rH,gestion:rGP,crm:rCRM,proveedores:function(){try{rSup();}catch(e){}},pagosprov:function(){try{rPagosProv();}catch(e){}},ingresos:function(){try{rIngresos();}catch(e){}}})[id]?.();}
 function uNT(){var n=document.getElementById('navTotDiv');if(!n)return;if(appMode==='admin'&&currentProjId){n.style.display='';document.getElementById('navTotal').textContent=fm(items.filter(function(r){return r.cat!=='Honorarios';}).reduce(function(a,r){return a+rT(r);},0));}else{n.style.display='none';}}
-function tp(r){return(r.p1amt||0)+(r.p2amt||0)+(r.p3amt||0)+(r.p4amt||0);}
+// Pagado de un producto = solo las cuotas con fecha o medio de pago. Una cuota con monto pero sin fecha
+// ni medio es un pago planificado (ej. "abono 60%"), no un pago hecho (error 11-11-2026). Honorarios: como antes.
+function tp(r){if(!r)return 0;if(r.cat==='Honorarios')return(r.p1amt||0)+(r.p2amt||0)+(r.p3amt||0)+(r.p4amt||0);var s=0;for(var n=1;n<=4;n++){var a=+r['p'+n+'amt']||0;if(a>0&&(String(r['p'+n+'date']||'').trim()||String(r['p'+n+'method']||'').trim()))s+=a;}return s;}
 // Monto ya pagado: lo que registró el estudio o, si lo compró el cliente directo, el total del producto
 function tpCli(r){var p=tp(r);return p>0?p:(compraCliente(r)?rT(r):0);}
 function tpend(r){return Math.max(0,rT(r)-tpCli(r));}
@@ -5047,7 +5049,7 @@ function renderGantt(){
     });
     (items||[]).forEach(function(it){
       var s=(it.supplier||'').trim()||'(Sin proveedor)';
-      var c=(it.p1amt||0)+(it.p2amt||0)+(it.p3amt||0)+(it.p4amt||0);
+      var c=tp(it);
       if(c>0){ cuotasPor[s]=(cuotasPor[s]||0)+c; pagadoPor[s]=(pagadoPor[s]||0)+c; }
     });
 
@@ -5293,7 +5295,7 @@ window.pdfResumenCliente = function(){
   var pays = window.__provPays||[];
   var pagadoMap={};
   pays.forEach(function(p){ var s=(p.supplier||'').trim()||'(Sin proveedor)'; pagadoMap[s]=(pagadoMap[s]||0)+(+p.amount||0); });
-  (items||[]).forEach(function(it){ var s=(it.supplier||'').trim()||'(Sin proveedor)'; var c=(it.p1amt||0)+(it.p2amt||0)+(it.p3amt||0)+(it.p4amt||0); if(c>0) pagadoMap[s]=(pagadoMap[s]||0)+c; });
+  (items||[]).forEach(function(it){ var s=(it.supplier||'').trim()||'(Sin proveedor)'; var c=tp(it); if(c>0) pagadoMap[s]=(pagadoMap[s]||0)+c; });
   var granTotal=0, granPagado=0;
   Object.keys(totMap).forEach(function(s){ granTotal+=totMap[s].total; });
   Object.keys(pagadoMap).forEach(function(s){ granPagado+=pagadoMap[s]; });
