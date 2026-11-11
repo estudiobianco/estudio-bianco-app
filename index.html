@@ -9964,7 +9964,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
       +'<div class="mf-seg">'+[['','Todo'],['Personal','Personal'],['Estudio','Estudio']].map(function(a){return '<button class="'+(amb===a[0]?'on':'')+'" onclick="ebMF.amb(\''+a[0]+'\')">'+a[1]+'</button>';}).join('')+'</div></div>';
     if(regla)h+=bannerRegla();
     var nSin=(D.mov||[]).filter(function(m){return m.tipo==='Gasto'&&sinCat(m);}).length;
-    var tabs=[['resumen','🏠 Inicio'],['mov','Movimientos'+(nSin?' ('+nSin+' sin categoría)':'')],['cobrar','Me deben'],['deudas','Debo'],['fijos','Pagos mensuales'],['venc','Pagos con fecha'],['anual','Resumen por año'],['sii','Empresa (SII)'],['cats','Categorías'],['preg','Preguntas'+(abiertas?' ('+abiertas+')':'')]];
+    var tabs=[['resumen','🏠 Inicio'],['mov','Movimientos'+(nSin?' ('+nSin+' sin categoría)':'')],['cobrar','Me deben'],['deudas','Debo'],['fijos','Pagos mensuales'],['venc','Pagos con fecha'],['anual','Resumen por año'],['imp','🧾 Impuestos'],['sii','Empresa (SII)'],['cats','Categorías'],['preg','Preguntas'+(abiertas?' ('+abiertas+')':'')]];
     h+='<div class="mf-tabs">'+tabs.map(function(x){return '<button class="'+(vista===x[0]?'on':'')+'" onclick="ebMF.vista(\''+x[0]+'\')">'+x[1]+'</button>';}).join('')+'</div>';
     if(vista==='resumen')h+=vResumen(t);
     else if(vista==='mov')h+=vMov();
@@ -9974,6 +9974,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     else if(vista==='venc')h+=vVenc();
     else if(vista==='cats')h+=vCats();
     else if(vista==='sii')h+=vSii();
+    else if(vista==='imp')h+=vImp();
     else if(vista==='anual')h+=vAnual();
     else if(vista==='preg')h+=vPreg();
     h+='</div>';
@@ -10148,11 +10149,11 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
       if(dd<=20){if(--pm<1){pm=12;py--;}}else{if(++m>12){m=1;y++;}}
       var per=py+'-'+p2s(pm),fe=y+'-'+p2s(m)+'-20';
       empresas().forEach(function(e){var f=(D.f29||[]).filter(function(x){return x.empresa_rut===e.rut&&x.periodo===per;})[0];
-        if(!f||/por declarar/i.test(f.estado||''))ot.push({fecha:fe,txt:'F29 de '+MES(per)+' · '+(e.corto||e.nombre),monto:null,sii:1});});}
+        if(!f||/por declarar/i.test(f.estado||'')){var cf=calcF29(e,per);ot.push({fecha:fe,txt:'F29 de '+MES(per)+' · '+(e.corto||e.nombre),monto:cf.total||null,sii:1});}});}
     if(ot.length){ot.sort(function(a,b){return a.fecha<b.fecha?-1:1;});
       h+='<h4 class="mf-h4">Otros pagos y cobros con fecha</h4>';
       ot.forEach(function(o){
-        var acc=o.key?(yaAb===o.key?'':'<button class="btn mf-ya" onclick="ebMF.ya(\''+o.key+'\')">'+(o.cob?'Ya me pagaron':'Ya lo pagué')+'</button>'):o.pid?'<button class="btn mf-ya" onclick="ebMF.abrir(\''+es2(o.pid)+'\')">Abrir</button>':o.sii?'<button class="btn mf-ya" onclick="ebMF.vista(\'sii\')">Ver</button>':'<button class="btn mf-ya" onclick="ebMF.editar(\'fin_deudas\','+o.deu+')">Ver</button>';
+        var acc=o.key?(yaAb===o.key?'':'<button class="btn mf-ya" onclick="ebMF.ya(\''+o.key+'\')">'+(o.cob?'Ya me pagaron':'Ya lo pagué')+'</button>'):o.pid?'<button class="btn mf-ya" onclick="ebMF.abrir(\''+es2(o.pid)+'\')">Abrir</button>':o.sii?'<button class="btn mf-ya" onclick="ebMF.vista(\'imp\')">Ver</button>':'<button class="btn mf-ya" onclick="ebMF.editar(\'fin_deudas\','+o.deu+')">Ver</button>';
         h+='<div class="mf-px"><span class="mf-d '+clsDia(o.fecha)+'">'+lblDia(o.fecha)+'</span><span class="mf-tx">'+(o.cob?'💰 ':'')+es2(o.txt)+'</span><b class="mono '+(o.cob?'g':'')+'">'+(o.monto?clp(o.monto):'—')+'</b>'+acc+'</div>';
         if(o.key&&yaAb===o.key)h+=formYa(o.monto);});}
     return h+'<button class="mf-bv" onclick="ebMF.vista(\'fijos\')">Ver y editar los pagos mensuales ›</button>';
@@ -10427,6 +10428,114 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     h+='</tbody></table></div><p class="mf-mut">"Pago" busca entre tus ingresos del estudio uno de monto parecido (total, neto o con 5% de descuento) hasta 4 meses después. Es una ayuda: confírmalo antes de cobrar.</p>';
     return h;
   }
+  // ── Impuestos: cuándo y cuánto pagar al SII por empresa (se calcula con el Registro de Compras y Ventas y los F29 cargados) ──
+  var FERIADOS=['01-01','05-01','05-21','06-21','06-29','07-16','08-15','09-18','09-19','10-12','10-31','11-01','12-08','12-25'];
+  function habil(f){var d=new Date(f+'T12:00:00');while(d.getDay()===0||d.getDay()===6||FERIADOS.indexOf(d.toISOString().slice(5,10))>=0)d.setDate(d.getDate()+1);return d.toISOString().slice(0,10);}
+  function perSig(p){var y=+p.slice(0,4),m=+p.slice(5,7)+1;if(m>12){m=1;y++;}return y+'-'+p2s(m);}
+  function perAnt(p){var y=+p.slice(0,4),m=+p.slice(5,7)-1;if(m<1){m=12;y--;}return y+'-'+p2s(m);}
+  function venceF29(p){return habil(perSig(p)+'-20');}           // el F29 vence el 20 del mes siguiente (o el día hábil siguiente)
+  function rutNum(r){return parseInt(String(r||'').replace(/\./g,'').split('-')[0],10)||0;}
+  // Boleta de honorarios a una persona (RUT bajo 50 millones): la retención la paga la sociedad en su F29 (PPM)
+  function retEmisor(d){return esBHE(d)&&d.libro==='Ventas'&&vale(d)&&rutNum(d.rut)<50000000;}
+  function docsPer(rut,p){return (D.sii||[]).filter(function(d){return d.empresa_rut===rut&&(d.periodo||String(d.fecha||'').slice(0,7))===p&&vale(d);});}
+  function ventasNetasPer(rut,p){return docsPer(rut,p).reduce(function(a,d){return d.libro==='Ventas'&&!esBHE(d)?a+signo(d)*((Number(d.neto)||0)+(Number(d.exento)||0)):a;},0);}
+  // Tasa de PPM que usa la empresa: lo que pagó de PPM sobre lo que vendió, en sus últimos F29
+  function tasaPPM(rut){var s=0,n=0;(D.f29||[]).filter(function(f){return f.empresa_rut===rut&&Number(f.ppm)>0;}).sort(function(a,b){return a.periodo<b.periodo?1:-1;}).slice(0,8)
+    .forEach(function(f){var v=ventasNetasPer(rut,f.periodo);if(v>0){s+=Number(f.ppm);n+=v;}});return n?s/n:0;}
+  function f29De(rut,p){return (D.f29||[]).filter(function(f){return f.empresa_rut===rut&&f.periodo===p;})[0];}
+  function calcF29(e,p){
+    var r={per:p,deb:0,cred:0,rem:0,ppmV:0,ppmB:0,vn:0,nB:0,nBP:0};
+    docsPer(e.rut,p).forEach(function(d){var s=signo(d),i=Number(d.iva)||0;
+      if(d.libro==='Ventas'){if(esBHE(d)){r.nB++;if(retEmisor(d)){r.nBP++;r.ppmB+=Number(d.otros)||0;}}else{r.deb+=s*i;r.vn+=s*((Number(d.neto)||0)+(Number(d.exento)||0));}}
+      else r.cred+=s*i;});
+    var fa=f29De(e.rut,perAnt(p));r.rem=fa?Number(fa.remanente)||0:0;
+    r.tasa=tasaPPM(e.rut);r.ppmV=Math.round(r.vn*r.tasa);
+    var x=r.deb-r.cred-r.rem;r.iva=Math.max(0,x);r.remSig=Math.max(0,-x);
+    var u=(D.f29||[]).filter(function(f){return f.empresa_rut===e.rut&&Number(f.retenciones)>0;}).sort(function(a,b){return a.periodo<b.periodo?1:-1;})[0];r.retTip=u?Number(u.retenciones):0;
+    r.total=Math.round(r.iva+r.ppmV+r.ppmB);r.vence=venceF29(p);
+    // Si ya venció: recargos aproximados (reajuste, 1,5% de interés por mes y multa), con la condonación del 70% que te han dado antes
+    var dias=Math.round((new Date(hoy()+'T12:00:00')-new Date(r.vence+'T12:00:00'))/864e5);r.atr=dias>0;
+    if(r.atr&&r.total){var m=Math.ceil(dias/30),rec=0.015*m+Math.min(0.3,0.1+0.02*Math.max(0,m-5));r.rec=Math.round(r.total*(0.005*m+rec*0.3));r.recMax=Math.round(r.total*(0.005*m+rec));}
+    return r;}
+  // Meses sin F29 presentado: los marcados como no declarados y los posteriores al último cargado
+  function pendF29(e){var cur=hoy().slice(0,7),out=[],fs=(D.f29||[]).filter(function(f){return f.empresa_rut===e.rut;});
+    fs.forEach(function(f){if(/no declarad|sin declarar|atrasad/i.test(f.estado||''))out.push(f.periodo);});
+    var ult=fs.filter(function(f){return !/por declarar|no declarad|sin declarar/i.test(f.estado||'');}).map(function(f){return f.periodo;}).sort().pop();
+    if(ult)for(var p=perSig(ult),i=0;p<cur&&i<24;p=perSig(p),i++)if(out.indexOf(p)<0)out.push(p);
+    return out.sort();}
+  // Lo pagado a cuenta de la renta del año (se descuenta en abril): PPM de los F29 y retenciones que hicieron los clientes
+  function aCuenta(rut,y){var ppm=(D.f29||[]).filter(function(f){return f.empresa_rut===rut&&f.periodo.slice(0,4)===y;}).reduce(function(a,f){return a+(Number(f.ppm)||0);},0);
+    var ret=(D.sii||[]).filter(function(d){return d.empresa_rut===rut&&String(d.periodo||d.fecha||'').slice(0,4)===y&&esBHE(d)&&d.libro==='Ventas'&&vale(d)&&!retEmisor(d);}).reduce(function(a,d){return a+(Number(d.otros)||0);},0);
+    return {ppm:ppm,ret:ret};}
+  function obligaciones(){
+    var hy=hoy(),out=[],lim=sumaDias(hy,370);
+    empresas().forEach(function(e){var c=e.corto||e.nombre;
+      pendF29(e).forEach(function(p){var r=calcF29(e,p);
+        out.push({fecha:r.vence,emp:c,rut:e.rut,txt:'F29 de '+MES(p),monto:r.total+(r.rec||0),est:1,r:r,atr:r.atr,
+          hacer:r.atr?'Atrasado. Decláralo en sii.cl y paga ahí mismo: el SII te muestra el monto exacto con recargos.':(r.total?'Declara y paga en sii.cl → Impuestos mensuales → Declarar IVA (F29).':'Igual hay que declararlo, aunque sea en $0.')});});
+      // Los F29 que vienen (todavía no se sabe el monto)
+      for(var p=hy.slice(0,7),i=0;i<12;i++,p=perSig(p)){if(f29De(e.rut,p)&&!/por declarar/i.test(f29De(e.rut,p).estado||''))continue;var v=venceF29(p);
+        if(v>lim||out.some(function(o){return o.rut===e.rut&&o.txt==='F29 de '+MES(p);}))continue;
+        var r2=p===hy.slice(0,7)?calcF29(e,p):null;
+        out.push({fecha:v,emp:c,rut:e.rut,txt:'F29 de '+MES(p),monto:r2&&r2.total?r2.total:null,est:1,r:r2,futuro:1,hacer:'Depende de lo que factures ese mes.'});}
+      var y=String(+hy.slice(0,4)-(hy.slice(5,7)<='04'?1:0)),ac=aCuenta(e.rut,y),fr=habil((+y+1)+'-04-30');
+      out.push({fecha:fr,emp:c,rut:e.rut,txt:'Renta anual (F22) del año '+y,monto:null,hacer:'La declaración de renta. Ya llevas pagado a cuenta '+clp(ac.ppm+ac.ret)+(ac.ret?' ('+clp(ac.ppm)+' de PPM y '+clp(ac.ret)+' que te retuvieron los clientes)':' en PPM')+', que se descuenta. Pide a la contadora el cálculo a fines de marzo.'});
+      out.push({fecha:(+y+1)+'-03-01',etiqueta:'Marzo',emp:c,rut:e.rut,txt:'Declaraciones juradas',monto:null,hacer:'Solo si la empresa pagó sueldos o boletas de honorarios. Lo hace la contadora.'});
+    });
+    // Cuotas de convenios con Tesorería del estudio (fin_deudas abiertas)
+    (D.deu||[]).forEach(function(d){if(d.cerrada||d.ambito!=='Estudio'||!Number(d.cuota)||!d.vencimiento||!/tgr|tesorer|sii/i.test(d.acreedor||''))return;
+      var f=d.vencimiento;for(var i=0;i<12&&f<=lim;i++){if(f>=sumaDias(hy,-40))out.push({fecha:f,emp:'Tesorería',txt:'Cuota del convenio',monto:Number(d.cuota),deu:d.id,atr:f<hy,hacer:'Se paga en tgr.cl → Pagar convenio. Si quedan 3 cuotas impagas, el convenio se cae.'});
+        f=sumaDias(perSig(perSig(f.slice(0,7)))+'-01',-1);}});  // último día del mes siguiente
+    return out.sort(function(a,b){return (b.atr?1:0)-(a.atr?1:0)||(a.fecha<b.fecha?-1:1);});
+  }
+  function filaObl(o,det){
+    var d=enDias(o.fecha),pill=o.etiqueta?o.etiqueta:o.atr?'Atrasado':d===0?'Hoy':d===1?'Mañana':d<=31?'En '+d+' días':fC(o.fecha).slice(0,5)+(o.fecha.slice(0,4)!==hoy().slice(0,4)?'-'+o.fecha.slice(2,4):'');
+    var h='<div class="mf-ob'+(o.atr?' mf-ob-r':d<=7?' mf-ob-w':'')+'"><span class="mf-obd">'+pill+'</span><div class="mf-obt"><b>'+es2(o.txt)+'</b><small>'+es2(o.emp)+(o.etiqueta||o.atr?'':' · vence el '+fC(o.fecha).slice(0,5))+'</small></div><b class="mono mf-obm">'+(o.monto!=null&&o.monto!==0?(o.est?'≈ ':'')+clp(o.monto):o.monto===0?'$0':'—')+'</b></div>';
+    if(det)h+='<p class="mf-obh">'+es2(o.hacer||'')+'</p>'+(o.r&&!o.futuro?detF29(o.r,o.rut):'');
+    return h;}
+  function detF29(r,rut){var l=function(t,v,c){return '<div class="mf-bl"><span>'+t+'</span><b class="'+(c||'')+'">'+v+'</b></div>';},h='<details class="mf-det"><summary>¿Cómo se calculó?</summary>';
+    if(r.deb||r.cred||r.rem)h+=l('IVA de tus ventas',clp(r.deb))+l('− IVA de tus compras',clp(r.cred))+l('− Saldo a favor del mes anterior',clp(r.rem))+l('= IVA a pagar',clp(r.iva))+(r.remSig?l('Te queda a favor para el próximo mes',clp(r.remSig),'g'):'');
+    if(r.ppmV)h+=l('+ PPM ('+(r.tasa*100).toFixed(3).replace('.',',')+'% de lo vendido)',clp(r.ppmV));
+    if(r.nB)h+=l(r.nB+' boleta'+(r.nB>1?'s':'')+' de honorarios',r.nBP?r.nBP+' a persona'+(r.nBP>1?'s':''):'todas a empresas');
+    if(r.ppmB)h+=l('+ Retención que pagas tú (15,25%, boletas a personas)',clp(r.ppmB));
+    else if(r.nB)h+=l('Retención','la pagan tus clientes');
+    if(r.rec)h+=l('+ Recargos por atraso (aprox., con condonación)',clp(r.rec),'r');
+    h+=l('Total aproximado',clp(r.total+(r.rec||0)));
+    if(r.retTip)h+='<p class="mf-sub" style="margin:6px 0 0;">Si ese mes la empresa pagó un sueldo o una boleta de honorarios, suma su retención (la última fue de '+clp(r.retTip)+').</p>';
+    if(r.rec)h+='<p class="mf-sub" style="margin:6px 0 0;">Sin condonación podría llegar a '+clp(r.total+r.recMax)+'. El SII calcula el monto exacto al declarar.</p>';
+    return h+'</details>';}
+  var impMas=false;
+  function vImp(){
+    var ob=obligaciones(),hy=hoy(),ya=ob.filter(function(o){return o.atr||(!o.futuro&&enDias(o.fecha)<=45)||(o.futuro&&o.monto&&enDias(o.fecha)<=45);});
+    ya.sort(function(a,b){return (b.atr?1:0)-(a.atr?1:0)||((b.monto>0)?1:0)-((a.monto>0)?1:0)||(a.fecha<b.fecha?-1:1);});
+    var top=ya.slice(0,3),resto=ob.filter(function(o){return top.indexOf(o)<0;});
+    var tot=top.reduce(function(a,o){return a+(Number(o.monto)||0);},0);
+    var h='<div class="mf-imp">';
+    h+='<div class="mf-card mf-impc"><h3>Lo que viene</h3><p class="mf-frase">'+(top.length?'Tienes <b>'+top.length+'</b> pago'+(top.length>1?'s':'')+' de impuestos por delante'+(tot?', cerca de <b>'+clp(tot)+'</b> en total.':'.'):'Nada urgente con el SII. 🌿')+'</p>';
+    top.forEach(function(o){h+=filaObl(o,true);});
+    // Los F29 en $0 que vencen pronto: no cuestan nada, pero si no se declaran quedan atrasados
+    resto.filter(function(o){return o.est&&!o.futuro&&o.monto===0&&enDias(o.fecha)<=31;}).forEach(function(o){
+      h+='<p class="mf-ob0">🔔 No olvides: el '+es2(o.txt)+' de la '+es2(o.emp.toLowerCase())+' va en $0, pero igual hay que declararlo antes del '+fC(o.fecha).slice(0,5)+'.</p>';});
+    h+='</div>';
+    // Para no atrasarte
+    h+='<div class="mf-card mf-impc mf-tip"><h3>Para no atrasarte</h3><div class="mf-tp"><span>🧾</span><div><b>Cada factura de la SpA</b><small>Aparta el 19% del neto: es el IVA, no es tuyo.</small></div></div>'
+      +'<div class="mf-tp"><span>👤</span><div><b>Boleta de la sociedad a una persona</b><small>Aparta el 15,25%: lo pagas tú en el F29 del mes siguiente.</small></div></div>'
+      +'<div class="mf-tp"><span>🏢</span><div><b>Boleta de la sociedad a una empresa</b><small>No apartas nada: la empresa retiene y paga por ti. Igual declara el F29 en $0.</small></div></div>'
+      +'<div class="mf-tp"><span>📅</span><div><b>El 20 de cada mes</b><small>Vence el F29 de las dos empresas, aunque no hayas vendido nada.</small></div></div></div>';
+    // Todo el año
+    h+='<details class="mf-card mf-impc mf-det2"'+(impMas?' open':'')+' ontoggle="ebMF.impMas(this.open)"><summary>Ver todo el año ('+resto.length+')</summary>';
+    resto.forEach(function(o){h+=filaObl(o,false);});
+    h+='</details>';
+    // Qué es cada cosa
+    h+='<details class="mf-card mf-impc mf-det2"><summary>¿Qué es cada cosa?</summary>'
+      +'<div class="mf-tp"><span>F29</span><div><b>Declaración mensual</b><small>IVA de la SpA, PPM y retenciones. Las dos empresas la presentan todos los meses.</small></div></div>'
+      +'<div class="mf-tp"><span>PPM</span><div><b>Pago provisional mensual</b><small>Un adelanto de la renta anual. En abril se descuenta de lo que debes.</small></div></div>'
+      +'<div class="mf-tp"><span>F22</span><div><b>Renta anual</b><small>En abril se calcula el impuesto del año y se restan los PPM y retenciones.</small></div></div>'
+      +'<div class="mf-tp"><span>SpA</span><div><b>Estudio Bianco SpA</b><small>Emite facturas con IVA (19%). Paga IVA y PPM.</small></div></div>'
+      +'<div class="mf-tp"><span>Soc.</span><div><b>Sociedad de profesionales</b><small>Emite boletas de honorarios, sin IVA. Retención 15,25% en 2026 (16% en 2027).</small></div></div>'
+      +'<p class="mf-sub" style="margin:8px 0 0;">Los montos son aproximados, calculados con lo que Claude carga del SII. El monto oficial es el que muestra sii.cl al declarar.</p></details>';
+    return h+'</div>';
+  }
   function vCats(){
     var h='<div class="mf-grid"><div class="mf-card"><h3>Tus categorías</h3><p class="mf-mut">Cada gasto tiene una categoría, y las categorías se juntan en grupos (Hogar, Deudas, Transporte…).</p>';
     SECC.forEach(function(s){
@@ -10564,6 +10673,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     recargar:function(){D=null;pintar();recargar();},
     siiAnio:function(v){siiAnio=v;pintar();},
     siiEmp:function(v){siiEmp=v;siiAnio='';pintar();},
+    impMas:function(v){impMas=!!v;},
     siiLibro:function(v){siiLibro=v;pintar();},
     siiBuscar:function(v){siiQ=v||'';pintar();},
     nuevo:function(tabla){var r={};if(tabla==='fin_movimientos'){r={fecha:hoy(),tipo:'Gasto',categoria:'Otro',ambito:'Personal'};}else if(tabla==='fin_vencimientos'){r={fecha:hoy(),tipo:'Pago',estado:'Pendiente',ambito:'Personal'};}else if(tabla==='fin_fijos'){r={frecuencia:'Mensual',activo:true,ambito:'Personal'};}else if(tabla==='fin_comisiones'){r={proveedor:'Estudio Tarugo',tasa:0.15,estado:'Proyectada'};}else r={ambito:'Personal',estado:'Pendiente'};abrirEditor(tabla,r);},
@@ -10654,6 +10764,28 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
 #misFinBox .mf-dual i{display:block;height:6px;border-radius:3px;min-width:2px;}
 #misFinBox .mf-dual i.g{background:#2A6B45;} #misFinBox .mf-dual i.r{background:#B4483C;}
 @media(max-width:900px){#misFinBox .mf-3,#misFinBox .mf-h3{grid-template-columns:1fr;}#misFinBox .mf-nav b{min-width:0;}}
+#misFinBox .mf-imp{max-width:720px;}
+#misFinBox .mf-impc{border-radius:20px;padding:18px 20px;border-color:#ECE9E2;}
+#misFinBox .mf-impc h3{font-family:'Poppins',sans-serif;font-size:16px;font-weight:600;}
+#misFinBox .mf-ob{display:grid;grid-template-columns:92px 1fr auto;gap:12px;align-items:center;padding:12px 0 4px;border-top:1px solid #F0EEE8;}
+#misFinBox .mf-ob:first-of-type{border-top:0;}
+#misFinBox .mf-obd{display:inline-block;text-align:center;font-size:12px;padding:5px 10px;border-radius:20px;background:#F1EFEA;color:#5B5048;white-space:nowrap;}
+#misFinBox .mf-ob-w .mf-obd{background:#FBEFD9;color:#8A5A14;}
+#misFinBox .mf-ob-r .mf-obd{background:#F8E1DD;color:#9B3A2E;}
+#misFinBox .mf-obt b{display:block;font-size:14px;font-weight:600;}
+#misFinBox .mf-obt small{color:var(--tx3);font-size:12px;}
+#misFinBox .mf-obm{font-size:15px;font-weight:600;white-space:nowrap;}
+#misFinBox .mf-obh{margin:2px 0 6px 104px;font-size:12.5px;color:var(--tx2);}
+#misFinBox .mf-impc .mf-det{margin:0 0 8px 104px;}
+#misFinBox .mf-ob0{margin:10px 0 0;padding:10px 14px;border-radius:14px;background:#F6F5F1;font-size:12.5px;color:var(--tx2);}
+#misFinBox .mf-tp{display:flex;gap:12px;align-items:flex-start;padding:8px 0;}
+#misFinBox .mf-tp>span{flex:0 0 40px;height:32px;border-radius:12px;background:#F1EFEA;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#5B5048;}
+#misFinBox .mf-tp b{display:block;font-size:13.5px;font-weight:600;}
+#misFinBox .mf-tp small{color:var(--tx2);font-size:12.5px;}
+#misFinBox .mf-det2>summary{cursor:pointer;font-family:'Poppins',sans-serif;font-weight:600;font-size:14.5px;color:#4A3B30;list-style:none;}
+#misFinBox .mf-det2>summary::after{content:' ›';}
+#misFinBox .mf-det2[open]>summary{margin-bottom:8px;}
+@media(max-width:600px){#misFinBox .mf-ob{grid-template-columns:76px 1fr;}#misFinBox .mf-obm{grid-column:2;}#misFinBox .mf-obh,#misFinBox .mf-impc .mf-det{margin-left:0;}}
 #misFinBox .mf-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
 #misFinBox .mf-tabs button{border:1px solid var(--bd);background:#fff;border-radius:20px;padding:6px 13px;font-size:12.5px;cursor:pointer;font-family:inherit;color:var(--tx2);}
 #misFinBox .mf-tabs button.on{background:#4A3B30;color:#fff;border-color:#4A3B30;}
