@@ -5014,6 +5014,7 @@ function renderGantt(){
         });
         (window.__provPays||[]).forEach(function(r){
           if(byId[r.id]!=null) return;            // ya vino de la nube
+          if(r.project_id && r.project_id!==pid) return; // pago de otro proyecto que quedó en memoria
           if(_del.indexOf(r.id)>=0) return;       // eliminado aqui
           if(r._synced) return;                   // estaba en la nube y ya no: lo borraron desde otro computador
           byId[r.id] = r; pend.push(r);           // nunca llego a la nube: conservar y reintentar la subida
@@ -5752,8 +5753,15 @@ window.pdfResumenCliente = function(){
   function itemDe(id){return (typeof items!=='undefined'?items:[]).find(function(x){return x.id===id;});}
 
   // ── Movimientos del producto (guardados en supplier_payments con marca [it:ID] en nota) ──
+  // Solo los pagos del proyecto abierto: los números de producto se repiten entre proyectos,
+  // así que la memoria de otro proyecto no puede marcar como pagado un producto de este (error 11-11-2026)
+  function cachePPDe(pid){
+    if(window.__provPaysPid!==pid){var a=[];try{a=JSON.parse(localStorage.getItem('ar6_p'+pid+'_provpays')||'[]');}catch(e){a=[];}window.__provPays=a;window.__provPaysPid=pid;}
+    return window.__provPays||[];
+  }
   window.movsDeItem=function(id){
-    return (window.__provPays||[]).filter(function(p){return String(p.nota||'').indexOf('[it:'+id+']')===0;});
+    var pid=currentProjId;
+    return cachePPDe(pid).filter(function(p){return (!p.project_id||p.project_id===pid)&&String(p.nota||'').indexOf('[it:'+id+']')===0;});
   };
   function movTotalItem(id){return movsDeItem(id).reduce(function(a,p){return a+(+p.amount||0);},0);}
   window.pagadoItem=function(r){return (typeof tp==='function'?tp(r):0)+movTotalItem(r.id);};
@@ -6064,7 +6072,7 @@ window.pdfResumenCliente = function(){
       fact:false, bol:'no',
       comprobante:(document.getElementById('fpComp')||{}).value||''
     };
-    window.__provPays=window.__provPays||[]; window.__provPays.push(row);
+    cachePPDe(currentProjId); window.__provPays=window.__provPays||[]; window.__provPays.push(row);
     try{if(typeof window.ppSaveLocal==='function')window.ppSaveLocal();}catch(e){}
     if(typeof window.sbSaveProvPay==='function'){try{window.sbSaveProvPay(row,function(ok){if(ok){row._synced=true;try{window.ppSaveLocal();}catch(e){}}else{try{tst('Pago guardado en este computador; se subira a la nube al reconectar');}catch(e){}}});}catch(e){}}
     try{tst('✓ Pago registrado');}catch(e){}
