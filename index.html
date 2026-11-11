@@ -11360,5 +11360,181 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
   pintar(document);
 })();
 </script>
+
+<style>
+/* ══ PLAN DE PAGOS (el cliente lo ve en la pestaña Pagos de su portal) ══ */
+#page-planpagos .pp-h1{font-family:'Fraunces',serif;font-weight:400;font-size:30px;margin:0 0 4px;}
+#page-planpagos .pp-sub{font-size:13px;color:var(--tx2);margin:0 0 18px;max-width:720px;}
+.pp-res{display:flex;gap:30px;flex-wrap:wrap;align-items:center;background:var(--surface);border:1px solid var(--bd);border-radius:14px;padding:14px 20px;margin-bottom:14px;}
+.pp-res span{display:block;font-size:11.5px;color:var(--tx3);}
+.pp-res b{font-size:18px;font-weight:600;}
+.pp-res .pp-sin b{color:#B8791F;}
+.pp-res .btn{margin-left:auto;}
+.pp-lista{background:var(--surface);border:1px solid var(--bd);border-radius:14px;padding:4px 18px;}
+.pp-fila{display:grid;grid-template-columns:10px 92px 1fr auto auto;gap:14px;align-items:center;padding:13px 0;border-top:1px solid var(--bd);}
+.pp-fila:first-child{border-top:0;}
+.pp-fila>i{width:10px;height:10px;border-radius:50%;}
+.pp-fila .f{font-size:12.5px;color:var(--tx2);}
+.pp-fila b{font-size:14px;font-weight:600;display:block;}
+.pp-fila small{font-size:12px;color:var(--tx3);}
+.pp-fila .m{text-align:right;font-size:14.5px;font-weight:600;white-space:nowrap;}
+.pp-fila .m small{display:block;font-weight:400;}
+.pp-acts{display:flex;gap:5px;}
+.pp-acts button{border:1px solid var(--bd2);background:var(--surface);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;color:var(--tx2);font-family:inherit;}
+.pp-acts button:hover{border-color:var(--ac);color:var(--tx);}
+.pp-ed{background:var(--surface);border:1.5px solid var(--ac);border-radius:14px;padding:18px;margin:10px 0;}
+.pp-g{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px 14px;margin-bottom:12px;}
+.pp-g label{font-size:11.5px;color:var(--tx3);display:flex;flex-direction:column;gap:4px;}
+.pp-g input,.pp-g select{border:1px solid var(--bd2);border-radius:8px;padding:7px 9px;font-size:13px;font-family:inherit;background:var(--surface);color:var(--tx);}
+.pp-col{display:flex;gap:6px;align-items:center;}
+.pp-col button{width:22px;height:22px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0;}
+.pp-col button.on{border-color:var(--tx);}
+.pp-col .pp-auto{width:auto;border-radius:99px;border:1px solid var(--bd2);background:var(--surface);font-size:11px;padding:2px 8px;color:var(--tx2);}
+.pp-col .pp-auto.on{border-color:var(--tx);color:var(--tx);}
+.pp-prod{border:1px solid var(--bd);border-radius:10px;max-height:340px;overflow:auto;}
+.pp-prov{display:flex;justify-content:space-between;align-items:center;background:var(--s2);padding:7px 12px;font-size:12px;font-weight:600;position:sticky;top:0;}
+.pp-prov label{display:flex;gap:6px;align-items:center;cursor:pointer;}
+.pp-it{display:grid;grid-template-columns:18px 1fr auto;gap:8px;align-items:center;padding:6px 12px;font-size:12.5px;border-top:1px solid var(--bd);cursor:pointer;}
+.pp-it small{color:var(--tx3);}
+.pp-it .en{color:#B8791F;}
+.pp-suma{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;margin-top:12px;font-size:13px;}
+.pp-suma b{font-size:15px;}
+.pp-fechas{margin-top:16px;font-size:12.5px;color:var(--tx2);background:var(--s2);border-radius:12px;padding:12px 16px;}
+.pp-fechas b{color:var(--tx);}
+.pp-vacio{border:1px dashed var(--bd2);border-radius:12px;padding:24px;text-align:center;color:var(--tx3);font-size:13px;}
+@media (max-width:760px){.pp-g{grid-template-columns:1fr 1fr;}.pp-fila{grid-template-columns:10px 1fr auto;}.pp-fila .f{grid-column:2;}.pp-acts{grid-column:2/4;}}
+</style>
+<script>
+// ══════════════════════════════════════════════════
+// PLAN DE PAGOS: bloques de pago para el cliente (fecha + productos del listado).
+// Tabla plan_pagos (solo la administradora). El portal (api/cliente.js) suma el monto de cada bloque
+// con los productos elegidos, por el porcentaje si es un adelanto, salvo que se fije un monto.
+// El calendario del portal además muestra solo las fechas del listado: pedido, entrega estimada, llegó, instalación y pagos.
+// ══════════════════════════════════════════════════
+(function(){
+  var SB='https://iucjhzsnlotojvpyjcfo.supabase.co';
+  var KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml1Y2poenNubG90b2p2cHlqY2ZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMTIzMTYsImV4cCI6MjA5NDY4ODMxNn0.PKLG4LS1EjgfHE0GXAnyxWuEUhlZy5s7TWxe8luvuik';
+  var H={apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'};
+  var COLORES=['#6B3A1A','#7E9AA8','#A3B18A','#C9A27E','#9A8FB5','#B4483C'];
+  var MES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  var bloques=[], cargadoPid=null, edId=null, dr=null, filtro='';
+  function e(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function plata(n){return '$'+Math.round(+n||0).toLocaleString('es-CL');}
+  function corta(f){var p=String(f||'').split('-');return p.length===3?(+p[2])+' '+MES[+p[1]-1]+' '+p[0].slice(2):'';}
+  function esAdm(){return typeof appMode!=='undefined'&&appMode==='admin';}
+  function lista(){return (typeof items!=='undefined'?items:[]).filter(function(r){return r.cat!=='Honorarios'&&r.clientStatus!=='Rechazado'&&!(r.optGroup&&!r.optSel);});}
+  function tot(r){try{return rT(r);}catch(x){return (+r.qty||1)*(+r.unit||0)+(+r.shipCost||0);}}
+  function montoDe(b){
+    if(b.monto!=null&&b.monto!=='')return +b.monto;
+    var ids=b.item_ids||[], base=lista().filter(function(r){return ids.indexOf(r.id)>=0;}).reduce(function(a,r){return a+tot(r);},0);
+    var pct=(b.porcentaje==null||b.porcentaje==='')?100:+b.porcentaje;
+    return Math.round(base*pct/100);
+  }
+  function provsDe(b){var ids=b.item_ids||[],p=[];lista().forEach(function(r){if(ids.indexOf(r.id)>=0&&r.supplier&&p.indexOf(r.supplier)<0)p.push(r.supplier);});return p;}
+
+  function cargar(cb){
+    var pid=currentProjId; if(!pid)return;
+    fetch(SB+'/rest/v1/plan_pagos?select=*&project_id=eq.'+encodeURIComponent(pid)+'&order=fecha,id',{headers:H})
+    .then(function(r){return r.ok?r.json():[];}).then(function(a){if(pid!==currentProjId)return;bloques=a||[];cargadoPid=pid;if(cb)cb();})
+    .catch(function(){if(cb)cb();});
+  }
+
+  function pintar(){
+    var b=document.getElementById('ppBody'); if(!b)return;
+    if(!esAdm()){b.innerHTML='<p style="color:var(--tx3);">Esta página es solo para la administradora.</p>';return;}
+    var its=lista(), total=its.reduce(function(a,r){return a+tot(r);},0);
+    var enPlan={}; bloques.forEach(function(x){(x.item_ids||[]).forEach(function(i){enPlan[i]=x.titulo||'otro pago';});});
+    var sin=its.filter(function(r){return !enPlan[r.id]&&tot(r)>0&&r.payStatus!=='Pagado'&&!compraCliente(r);});
+    var h='<h1 class="pp-h1">Plan de pagos</h1><p class="pp-sub">Arma los pagos del cliente por fecha y elige qué productos del listado entran en cada uno: el monto se suma solo. Tu cliente lo ve en la pestaña <b>Pagos</b> de su portal, al lado de un calendario que también muestra las compras, llegadas e instalaciones del listado.</p>';
+    h+='<div class="pp-res"><div><span>Total de compras</span><b>'+plata(total)+'</b></div><div><span>En el plan</span><b>'+plata(bloques.filter(function(x){return x.estado!=='Pagado';}).reduce(function(a,x){return a+montoDe(x);},0))+'</b></div><div class="pp-sin"><span>Por pagar sin plan</span><b>'+sin.length+' producto'+(sin.length===1?'':'s')+' · '+plata(sin.reduce(function(a,r){return a+tot(r);},0))+'</b></div><button class="btn prim" onclick="ebPP.nuevo()">+ Nuevo pago</button></div>';
+    if(edId==='nuevo')h+=editor();
+    var orden=bloques.slice().sort(function(a,c){var x=a.fecha||'9999',z=c.fecha||'9999';return x<z?-1:x>z?1:a.id-c.id;});
+    if(!orden.length&&edId!=='nuevo')h+='<div class="pp-vacio">Aún no hay pagos en el plan. Crea el primero con <b>+ Nuevo pago</b> (por ejemplo: "Muebles a medida · adelanto 50%").</div>';
+    else if(orden.length){
+      h+='<div class="pp-lista">'+orden.map(function(x){
+        if(edId===x.id)return editor();
+        var pr=provsDe(x), n=(x.item_ids||[]).length;
+        return '<div class="pp-fila"><i style="background:'+(x.color||'var(--ac)')+(x.estado==='Contra entrega'?';opacity:.45':'')+'"></i><span class="f">'+(x.fecha?corta(x.fecha):e(x.fecha_txt||'Sin fecha'))+'</span><div><b>'+e(x.titulo||'Pago')+'</b><small>'+e([pr.length>3?pr.slice(0,2).join(', ')+' y '+(pr.length-2)+' más':pr.join(', '),n?n+' producto'+(n===1?'':'s'):'sin productos',x.fecha&&x.fecha_txt?x.fecha_txt:'',x.nota].filter(Boolean).join(' · '))+'</small></div><div class="m">'+plata(montoDe(x))+'<small>'+e(x.estado)+(x.porcentaje!=null&&+x.porcentaje<100?' · '+(+x.porcentaje)+'%':'')+'</small></div><div class="pp-acts">'+(x.estado!=='Pagado'?'<button onclick="ebPP.pagado('+x.id+')" title="Marcar como pagado">✓ Pagado</button>':'')+'<button onclick="ebPP.editar('+x.id+')">Editar</button><button onclick="ebPP.borrar('+x.id+')" title="Eliminar">🗑</button></div></div>';
+      }).join('')+'</div>';
+    }
+    // Fechas del listado que el calendario del portal muestra solas
+    var c={compra:0,llega:0,llego:0,instala:0,pago:0};
+    its.forEach(function(r){if(r.orderDate)c.compra++;if(r.actualDelivery)c.llego++;else if(r.estDelivery)c.llega++;if(r.installDate)c.instala++;[1,2,3,4].forEach(function(k){if(+r['p'+k+'amt']>0&&r['p'+k+'date'])c.pago++;});});
+    h+='<div class="pp-fechas">📅 <b>El calendario del cliente también muestra solo, desde el listado:</b> '+c.compra+' compras (fecha de pedido), '+c.llega+' llegadas estimadas, '+c.llego+' ya llegadas, '+c.instala+' instalaciones y '+c.pago+' pagos registrados. Para que aparezca una fecha nueva, complétala en la ficha del producto (›) del Listado general.</div>';
+    b.innerHTML=h;
+  }
+
+  function editor(){
+    var its=lista(), sel=dr.item_ids||[];
+    var otro={}; bloques.forEach(function(x){if(x.id!==dr.id)(x.item_ids||[]).forEach(function(i){otro[i]=x.titulo||'otro pago';});});
+    var grupos={}, ordenP=[]; its.forEach(function(r){var p=r.supplier||'Sin proveedor';if(!grupos[p]){grupos[p]=[];ordenP.push(p);}grupos[p].push(r);});
+    ordenP.sort(function(a,b){return a.localeCompare(b,'es');});
+    var q=filtro.toLowerCase();
+    var prod=ordenP.map(function(p){
+      var rs=grupos[p].filter(function(r){return !q||(r.item+' '+p+' '+(r.space||'')).toLowerCase().indexOf(q)>=0;}); if(!rs.length)return '';
+      var todos=rs.every(function(r){return sel.indexOf(r.id)>=0;});
+      return '<div class="pp-prov"><label><input type="checkbox" '+(todos?'checked':'')+' onchange="ebPP.prov(this.checked,\''+encodeURIComponent(p)+'\')">'+e(p)+'</label><span>'+plata(rs.reduce(function(a,r){return a+tot(r);},0))+'</span></div>'
+        +rs.map(function(r){return '<label class="pp-it"><input type="checkbox" '+(sel.indexOf(r.id)>=0?'checked':'')+' onchange="ebPP.item('+r.id+',this.checked)"><span>'+e(r.item||'Producto')+(r.space?' <small>· '+e(r.space)+'</small>':'')+(r.payStatus==='Pagado'||compraCliente(r)?' <small>· ya pagado</small>':'')+(otro[r.id]?' <small class="en">· está en "'+e(otro[r.id])+'"</small>':'')+'</span><small>'+plata(tot(r))+'</small></label>';}).join('');
+    }).join('');
+    var colores='<span class="pp-col"><button class="pp-auto'+(!dr.color?' on':'')+'" onclick="ebPP.color(\'\')">Color del proyecto</button>'+COLORES.map(function(c){return '<button class="'+(dr.color===c?'on':'')+'" style="background:'+c+'" onclick="ebPP.color(\''+c+'\')"></button>';}).join('')+'</span>';
+    return '<div class="pp-ed"><div class="pp-g">'
+      +'<label>Nombre del pago<input value="'+e(dr.titulo)+'" placeholder="Ej: Muebles a medida · adelanto 50%" oninput="ebPP.campo(\'titulo\',this.value)"></label>'
+      +'<label>Fecha de pago<input type="date" value="'+e(dr.fecha)+'" onchange="ebPP.campo(\'fecha\',this.value)"></label>'
+      +'<label>Estado<select onchange="ebPP.campo(\'estado\',this.value)">'+['Pendiente','Contra entrega','Pagado'].map(function(s){return '<option'+(dr.estado===s?' selected':'')+'>'+s+'</option>';}).join('')+'</select></label>'
+      +'<label>Nota para el cliente (opcional)<input value="'+e(dr.nota)+'" placeholder="Ej: instalación antes de Navidad" oninput="ebPP.campo(\'nota\',this.value)"></label>'
+      +'<label>Si no hay fecha, cuándo<input value="'+e(dr.fecha_txt)+'" placeholder="Ej: Al instalar" oninput="ebPP.campo(\'fecha_txt\',this.value)"></label>'
+      +'<label>% del total de los productos<input type="number" min="1" max="100" value="'+e(dr.porcentaje==null?100:dr.porcentaje)+'" oninput="ebPP.campo(\'porcentaje\',this.value)"></label>'
+      +'<label>Monto fijo (opcional)<input type="number" min="0" value="'+e(dr.monto==null?'':dr.monto)+'" placeholder="Se suma solo" oninput="ebPP.campo(\'monto\',this.value)"></label>'
+      +'<label style="grid-column:2/4;">Color en el calendario'+colores+'</label>'
+      +'</div>'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px;"><b style="font-size:13px;">Productos de este pago</b><input value="'+e(filtro)+'" placeholder="Buscar producto o proveedor" oninput="ebPP.buscar(this.value)" style="border:1px solid var(--bd2);border-radius:8px;padding:6px 9px;font-size:12.5px;width:230px;font-family:inherit;"></div>'
+      +'<div class="pp-prod" id="ppProd">'+(prod||'<p style="padding:14px;color:var(--tx3);font-size:12.5px;">No hay productos que coincidan.</p>')+'</div>'
+      +'<div class="pp-suma"><span id="ppSuma">'+sumaTxt()+'</span><span style="display:flex;gap:6px;"><button class="btn" onclick="ebPP.cancelar()">Cancelar</button><button class="btn prim" onclick="ebPP.guardar()">Guardar pago</button></span></div></div>';
+  }
+  function sumaTxt(){
+    var ids=dr.item_ids||[], base=lista().filter(function(r){return ids.indexOf(r.id)>=0;}).reduce(function(a,r){return a+tot(r);},0);
+    var pct=(dr.porcentaje==null||dr.porcentaje==='')?100:+dr.porcentaje;
+    return ids.length+' producto'+(ids.length===1?'':'s')+' · suman '+plata(base)+(pct<100?' · '+pct+'%':'')+' → este pago: <b>'+plata(montoDe(dr))+'</b>'+(dr.monto!=null&&dr.monto!==''?' <small style="color:var(--tx3);">(monto fijo)</small>':'');
+  }
+  function refrescarSuma(){var s=document.getElementById('ppSuma');if(s)s.innerHTML=sumaTxt();}
+
+  window.ebPP={
+    nuevo:function(){dr={id:null,titulo:'',fecha:'',fecha_txt:'',item_ids:[],porcentaje:100,monto:null,estado:'Pendiente',nota:'',color:''};edId='nuevo';filtro='';pintar();},
+    editar:function(id){var x=bloques.find(function(b){return b.id===id;});if(!x)return;dr=JSON.parse(JSON.stringify(x));dr.item_ids=(dr.item_ids||[]).map(Number);edId=id;filtro='';pintar();},
+    cancelar:function(){edId=null;dr=null;pintar();},
+    campo:function(k,v){if(k==='monto'||k==='porcentaje')v=(v===''?null:+v);dr[k]=v;refrescarSuma();},
+    color:function(c){dr.color=c;var t=dr.titulo;pintar();},
+    buscar:function(v){filtro=v;var p=document.getElementById('ppProd');if(!p)return;var y=window.scrollY;var tmp=document.createElement('div');tmp.innerHTML=editor();var np=tmp.querySelector('#ppProd');if(np)p.innerHTML=np.innerHTML;window.scrollTo(0,y);},
+    item:function(id,on){var a=dr.item_ids,i=a.indexOf(id);if(on&&i<0)a.push(id);if(!on&&i>=0)a.splice(i,1);refrescarSuma();},
+    prov:function(on,pc){var p=decodeURIComponent(pc),q=filtro.toLowerCase();lista().forEach(function(r){if((r.supplier||'Sin proveedor')!==p)return;if(q&&(r.item+' '+p+' '+(r.space||'')).toLowerCase().indexOf(q)<0)return;var i=dr.item_ids.indexOf(r.id);if(on&&i<0)dr.item_ids.push(r.id);if(!on&&i>=0)dr.item_ids.splice(i,1);});ebPP.buscar(filtro);refrescarSuma();},
+    guardar:function(){
+      if(!String(dr.titulo||'').trim()){tst('Ponle un nombre al pago');return;}
+      if(!dr.fecha&&!String(dr.fecha_txt||'').trim()&&dr.estado!=='Pagado'){if(!confirm('Este pago no tiene fecha. ¿Guardarlo igual? (en el portal saldrá "Por definir")'))return;}
+      var row={project_id:currentProjId,titulo:String(dr.titulo).trim(),fecha:dr.fecha||'',fecha_txt:String(dr.fecha_txt||'').trim(),item_ids:dr.item_ids||[],porcentaje:dr.porcentaje==null?null:+dr.porcentaje,monto:dr.monto==null?null:+dr.monto,estado:dr.estado||'Pendiente',nota:String(dr.nota||'').trim(),color:dr.color||'',updated_at:new Date().toISOString()};
+      var url=SB+'/rest/v1/plan_pagos'+(dr.id?'?id=eq.'+dr.id:''), op={method:dr.id?'PATCH':'POST',headers:Object.assign({},H,{Prefer:'return=representation'}),body:JSON.stringify(row)};
+      fetch(url,op).then(function(r){if(!r.ok)throw r.status;return r.json();}).then(function(){tst('Pago guardado ✓ · ya lo ve tu cliente');edId=null;dr=null;cargar(pintar);}).catch(function(){tst('No se pudo guardar. Revisa tu conexión e intenta de nuevo.');});
+    },
+    pagado:function(id){
+      fetch(SB+'/rest/v1/plan_pagos?id=eq.'+id,{method:'PATCH',headers:Object.assign({},H,{Prefer:'return=minimal'}),body:JSON.stringify({estado:'Pagado',updated_at:new Date().toISOString()})}).then(function(r){if(!r.ok)throw 0;tst('Marcado como pagado ✓');cargar(pintar);}).catch(function(){tst('No se pudo guardar');});
+    },
+    borrar:function(id){
+      var x=bloques.find(function(b){return b.id===id;}); if(!x||!confirm('¿Eliminar el pago "'+(x.titulo||'Pago')+'" del plan? Los productos del listado no se tocan.'))return;
+      fetch(SB+'/rest/v1/plan_pagos?id=eq.'+id,{method:'DELETE',headers:H}).then(function(r){if(!r.ok)throw 0;tst('Pago eliminado');cargar(pintar);}).catch(function(){tst('No se pudo eliminar');});
+    }
+  };
+
+  function montar(){
+    var main=document.querySelector('main');
+    if(main&&!document.getElementById('page-planpagos')){var pg=document.createElement('div');pg.className='page';pg.id='page-planpagos';pg.innerHTML='<div id="ppBody"></div>';main.appendChild(pg);}
+    var ref=document.getElementById('nav-compras');
+    if(ref&&!document.getElementById('nav-planpagos')){var n=document.createElement('div');n.className='ni';n.id='nav-planpagos';n.setAttribute('onclick',"go('planpagos')");n.innerHTML='<span class="ic">🗓</span>Plan de pagos';ref.parentNode.insertBefore(n,ref.nextSibling);}
+    var nv=document.getElementById('nav-planpagos'); if(nv)nv.style.display=esAdm()?'':'none';
+    if(!esAdm()){var p=document.getElementById('page-planpagos');if(p&&p.classList.contains('active')){try{go('compras');}catch(x){}}}
+  }
+  if(typeof window.go==='function'){var _g=window.go;window.go=function(p){if(p==='planpagos'&&!esAdm()){tst('Solo para la administradora');return;}var r=_g.apply(this,arguments);try{montar();}catch(x){}if(p==='planpagos'){edId=null;dr=null;var b=document.getElementById('ppBody');if(b&&cargadoPid!==currentProjId)b.innerHTML='<p style="color:var(--tx3);">Cargando…</p>';cargar(pintar);}return r;};}
+  if(typeof window.applyMode==='function'){var _am=window.applyMode;window.applyMode=function(){var r=_am.apply(this,arguments);try{montar();}catch(x){}return r;};}
+  montar(); setTimeout(montar,1500);
+})();
+</script>
 </body>
 </html>

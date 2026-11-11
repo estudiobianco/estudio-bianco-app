@@ -502,6 +502,65 @@ details.sv-det[open] summary h3::after{transform:rotate(-135deg) translateY(-1px
   #flot{padding:8px 8px 8px 16px;border-radius:28px;}
   #flot button{padding:11px 14px;font-size:13px;}
 }
+/* la portada a todo el ancho (100vw) no debe generar barra horizontal */
+html{overflow-x:clip;}
+/* ══ PAGOS: calendario a la izquierda, plan de pagos a la derecha ══ */
+.pg-res{display:flex;gap:34px;flex-wrap:wrap;align-items:baseline;background:var(--card);border-radius:18px;box-shadow:var(--sh);padding:16px 24px;margin-bottom:14px;}
+.pg-res span{font-size:12px;color:var(--ink3);display:block;}
+.pg-res b{font-family:var(--fd);font-weight:500;font-size:19px;}
+.pg-res .pend b{color:var(--ambar);}
+.pg-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
+.pg-card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:20px 22px;min-width:0;}
+.pg-card h2{font-size:17px;font-weight:500;margin:0;}
+.pg-calh{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+.pg-calh h2::first-letter{text-transform:uppercase;}
+.pg-nav button{background:none;border:0;font:500 18px var(--fd);color:var(--ink3);padding:2px 9px;border-radius:99px;}
+.pg-nav button:hover{background:var(--gs);color:var(--ink);}
+.pg-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.pg-cal .d{font:500 10px var(--fd);color:var(--ink3);text-align:center;padding-bottom:5px;letter-spacing:.06em;}
+.pg-cal .x{height:52px;border-radius:10px;font-size:11.5px;color:var(--ink3);padding:5px 7px;position:relative;border:0;background:none;text-align:left;font-family:var(--fx);vertical-align:top;display:block;width:100%;}
+.pg-cal .x.ev{color:var(--ink);cursor:pointer;}
+.pg-cal .x.ev:hover{background:var(--card2);}
+.pg-cal .x.hoy{background:var(--gs);color:var(--ink);font-weight:600;}
+.pg-cal .x.sel{box-shadow:inset 0 0 0 1.5px var(--ac);}
+.pg-cal .x .pt{position:absolute;left:7px;bottom:7px;display:flex;gap:3px;}
+.pg-cal .x .pt i{width:8px;height:8px;border-radius:50%;display:block;}
+.pg-ley{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:var(--ink3);}
+.pg-ley i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:1px;}
+.pg-dia{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);}
+.pg-dia h3{font-size:13px;font-weight:500;color:var(--ink2);margin-bottom:6px;}
+.pg-dia h3::first-letter{text-transform:uppercase;}
+.pg-ev{display:grid;grid-template-columns:8px 50px 1fr;gap:10px;align-items:baseline;padding:6px 0;font-size:12.5px;}
+.pg-ev i{width:8px;height:8px;border-radius:50%;align-self:center;}
+.pg-ev .f{font:400 11.5px var(--fd);color:var(--ink3);}
+.pg-ev small{color:var(--ink3);}
+.pg-fila{display:grid;grid-template-columns:9px 60px 1fr auto;gap:12px;align-items:baseline;padding:13px 0;border-top:1px solid var(--line);}
+.pg-fila:first-of-type{border-top:0;}
+.pg-fila > i{width:9px;height:9px;border-radius:50%;align-self:center;}
+.pg-fila .f{font:400 12.5px var(--fd);color:var(--ink2);}
+.pg-fila h3{font-size:14px;font-weight:500;}
+.pg-fila p{font-size:12px;color:var(--ink3);margin-top:2px;}
+.pg-fila .m{text-align:right;font:400 14.5px var(--fd);white-space:nowrap;}
+.pg-fila .m small{display:block;font:400 11px var(--fx);color:var(--ink3);margin-top:2px;}
+.pg-fila .m small.atr{color:var(--rojo);}
+.pg-fila details{grid-column:3/5;font-size:12px;color:var(--ink2);}
+.pg-fila summary{cursor:pointer;color:var(--ink3);font-size:11.5px;list-style:none;}
+.pg-fila summary::-webkit-details-marker{display:none;}
+.pg-fila details div{display:flex;justify-content:space-between;gap:10px;padding:3px 0;}
+.pg-ok{font-size:12px;color:var(--ink3);margin-top:8px;padding-top:12px;border-top:1px solid var(--line);}
+.pg-vacio{font-size:13px;color:var(--ink3);padding:8px 0;}
+@media (max-width:820px){
+  .pg-cols{grid-template-columns:1fr;}
+  .pg-plan{order:-1;}
+  .pg-res{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:14px 16px;}
+  .pg-res span{font-size:11px;}
+  .pg-res b{font-size:13.5px;}
+  .pg-card{padding:16px;}
+  .pg-cal .x{height:44px;padding:4px 5px;}
+  .pg-cal .x .pt{left:5px;bottom:5px;gap:2px;}
+  .pg-cal .x .pt i{width:6px;height:6px;}
+  .pg-fila{grid-template-columns:9px 48px 1fr auto;gap:9px;}
+}
 </style>
 </head>
 <body>
@@ -532,7 +591,7 @@ details.sv-det[open] summary h3::after{transform:rotate(-135deg) translateY(-1px
   var D=null, filtro='', agrupar='esp', pend=null;
   // Siempre parte viendo por espacio (no se recuerda la vista por categoría)
   try{localStorage.removeItem('ebc_agrupar');}catch(e){}
-  var vista='compras'; try{var _v=localStorage.getItem('ebc_vista');if(['prov','lamina','render','cotizacion','avance'].indexOf(_v)>=0)vista=_v;}catch(e){}
+  var vista='compras'; try{var _v=localStorage.getItem('ebc_vista');if(['prov','lamina','render','cotizacion','avance','pagos'].indexOf(_v)>=0)vista=_v;}catch(e){}
   function e(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
   function m(n){return '$'+Math.round(n).toLocaleString('es-CL');}
   function fuera(it){return it.grupo&&!it.elegida;}
@@ -633,6 +692,82 @@ details.sv-det[open] summary h3::after{transform:rotate(-135deg) translateY(-1px
   }
   function mensaje(t,p){document.getElementById('app').innerHTML='<div class="msg"><img class="logo" src="/logo-estudio-bianco-t.png" alt="Estudio Bianco" style="margin:0 auto 24px;"><h1>'+e(t)+'</h1><p>'+e(p)+'</p></div>';}
 
+  // ══ PAGOS: calendario con todo lo que pasa en el listado (compras, llegadas, instalaciones, pagos)
+  // y el plan de pagos que arma el estudio (D.plan: bloques con fecha, productos y monto que se suma solo)
+  var pgMes='', pgDia='';
+  var PG_TIPOS={pago:'Pago por hacer',pagado:'Pagado',compra:'Compra',llega:'Llega',llego:'Llegó',instala:'Instalación',vence:'Vence pago'};
+  var PG_COL={pagado:'#4CA36A',compra:'#7E9AA8',llega:'#C9A27E',llego:'#A3B18A',instala:'#9A8FB5',vence:'#D9962B'};
+  var PG_MES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  function pgHoy(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+  function pgFecha(s){s=String(s||'').slice(0,10);return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:'';}
+  function pgCorta(f){var p=f.split('-');return (+p[2])+' '+PG_MES[+p[1]-1];}
+  function pgAcento(){return (getComputedStyle(document.documentElement).getPropertyValue('--ac')||'').trim()||'#2A5C45';}
+  function pgEventos(){
+    var ev=[], grp={}, orden=[];
+    function add(f,t,nombre,monto){f=pgFecha(f);if(!f)return;var k=f+'|'+t;if(!grp[k]){grp[k]={f:f,t:t,n:[],monto:0};orden.push(k);}if(grp[k].n.indexOf(nombre)<0)grp[k].n.push(nombre);grp[k].monto+=(+monto||0);}
+    (D.items||[]).forEach(function(it){
+      if(fuera(it)||est(it)==='Rechazado')return;
+      var n=it.item||'Producto';
+      add(it.pedido,'compra',n);
+      if(it.llego)add(it.llego,'llego',n);else add(it.llega,'llega',n);
+      add(it.instala,'instala',n);
+      (it.pagos||[]).forEach(function(p){add(p.fecha,'pagado',n,p.monto);});
+      if(it.vence&&(+it.pagado||0)<sub(it))add(it.vence,'vence',n);
+    });
+    var TXT={compra:['Se compró ','Se compraron '],llega:['Llega ','Llegan '],llego:['Llegó ','Llegaron '],instala:['Instalación de ','Instalación de '],pagado:['Pago de ','Pagos de '],vence:['Vence el pago de ','Vencen los pagos de ']};
+    orden.forEach(function(k){var g=grp[k],uno=g.n.length===1;
+      ev.push({f:g.f,t:g.t,color:PG_COL[g.t],txt:TXT[g.t][uno?0:1]+(uno?g.n[0]:g.n.length+' productos'),sub:[uno?'':g.n.slice(0,3).join(', ')+(g.n.length>3?' y '+(g.n.length-3)+' más':''),g.t==='llega'?'fecha estimada':'',g.monto?m(g.monto):''].filter(Boolean).join(' · ')});});
+    (D.plan||[]).forEach(function(b){var f=pgFecha(b.fecha);if(!f)return;var ok=b.estado==='Pagado';
+      ev.push({f:f,t:ok?'pagado':'pago',color:ok?PG_COL.pagado:(b.color||pgAcento()),txt:(ok?'Pagado: ':'Pago: ')+(b.titulo||'Pago'),sub:m(b.monto)+(ok?'':' · '+b.estado)});});
+    ev.sort(function(a,b){return a.f<b.f?-1:a.f>b.f?1:0;});
+    return ev;
+  }
+  function htmlPagos(total,pagado){
+    var ev=pgEventos(), hoy=pgHoy();
+    if(!pgMes){pgMes=hoy.slice(0,7);var fut=ev.filter(function(x){return x.f>=pgMes+'-01';});if(!ev.some(function(x){return x.f.slice(0,7)===pgMes;})&&fut.length)pgMes=fut[0].f.slice(0,7);}
+    var y=+pgMes.slice(0,4), mo=+pgMes.slice(5,7), pri=new Date(y,mo-1,1), dias=new Date(y,mo,0).getDate(), off=(pri.getDay()+6)%7;
+    var porDia={}, tipos={}; ev.forEach(function(x){(porDia[x.f]=porDia[x.f]||[]).push(x);tipos[x.t]=x.t==='pago'?pgAcento():x.color;});
+    // Franja de arriba: total, pagado y lo que falta
+    var h='<div class="pg-res"><div><span>Total de compras</span><b>'+m(total)+'</b></div><div><span>Pagado</span><b>'+m(pagado)+'</b></div><div class="pend"><span>Por pagar</span><b>'+m(Math.max(0,total-pagado))+'</b></div></div>';
+    // Calendario
+    var cal='<div class="pg-card pg-calc"><div class="pg-calh"><h2>'+e(pri.toLocaleDateString('es-CL',{month:'long',year:'numeric'}))+'</h2><span class="pg-nav"><button onclick="ebPgMes(-1)" aria-label="Mes anterior">‹</button><button onclick="ebPgMes(1)" aria-label="Mes siguiente">›</button></span></div><div class="pg-cal">'
+      +['LUN','MAR','MIÉ','JUE','VIE','SÁB','DOM'].map(function(d){return '<div class="d">'+d+'</div>';}).join('');
+    for(var i=0;i<off;i++)cal+='<div></div>';
+    for(var d=1;d<=dias;d++){
+      var f=pgMes+'-'+String(d).padStart(2,'0'), es=porDia[f]||[], cols=[];
+      es.forEach(function(x){if(cols.indexOf(x.color)<0)cols.push(x.color);});
+      cal+='<button class="x'+(es.length?' ev':'')+(f===hoy?' hoy':'')+(f===pgDia?' sel':'')+'"'+(es.length?' onclick="ebPgDia(\''+f+'\')" title="'+es.length+(es.length===1?' cosa':' cosas')+' este día"':' tabindex="-1"')+'>'+d+(cols.length?'<span class="pt">'+cols.slice(0,4).map(function(c){return '<i style="background:'+c+'"></i>';}).join('')+'</span>':'')+'</button>';
+    }
+    cal+='</div>';
+    var ks=Object.keys(tipos); if(ks.length)cal+='<div class="pg-ley">'+ks.map(function(t){return '<span><i style="background:'+tipos[t]+'"></i>'+PG_TIPOS[t]+'</span>';}).join('')+'</div>';
+    // Bajo el calendario: lo del día elegido o lo que viene
+    var lista=pgDia&&porDia[pgDia]?porDia[pgDia]:ev.filter(function(x){return x.f>=hoy;}).slice(0,6);
+    var tit=pgDia&&porDia[pgDia]?fechaLarga(pgDia):'Lo que viene';
+    if(lista.length)cal+='<div class="pg-dia"><h3>'+e(tit)+'</h3>'+lista.map(function(x){return '<div class="pg-ev"><i style="background:'+x.color+'"></i><span class="f">'+pgCorta(x.f)+'</span><span>'+e(x.txt)+(x.sub?' <small>· '+e(x.sub)+'</small>':'')+'</span></div>';}).join('')+'</div>';
+    else if(!ev.length)cal+='<div class="pg-dia"><p class="pg-vacio">Aquí verás las fechas de compra, llegada e instalación de tus productos y los pagos, a medida que las vayamos confirmando.</p></div>';
+    cal+='</div>';
+    // Plan de pagos
+    var plan=(D.plan||[]).slice(), pend=plan.filter(function(b){return b.estado!=='Pagado';}), ok=plan.filter(function(b){return b.estado==='Pagado';});
+    pend.sort(function(a,b){var x=pgFecha(a.fecha)||'9999',z=pgFecha(b.fecha)||'9999';return x<z?-1:x>z?1:0;});
+    function provs(b){var p=b.proveedores||[];return p.length>3?p.slice(0,2).join(', ')+' y '+(p.length-2)+' más':p.join(', ');}
+    function fila(b){
+      var f=pgFecha(b.fecha), its=(b.items||[]).map(function(id){return D.items.find(function(i){return i.id===id;});}).filter(Boolean);
+      var linea=[provs(b),f?b.fechaTxt:'',b.nota].filter(Boolean).join(' · ');
+      return '<div class="pg-fila"><i style="background:'+(b.color||pgAcento())+(b.estado==='Contra entrega'?';opacity:.45':'')+'"></i><span class="f">'+(f?pgCorta(f):e(b.fechaTxt||'Por definir'))+'</span><div><h3>'+e(b.titulo||'Pago')+'</h3>'+(linea?'<p>'+e(linea)+'</p>':'')+'</div><div class="m">'+m(b.monto)+'<small>'+e(b.estado)+'</small></div>'
+        +(its.length?'<details><summary>Ver '+(its.length===1?'el producto':'los '+its.length+' productos')+'</summary>'+its.map(function(it){return '<div><span>'+e(it.item)+'</span><span>'+m(sub(it))+'</span></div>';}).join('')+(+b.porcentaje<100?'<div><span>Este pago es el '+(+b.porcentaje)+'% del total</span><span></span></div>':'')+'</details>':'')+'</div>';
+    }
+    var pl='<div class="pg-card pg-plan"><h2 style="margin-bottom:4px;">Plan de pagos</h2>';
+    if(pend.length)pl+=pend.map(fila).join('');
+    else if(!ok.length)pl+='<p class="pg-vacio">Estamos armando el plan de pagos de tu proyecto. Apenas esté listo lo verás aquí, con sus fechas y montos.</p>';
+    else pl+='<p class="pg-vacio">No tienes pagos pendientes en el plan.</p>';
+    if(ok.length){var nom=ok.map(function(b){return b.titulo||'Pago';});pl+='<div class="pg-ok">✓ Ya pagado: '+e(nom.length>3?nom.slice(0,3).join(', ')+' y '+(nom.length-3)+' más':nom.join(', '))+' · '+m(ok.reduce(function(a,b){return a+(+b.monto||0);},0))+'</div>';}
+    pl+='</div>';
+    return h+'<div class="pg-cols">'+cal+pl+'</div>';
+  }
+  window.ebPgMes=function(n){var y=+pgMes.slice(0,4),mo=+pgMes.slice(5,7)-1+n,x=new Date(y,mo,1);pgMes=x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0');pgDia='';pintar();};
+  window.ebPgDia=function(f){pgDia=pgDia===f?'':f;pintar();};
+  function hayPagos(){if((D.plan||[]).length)return true;return (D.items||[]).some(function(it){return !fuera(it)&&(it.pedido||it.llega||it.llego||it.instala||it.vence||(it.pagos||[]).length);});}
+
   function pintar(){
     var its=D.items, sumable=function(it){return !fuera(it)&&est(it)!=='Rechazado';};
     var total=its.reduce(function(a,it){return a+(sumable(it)?sub(it):0);},0), pagado=its.reduce(function(a,it){return a+(sumable(it)?Math.min(+it.pagado||0,sub(it)):0);},0);
@@ -643,6 +778,7 @@ details.sv-det[open] summary h3::after{transform:rotate(-135deg) translateY(-1px
     var docs=D.documentos||[], nLam=docs.filter(function(d){return d.tipo==='lamina';}).length, nRen=docs.filter(function(d){return d.tipo==='render';}).length, nCot=docs.filter(function(d){return d.tipo==='cotizacion';}).length, nProv=(D.proveedores||[]).length;
     if((vista==='lamina'&&!nLam)||(vista==='render'&&!nRen)||(vista==='cotizacion'&&!nCot)||(vista==='prov'&&!nProv))vista='compras';
     if(vista==='avance'&&!D.seguimiento)vista='compras';
+    var conPagos=hayPagos(); if(vista==='pagos'&&!conPagos)vista='compras';
     // Cabecera calma: logo chico y portada con el último render del proyecto (como la pantalla "Proyecto" de la app)
     colorProyecto();
     // Portada: la que elige el estudio (projects.portada); si no hay, el último render
@@ -657,8 +793,9 @@ details.sv-det[open] summary h3::after{transform:rotate(-135deg) translateY(-1px
     // Planos, láminas, looks y renders van juntos en una sola pestaña
     if(vista==='render')vista='lamina';
     if(vista==='lamina'&&!nLam&&!nRen)vista='compras';
-    h+='<div class="tabs">'+tab('compras','Listado de compras')+(D.seguimiento?tab('avance','Cómo va tu proyecto'):'')+(nLam||nRen?tab('lamina','Planos y renders',nLam+nRen):'')+(nCot?tab('cotizacion','Cotizaciones',nCot):'')+(nProv?tab('prov','Agenda proveedores',nProv):'')+'</div>';
+    h+='<div class="tabs">'+tab('compras','Listado de compras')+(conPagos?tab('pagos','Pagos'):'')+(D.seguimiento?tab('avance','Cómo va tu proyecto'):'')+(nLam||nRen?tab('lamina','Planos y renders',nLam+nRen):'')+(nCot?tab('cotizacion','Cotizaciones',nCot):'')+(nProv?tab('prov','Agenda proveedores',nProv):'')+'</div>';
     var pie='<footer><b>Estudio Bianco®</b> · Plataforma de gestión de proyectos de diseño y desarrollo exclusivo de Estudio Bianco.<br>Estudio Bianco es una marca registrada. Este contenido es confidencial y de uso exclusivo del cliente; prohibida su reproducción total o parcial.</footer>';
+    if(vista==='pagos'){h+=htmlPagos(total,pagado)+pie;document.getElementById('app').innerHTML=h;barra(false);return;}
     if(vista==='avance'){h+=htmlAvance()+pie;document.getElementById('app').innerHTML=h;barra(false);return;}
     if(vista==='prov'){h+=htmlProveedores()+pie;document.getElementById('app').innerHTML=h;barra(false);return;}
     if(vista==='lamina'){h+=(nLam?(nRen?'<h2 class="sec-t" style="margin-top:4px;">Planos y láminas</h2>':'')+htmlDocs('lamina'):'')+(nRen?(nLam?'<h2 class="sec-t" style="margin-top:26px;">Looks y renders</h2>':'')+htmlDocs('render'):'')+pie;document.getElementById('app').innerHTML=h;barra(false);return;}
