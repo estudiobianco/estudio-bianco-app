@@ -31,6 +31,9 @@ a{color:var(--ac);}
 .top .logo{height:30px;display:block;}
 .top .priv-t{font:500 11px/1 var(--fd);letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);}
 .portada{position:relative;border-radius:var(--r);overflow:hidden;background:var(--ac);aspect-ratio:15/6;max-height:300px;min-height:150px;box-shadow:var(--sh);}
+/* Portada a todo el ancho de la pantalla; el texto queda alineado con el contenido */
+.portada.ancha{width:100vw;margin-left:calc(50% - 50vw);border-radius:0;box-shadow:none;aspect-ratio:auto;height:clamp(190px,30vw,360px);max-height:none;}
+.portada.ancha .texto{left:max(24px,calc(50vw - 520px));right:max(24px,calc(50vw - 520px));bottom:26px;}
 .portada img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;}
 .portada .velo{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0) 35%,rgba(0,0,0,.62));}
 .portada .texto{position:absolute;left:24px;right:24px;bottom:18px;color:#fff;display:flex;flex-direction:column;gap:3px;}
@@ -78,7 +81,7 @@ h2.sec-t{font-size:20px;font-weight:600;margin:28px 6px 12px;display:flex;gap:10
 h2.sec-t small{font:400 12.5px/1 var(--fx);color:var(--ink3);}
 h2.prov-t{font-size:17px;margin:22px 6px 10px;}
 /* Tarjetas de productos */
-.grid,.grp .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start;}
+.grid,.grp .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:start;}
 .card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);overflow:hidden;display:flex;flex-direction:column;min-width:0;}
 .card.alt{opacity:.9;}
 .ph{height:150px;background:var(--card2);display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:12px;position:relative;}
@@ -124,11 +127,12 @@ a.tienda:hover{text-decoration:underline;}
 .lcy{align-self:flex-start;border:0;background:none;color:var(--ink2);font-size:12.5px;padding:0;text-decoration:underline;text-underline-offset:2px;}
 /* Botones de cada producto: aprobar, descartar, comentar */
 .acts{display:flex;gap:5px;margin-top:auto;padding-top:6px;flex-wrap:wrap;}
-.acts button{flex:1;min-width:0;border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:8px 4px;font:500 12.5px/1.2 var(--fd);color:var(--ink);white-space:nowrap;transition:background .15s,border-color .15s;}
-.acts button:hover{border-color:var(--ink3);}
-.acts .ap.on,.acts button.dec-ok{background:var(--verde);border-color:var(--verde);color:#fff;}
+.acts button{flex:1;min-width:0;border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 4px;font:400 12px/1.2 var(--fd);color:var(--ink2);white-space:nowrap;transition:background .15s,border-color .15s;}
+.acts button:hover{border-color:var(--ink3);color:var(--ink);}
+/* Respuesta ya dada: suave, sin bloque de color fuerte */
+.acts .ap.on,.acts button.dec-ok{background:#EEF5F0;border-color:#D3E6D9;color:var(--verde);}
 .acts .re.on,.acts button.dec-no{background:var(--gs);border-color:var(--gs);color:var(--ink2);}
-.acts button.dec-ok,.acts button.dec-no{flex:1 1 100%;font-weight:600;font-size:13px;padding:9px 6px;}
+.acts button.dec-ok,.acts button.dec-no{flex:1 1 100%;font-weight:500;font-size:12.5px;padding:6px 6px;}
 .acts button.dec-ok:hover,.acts button.dec-no:hover{opacity:.9;}
 .acts .ca.on{background:var(--as);border-color:var(--as);color:#9A6A16;}
 .acts2{margin-top:0;padding-top:6px;}
@@ -173,7 +177,7 @@ details.cm-d summary i{font-style:normal;background:var(--gs);color:var(--ink2);
 .gt{font:600 17px/1.3 var(--fd);color:var(--ink);}
 .gsub{font-size:12.5px;color:var(--ink2);flex-basis:100%;}
 .gsub b{color:var(--ink);font-weight:600;}
-.grid.g-op{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
+.grid.g-op{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;}
 .card.op .ph{height:150px;}
 .card.op.alt{opacity:1;}
 .card.op.sel{box-shadow:0 0 0 2px var(--cel),var(--sh);}
@@ -641,19 +645,24 @@ details.sv-det[open] summary h3::after{transform:rotate(-135deg) translateY(-1px
     if(vista==='avance'&&!D.seguimiento)vista='compras';
     // Cabecera calma: logo chico y portada con el último render del proyecto (como la pantalla "Proyecto" de la app)
     colorProyecto();
-    var foto=docs.filter(function(d){return d.tipo==='render'&&!d.pdf&&/supabase\.co\//i.test(d.url||'');}).slice(-1)[0];
+    // Portada: la que elige el estudio (projects.portada); si no hay, el último render
+    var foto=D.proyecto.portada?{url:D.proyecto.portada}:docs.filter(function(d){return d.tipo==='render'&&!d.pdf&&/supabase\.co\//i.test(d.url||'');}).slice(-1)[0];
     var h='<div class="top"><img class="logo" src="/logo-estudio-bianco-t.png" alt="Estudio Bianco®"><span class="priv-t">Plataforma privada</span></div>'
-      +'<div class="portada">'+(foto?'<img src="'+e(foto.url)+'" alt="">':'')+'<div class="velo"></div><div class="texto"><h1>'+e(D.proyecto.nombre)+'</h1>'+(D.proyecto.cliente||D.proyecto.direccion?'<span class="cli">'+[D.proyecto.cliente,D.proyecto.direccion].filter(Boolean).map(e).join(' · ')+'</span>':'')+'</div></div>';
+      +'<div class="portada ancha">'+(foto?'<img src="'+e(foto.url)+'" alt="">':'')+'<div class="velo"></div><div class="texto"><h1>'+e(D.proyecto.nombre)+'</h1>'+(D.proyecto.cliente||D.proyecto.direccion?'<span class="cli">'+[D.proyecto.cliente,D.proyecto.direccion].filter(Boolean).map(e).join(' · ')+'</span>':'')+'</div></div>';
     var nom=miNombre();
     h+='<div class="hola"><h2>Hola'+(nom?', '+e(nom.split(' ')[0]):'')+'</h2>'+(nom?'<span>Respondes como '+e(nom)+' · <a href="#" onclick="ebCambiarNombre();return false;">cambiar</a></span>':'')+'</div>';
     // Punto rojo en la pestaña donde hay algo nuevo para el cliente
     var nv=novedades();
-    function tab(v,t,n){var dot=(v==='compras'&&(nv.resp||nv.porRev))||(v==='lamina'&&nv.lam)||(v==='render'&&nv.ren)||(v==='avance'&&(nv.etapa||nv.reunion));return '<button class="'+(vista===v?'on':'')+'" onclick="ebV(\''+v+'\')">'+t+(n!=null?' <i>'+n+'</i>':'')+(dot&&vista!==v&&!tabVisto[v]?'<span class="tab-dot" title="Hay novedades"></span>':'')+'</button>';}
-    h+='<div class="tabs">'+tab('compras','Listado de compras')+(D.seguimiento?tab('avance','Cómo va tu proyecto'):'')+(nLam?tab('lamina','Planos y láminas',nLam):'')+(nRen?tab('render','Looks y renders',nRen):'')+(nCot?tab('cotizacion','Cotizaciones',nCot):'')+(nProv?tab('prov','Proveedores',nProv):'')+'</div>';
+    function tab(v,t,n){var dot=(v==='compras'&&(nv.resp||nv.porRev))||(v==='lamina'&&(nv.lam||nv.ren))||(v==='avance'&&(nv.etapa||nv.reunion));return '<button class="'+(vista===v?'on':'')+'" onclick="ebV(\''+v+'\')">'+t+(n!=null?' <i>'+n+'</i>':'')+(dot&&vista!==v&&!tabVisto[v]?'<span class="tab-dot" title="Hay novedades"></span>':'')+'</button>';}
+    // Planos, láminas, looks y renders van juntos en una sola pestaña
+    if(vista==='render')vista='lamina';
+    if(vista==='lamina'&&!nLam&&!nRen)vista='compras';
+    h+='<div class="tabs">'+tab('compras','Listado de compras')+(D.seguimiento?tab('avance','Cómo va tu proyecto'):'')+(nLam||nRen?tab('lamina','Planos y renders',nLam+nRen):'')+(nCot?tab('cotizacion','Cotizaciones',nCot):'')+(nProv?tab('prov','Agenda proveedores',nProv):'')+'</div>';
     var pie='<footer><b>Estudio Bianco®</b> · Plataforma de gestión de proyectos de diseño y desarrollo exclusivo de Estudio Bianco.<br>Estudio Bianco es una marca registrada. Este contenido es confidencial y de uso exclusivo del cliente; prohibida su reproducción total o parcial.</footer>';
     if(vista==='avance'){h+=htmlAvance()+pie;document.getElementById('app').innerHTML=h;barra(false);return;}
     if(vista==='prov'){h+=htmlProveedores()+pie;document.getElementById('app').innerHTML=h;barra(false);return;}
-    if(vista==='lamina'||vista==='render'||vista==='cotizacion'){h+=htmlDocs(vista)+pie;document.getElementById('app').innerHTML=h;barra(false);return;}
+    if(vista==='lamina'){h+=(nLam?(nRen?'<h2 class="sec-t" style="margin-top:4px;">Planos y láminas</h2>':'')+htmlDocs('lamina'):'')+(nRen?(nLam?'<h2 class="sec-t" style="margin-top:26px;">Looks y renders</h2>':'')+htmlDocs('render'):'')+pie;document.getElementById('app').innerHTML=h;barra(false);return;}
+    if(vista==='cotizacion'){h+=htmlDocs(vista)+pie;document.getElementById('app').innerHTML=h;barra(false);return;}
     h+='<div class="intro"><div class="imp"><b>Ojo</b>Este listado puede estar incompleto: se va ajustando según nuestras reuniones. Aun así, es una aproximación fiel al presupuesto total.</div></div>';
     var revisados=its.length-(cuenta['Por revisar']||0), pct=its.length?Math.round(revisados/its.length*100):0;
     var pctP=total>0?Math.round(pagado/total*100):0;
@@ -977,17 +986,12 @@ details.sv-det[open] summary h3::after{transform:rotate(-135deg) translateY(-1px
     ((sv&&sv.cuotas)||[]).forEach(function(c){if(c.pagada&&c.fechaPago)ultimo.push({f:c.fechaPago,t:'💳 Recibimos tu pago: '+c.concepto});});
     (D.respuestas||[]).forEach(function(x){if(x.autor!=='estudio')return;var it=x.itemId?D.items.find(function(i){return i.id===x.itemId;}):null;ultimo.push({f:x.fecha,t:'💬 Te respondimos'+(it?': '+it.item:'')});});
     ultimo=ultimo.filter(function(x){return x.f&&x.f<=hoyS;}).sort(function(a,b){return b.f.localeCompare(a.f);}).slice(0,8);
-    h+='<div class="av-sec"><h3>Últimas novedades</h3>'+avisoRespuestas()
+    h+='<details class="av-sec sv-det"'+(plg.nov?' open':'')+' ontoggle="ebPlg.nov=this.open"><summary><h3>Últimas novedades</h3><span class="sv-res">'+(porRev?porRev+' por revisar':(viene.length+ultimo.length)+' novedades')+'</span></summary><div class="sv-c">'+avisoRespuestas()
       +(porRev?'<div class="nov-acc" onclick="ebF(\'Por revisar\');ebV(\'compras\')"><span class="imp-t">IMPORTANTE</span>✋ Esperamos tu respuesta en '+porRev+' producto'+(porRev===1?'':'s')+' · <u>revisar ahora</u></div>':'')
       +(viene.length?'<div class="nov-sub">Lo que viene</div><ul class="nov">'+viene.map(function(x){return '<li><b>'+e(x.t)+'</b><span>'+e(x.s)+'</span></li>';}).join('')+'</ul>':'')
       +(ultimo.length?'<div class="nov-sub">Lo último</div><ul class="nov">'+ultimo.map(function(x){return '<li><b>'+e(x.t)+'</b><span>'+e(fechaLarga(x.f))+'</span></li>';}).join('')+'</ul>':'')
-      +(!porRev&&!viene.length&&!ultimo.length?'<p class="meta">Pronto verás aquí las novedades de tu proyecto.</p>':'')+'</div>';
-    // 5. Bitácora del proyecto: reuniones (con resumen) y avances de obra, por fecha
-    var bit=[];
-    (sg.reuniones||[]).forEach(function(r){bit.push({f:r.fecha,tipo:'Reunión',t:r.titulo,res:r.resumen,acu:r.acuerdos});});
-    (sg.avances||[]).forEach(function(a){bit.push({f:a.fecha,hasta:a.hasta,tipo:a.tipo,t:a.titulo,estado:a.estado});});
-    bit.sort(function(a,b){return String(b.f).localeCompare(String(a.f));});
-    if(bit.length)h+='<div class="av-sec"><h3>Bitácora del proyecto</h3>'+bit.map(function(b){return '<div class="reu"><span class="rf">'+e(fechaLarga(b.f))+(b.hasta?' – '+e(fechaCorta(b.hasta)):'')+' · '+e(b.tipo)+(b.estado?' · '+e(b.estado):'')+'</span><b>'+e(b.t)+'</b>'+(b.res?'<div class="rt">'+e(b.res)+'</div>':'')+(b.acu?'<div class="ra"><b style="display:inline;font-size:12.5px;">Acuerdos:</b> '+e(b.acu)+'</div>':'')+'</div>';}).join('')+'</div>';
+      +(!porRev&&!viene.length&&!ultimo.length?'<p class="meta">Pronto verás aquí las novedades de tu proyecto.</p>':'')+'</div></details>';
+    // (La bitácora del proyecto ya no se muestra al cliente)
     // 6. Entrega de productos: carta Gantt general, una barra por espacio
     var esp={};
     its.forEach(function(it){if(!(it.pedido||it.entrega!=='Por pedir'))return;var k=it.espacio||'Otros';var x=esp[k]=esp[k]||{n:0,ok:0,ini:'',fin:''};x.n++;if(it.entrega==='Entregado')x.ok++;var a=it.pedido||'',b=it.llego||it.llega||'';if(a&&(!x.ini||a<x.ini))x.ini=a;if(b&&(!x.fin||b>x.fin))x.fin=b;});
@@ -1007,9 +1011,9 @@ details.sv-det[open] summary h3::after{transform:rotate(-135deg) translateY(-1px
   }
   var svAbierto=false;
   // Qué plegables dejó abiertos el cliente (Datos del proyecto, Equipo, Detalles de tu servicio): todos parten cerrados
-  var plg=window.ebPlg={datos:false,equipo:false,servicio:false};
+  var plg=window.ebPlg={datos:false,equipo:false,servicio:false,nov:false};
   var tabVisto={};
-  window.ebV=function(v){vista=v;tabVisto[v]=1;try{localStorage.setItem('ebc_vista',v);}catch(x){}pintar();window.scrollTo(0,0);};
+  window.ebV=function(v){if(v==='render')v='lamina';vista=v;tabVisto[v]=1;try{localStorage.setItem('ebc_vista',v);}catch(x){}pintar();window.scrollTo(0,0);};
   // Proveedores en lista tipo acordeón: el nombre y al abrir, sus datos
   // Categorías de proveedores, en este orden
   var CAT_PROV=['Mobiliario y decoración','Iluminación','Arte','Enmarcaciones y cuadros','Revestimientos','Papeles murales','Cortinas y textiles','Instalaciones','Equipamiento','Construcción','Otros'];
