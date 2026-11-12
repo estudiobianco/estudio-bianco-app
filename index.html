@@ -1746,14 +1746,17 @@ function rCKPI(){
   // ── TOTALES EXACTOS ────────────────────────────────────────────────────────
   // Total presupuesto = suma de todos los ítems (qty × precio unitario)
   const tot = _wi.reduce((a,r)=>a+rT(r), 0);
-  // Cuotas registradas en los ítems (p1amt+p2amt+p3amt+p4amt)
-  const cuotas = _wi.reduce((a,r)=>a+tp(r), 0);
-  // Transferencias por proveedor registradas en la pestaña Pagos
+  // MISMA REGLA QUE EL PORTAL (api/cliente.js, pagadoDe y movimientosDe). Si cambias una, cambia la otra. (12-11-2026)
+  // Pagado de un producto = si está "Pagado", su total; si no, cuotas con fecha o medio + transferencias marcadas [it:ID] (tope: su total).
+  // Pagado del proyecto = suma de productos + abonos (transferencias a proveedores sin producto). Antes se sumaba dos veces lo del cliente.
   const transf = provPaysTotal();
-  // Total desembolsado = cuotas de ítems + transferencias a proveedores (igual que en Pagos y en el PDF)
-  // Lo que el cliente compró y pagó directo en la tienda también cuenta como pagado
-  const cliPag = _wi.filter(r=>compraCliente(r)&&tp(r)<=0).reduce((a,r)=>a+rT(r), 0);
-  const desemb = cuotas + transf + cliPag;
+  if(typeof window.movsDeItem==='function'){try{window.movsDeItem(-1);}catch(e){}}
+  const _pid=currentProjId, _pps=(window.__provPaysPid===_pid?(window.__provPays||[]):[]).filter(p=>!p.project_id||p.project_id===_pid);
+  const movIt=id=>_pps.filter(p=>String(p.nota||'').indexOf('[it:'+id+']')===0).reduce((a,p)=>a+(+p.amount||0),0);
+  const abonos=_pps.filter(p=>String(p.nota||'').indexOf('[it:')!==0).reduce((a,p)=>a+(+p.amount||0),0);
+  const pagIt=r=>{const t=rT(r);if(!t)return 0;if(r.cat==='Honorarios')return Math.min(tp(r),t);if(r.payStatus==='Pagado')return t;return Math.min(t,tp(r)+movIt(r.id));};
+  const cliPag = _wi.filter(r=>compraCliente(r)&&r.payStatus==='Pagado').reduce((a,r)=>a+rT(r), 0);
+  const desemb = Math.min(tot, _wi.reduce((a,r)=>a+pagIt(r),0) + abonos);
   // Costos de despacho (items.ship_cost), ya incluidos en el presupuesto
   const desp = _wi.reduce((a,r)=>a+(optFuera(r)?0:(+r.shipCost||0)), 0), nDesp = _wi.filter(r=>!optFuera(r)&&+r.shipCost>0).length;
   // Ítems pagados 100% = payStatus Pagado
@@ -1775,7 +1778,7 @@ function rCKPI(){
     <div class="kc" style="border-left:3px solid var(--ac);">
       <div class="kl">Pagado</div>
       <div class="kv g" style="font-size:18px;">${fm(desemb)}</div>
-      <div style="font-size:10.5px;color:var(--tx3);margin-top:2px;">${pct}% del presupuesto${transf>0?` · incluye ${fm(transf)} transferidos a proveedores`:''}${cliPag>0?' · incluye '+fm(cliPag)+' pagado por el cliente':''}</div>
+      <div style="font-size:10.5px;color:var(--tx3);margin-top:2px;">${pct}% del presupuesto${abonos>0?` · incluye ${fm(abonos)} en abonos a proveedores`:''}${cliPag>0?' · incluye '+fm(cliPag)+' pagado por el cliente':''}</div>
     </div>
     <div class="kc" style="border-left:3px solid var(--dn);">
       <div class="kl">Por pagar</div>
@@ -11441,6 +11444,18 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     return Math.round(base*pct/100);
   }
   function provsDe(b){var ids=b.item_ids||[],p=[];lista().forEach(function(r){if(ids.indexOf(r.id)>=0&&r.supplier&&p.indexOf(r.supplier)<0)p.push(r.supplier);});return p;}
+  // Abonos del proyecto (transferencias a proveedores sin producto) repartidos en los pagos del mismo proveedor,
+  // en orden de fecha. MISMA REGLA QUE EL PORTAL (api/cliente.js, repartirAbonos).
+  function abonadoPor(){
+    var pid=currentProjId, res={};
+    if(typeof window.movsDeItem==='function'){try{window.movsDeItem(-1);}catch(e){}}
+    var abs=(window.__provPaysPid===pid?(window.__provPays||[]):[]).filter(function(p){return (!p.project_id||p.project_id===pid)&&String(p.nota||'').indexOf('[it:')!==0&&+p.amount>0;}).sort(function(a,b){return String(a.pdate||'')<String(b.pdate||'')?-1:1;});
+    var norm=function(s){return String(s||'').trim().toLowerCase();};
+    var orden=bloques.slice().sort(function(a,c){var x=a.fecha||'9999',z=c.fecha||'9999';return x<z?-1:x>z?1:a.id-c.id;});
+    orden.forEach(function(b){res[b.id]=0;});
+    abs.forEach(function(ab){var resto=+ab.amount||0;orden.forEach(function(b){if(resto<=0||provsDe(b).map(norm).indexOf(norm(ab.supplier))<0)return;var cabe=Math.max(0,montoDe(b)-res[b.id]),pone=Math.min(cabe,resto);res[b.id]+=pone;resto-=pone;});});
+    return res;
+  }
 
   function cargar(cb){
     var pid=currentProjId; if(!pid)return;
@@ -11456,7 +11471,8 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     var enPlan={}; bloques.forEach(function(x){(x.item_ids||[]).forEach(function(i){enPlan[i]=x.titulo||'otro pago';});});
     var sin=its.filter(function(r){return !enPlan[r.id]&&tot(r)>0&&r.payStatus!=='Pagado'&&!compraCliente(r);});
     var h='<h1 class="pp-h1">Plan de pagos</h1><p class="pp-sub">Arma los pagos del cliente por fecha y elige qué productos del listado entran en cada uno: el monto se suma solo. Tu cliente lo ve en la pestaña <b>Pagos</b> de su portal, al lado de un calendario que también muestra las compras, llegadas e instalaciones del listado.</p>';
-    h+='<div class="pp-res"><div><span>Total de compras</span><b>'+plata(total)+'</b></div><div><span>En el plan</span><b>'+plata(bloques.filter(function(x){return x.estado!=='Pagado';}).reduce(function(a,x){return a+montoDe(x);},0))+'</b></div><div class="pp-sin"><span>Por pagar sin plan</span><b>'+sin.length+' producto'+(sin.length===1?'':'s')+' · '+plata(sin.reduce(function(a,r){return a+tot(r);},0))+'</b></div><button class="btn prim" onclick="ebPP.nuevo()">+ Nuevo pago</button></div>';
+    var abo=abonadoPor();
+    h+='<div class="pp-res"><div><span>Total de compras</span><b>'+plata(total)+'</b></div><div><span>Por pagar en el plan</span><b>'+plata(bloques.filter(function(x){return x.estado!=='Pagado';}).reduce(function(a,x){return a+Math.max(0,montoDe(x)-(abo[x.id]||0));},0))+'</b></div><div class="pp-sin"><span>Por pagar sin plan</span><b>'+sin.length+' producto'+(sin.length===1?'':'s')+' · '+plata(sin.reduce(function(a,r){return a+tot(r);},0))+'</b></div><button class="btn prim" onclick="ebPP.nuevo()">+ Nuevo pago</button></div>';
     if(edId==='nuevo')h+=editor();
     var orden=bloques.slice().sort(function(a,c){var x=a.fecha||'9999',z=c.fecha||'9999';return x<z?-1:x>z?1:a.id-c.id;});
     if(!orden.length&&edId!=='nuevo')h+='<div class="pp-vacio">Aún no hay pagos en el plan. Crea el primero con <b>+ Nuevo pago</b> (por ejemplo: "Muebles a medida · adelanto 50%").</div>';
@@ -11464,7 +11480,7 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
       h+='<div class="pp-lista">'+orden.map(function(x){
         if(edId===x.id)return editor();
         var pr=provsDe(x), n=(x.item_ids||[]).length;
-        return '<div class="pp-fila"><i style="background:'+(x.color||'var(--ac)')+(x.estado==='Contra entrega'?';opacity:.45':'')+'"></i><span class="f">'+(x.fecha?corta(x.fecha):e(x.fecha_txt||'Sin fecha'))+'</span><div><b>'+e(x.titulo||'Pago')+'</b><small>'+e([pr.length>3?pr.slice(0,2).join(', ')+' y '+(pr.length-2)+' más':pr.join(', '),n?n+' producto'+(n===1?'':'s'):'sin productos',x.fecha&&x.fecha_txt?x.fecha_txt:'',x.nota].filter(Boolean).join(' · '))+'</small></div><div class="m">'+plata(montoDe(x))+'<small>'+e(x.estado)+(x.porcentaje!=null&&+x.porcentaje<100?' · '+(+x.porcentaje)+'%':'')+'</small></div><div class="pp-acts">'+(x.estado!=='Pagado'?'<button onclick="ebPP.pagado('+x.id+')" title="Marcar como pagado">✓ Pagado</button>':'')+'<button onclick="ebPP.editar('+x.id+')">Editar</button><button onclick="ebPP.borrar('+x.id+')" title="Eliminar">🗑</button></div></div>';
+        return '<div class="pp-fila"><i style="background:'+(x.color||'var(--ac)')+(x.estado==='Contra entrega'?';opacity:.45':'')+'"></i><span class="f">'+(x.fecha?corta(x.fecha):e(x.fecha_txt||'Sin fecha'))+'</span><div><b>'+e(x.titulo||'Pago')+'</b><small>'+e([pr.length>3?pr.slice(0,2).join(', ')+' y '+(pr.length-2)+' más':pr.join(', '),n?n+' producto'+(n===1?'':'s'):'sin productos',x.fecha&&x.fecha_txt?x.fecha_txt:'',x.nota].filter(Boolean).join(' · '))+'</small>'+((abo[x.id]||0)>0?'<small style="display:block;color:#2F8663;">Abonado '+plata(abo[x.id])+' de '+plata(montoDe(x))+(abo[x.id]>=montoDe(x)?' · completo':'')+'</small>':'')+'</div><div class="m">'+plata((abo[x.id]||0)>0?Math.max(0,montoDe(x)-abo[x.id]):montoDe(x))+'<small>'+((abo[x.id]||0)>0?(abo[x.id]>=montoDe(x)?'Pagado':'Falta'):e(x.estado))+(x.porcentaje!=null&&+x.porcentaje<100?' · '+(+x.porcentaje)+'%':'')+'</small></div><div class="pp-acts">'+(x.estado!=='Pagado'?'<button onclick="ebPP.pagado('+x.id+')" title="Marcar como pagado">✓ Pagado</button>':'')+'<button onclick="ebPP.editar('+x.id+')">Editar</button><button onclick="ebPP.borrar('+x.id+')" title="Eliminar">🗑</button></div></div>';
       }).join('')+'</div>';
     }
     // Fechas del listado que el calendario del portal muestra solas

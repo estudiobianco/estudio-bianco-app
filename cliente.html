@@ -721,7 +721,9 @@ html{overflow-x:clip;}
     orden.forEach(function(k){var g=grp[k],uno=g.n.length===1;
       ev.push({f:g.f,t:g.t,color:PG_COL[g.t],txt:TXT[g.t][uno?0:1]+(uno?g.n[0]:g.n.length+' productos'),sub:[uno?'':g.n.slice(0,3).join(', ')+(g.n.length>3?' y '+(g.n.length-3)+' más':''),g.t==='llega'?'fecha estimada':'',g.monto?m(g.monto):''].filter(Boolean).join(' · ')});});
     (D.plan||[]).forEach(function(b){var f=pgFecha(b.fecha);if(!f)return;var ok=b.estado==='Pagado';
-      ev.push({f:f,t:ok?'pagado':'pago',color:ok?PG_COL.pagado:(b.color||pgAcento()),txt:(ok?'Pagado: ':'Pago: ')+(b.titulo||'Pago'),sub:m(b.monto)+(ok?'':' · '+b.estado)});});
+      ev.push({f:f,t:ok?'pagado':'pago',color:ok?PG_COL.pagado:(b.color||pgAcento()),txt:(ok?'Pagado: ':'Pago: ')+(b.titulo||'Pago'),sub:ok?m(b.monto):((+b.abonado||0)>0?'falta '+m(Math.max(0,b.monto-b.abonado))+' de '+m(b.monto):m(b.monto)+' · '+b.estado)});});
+    var abG={};(D.abonos||[]).forEach(function(a){var f=pgFecha(a.fecha);if(!f)return;var k=f+'|'+a.proveedor;abG[k]=abG[k]||{f:f,p:a.proveedor,m:0};abG[k].m+=(+a.monto||0);});
+    Object.keys(abG).forEach(function(k){var g=abG[k];ev.push({f:g.f,t:'pagado',color:PG_COL.pagado,txt:'Abono a '+(g.p||'proveedor'),sub:m(g.m)});});
     pgHon().forEach(function(c){
       if(c.pagada){var fp=pgFecha(c.fechaPago);if(fp)ev.push({f:fp,t:'pagado',color:PG_COL.pagado,txt:'Honorarios pagados: '+(c.concepto||'Etapa'),sub:m(c.pagado||c.monto)});return;}
       var fv=pgFecha(c.vence);if(fv)ev.push({f:fv,t:'hon',color:PG_COL.hon,txt:'Honorarios: '+(c.concepto||'Etapa'),sub:m(Math.max(0,c.monto-(+c.pagado||0)))+' · Pendiente'});
@@ -763,7 +765,8 @@ html{overflow-x:clip;}
     function fila(b){
       var f=pgFecha(b.fecha), its=(b.items||[]).map(function(id){return D.items.find(function(i){return i.id===id;});}).filter(Boolean);
       var linea=[provs(b),f?b.fechaTxt:'',b.nota].filter(Boolean).join(' · ');
-      return '<div class="pg-fila"><i style="background:'+(b.color||pgAcento())+(b.estado==='Contra entrega'?';opacity:.45':'')+'"></i><span class="f">'+(f?pgCorta(f):e(b.fechaTxt||'Por definir'))+'</span><div><h3>'+e(b.titulo||'Pago')+'</h3>'+(linea?'<p>'+e(linea)+'</p>':'')+'</div><div class="m">'+m(b.monto)+'<small>'+e(b.estado)+'</small></div>'
+      var ab=+b.abonado||0, falta=Math.max(0,(+b.monto||0)-ab);
+      return '<div class="pg-fila"><i style="background:'+(b.color||pgAcento())+(b.estado==='Contra entrega'?';opacity:.45':'')+'"></i><span class="f">'+(f?pgCorta(f):e(b.fechaTxt||'Por definir'))+'</span><div><h3>'+e(b.titulo||'Pago')+'</h3>'+(linea?'<p>'+e(linea)+'</p>':'')+(ab>0?'<p style="color:var(--verde);">Ya abonaste '+m(ab)+' de '+m(b.monto)+'</p>':'')+'</div><div class="m">'+m(ab>0?falta:b.monto)+'<small>'+(ab>0?'Falta':e(b.estado))+'</small></div>'
         +(its.length?'<details><summary>Ver '+(its.length===1?'el producto':'los '+its.length+' productos')+'</summary>'+its.map(function(it){return '<div><span>'+e(it.item)+'</span><span>'+m(sub(it))+'</span></div>';}).join('')+(+b.porcentaje<100?'<div><span>Este pago es el '+(+b.porcentaje)+'% del total</span><span></span></div>':'')+'</details>':'')+'</div>';
     }
     // Honorarios pendientes entran al plan como filas propias; los pagados van a "Ya pagado"
@@ -784,11 +787,13 @@ html{overflow-x:clip;}
   }
   window.ebPgMes=function(n){var y=+pgMes.slice(0,4),mo=+pgMes.slice(5,7)-1+n,x=new Date(y,mo,1);pgMes=x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0');pgDia='';pintar();};
   window.ebPgDia=function(f){pgDia=pgDia===f?'':f;pintar();};
-  function hayPagos(){if((D.plan||[]).length||pgHon().length)return true;return (D.items||[]).some(function(it){return !fuera(it)&&(it.pedido||it.llega||it.llego||it.instala||it.vence||(it.pagos||[]).length);});}
+  function hayPagos(){if((D.plan||[]).length||pgHon().length||(D.abonos||[]).length)return true;return (D.items||[]).some(function(it){return !fuera(it)&&(it.pedido||it.llega||it.llego||it.instala||it.vence||(it.pagos||[]).length);});}
 
   function pintar(){
     var its=D.items, sumable=function(it){return !fuera(it)&&est(it)!=='Rechazado';};
     var total=its.reduce(function(a,it){return a+(sumable(it)?sub(it):0);},0), pagado=its.reduce(function(a,it){return a+(sumable(it)?Math.min(+it.pagado||0,sub(it)):0);},0);
+    // Abonos del proyecto (transferencias a proveedores que no son de un producto): también son pagos (misma regla que la app)
+    pagado=Math.min(total,pagado+(D.abonos||[]).reduce(function(a,x){return a+(+x.monto||0);},0));
     var cuenta={'':its.length,'Por revisar':0,'Aprobado':0,'Cambios solicitados':0,'Rechazado':0};
     its.forEach(function(it){cuenta[est(it)]=(cuenta[est(it)]||0)+1;});
     var porCotizar=its.some(function(it){return !fuera(it)&&!(+it.precio>0);});
