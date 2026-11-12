@@ -63,6 +63,9 @@ a{color:var(--ac);}
 .tot3 .v{font:500 24px/1.1 var(--fd);letter-spacing:-.02em;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .tot3 .v.ok{color:var(--verde);}
 .tot3 .prog{grid-column:1/-1;}
+/* la barra de avance no es una tarjeta: sin relleno (con relleno quedaba en 0 de alto y se veía una caja vacía) */
+.tot3>.prog{padding:0;height:8px;box-shadow:none;background:var(--line);border-radius:999px;}
+.tot3 .det{grid-column:1/-1;font-size:11.5px;color:var(--ink3);margin:-4px 6px 0;background:none;box-shadow:none;padding:0;}
 .prog{height:6px;background:var(--line);border-radius:999px;overflow:hidden;}
 .prog div{height:100%;background:var(--ac);border-radius:999px;transition:width .3s;}
 .tot{display:none;}
@@ -825,9 +828,13 @@ html{overflow-x:clip;}
     if(vista==='cotizacion'){h+=htmlDocs(vista)+pie;document.getElementById('app').innerHTML=h;barra(false);return;}
     h+='<div class="intro"><div class="imp"><b>Ojo</b>Este listado puede estar incompleto: se va ajustando según nuestras reuniones. Aun así, es una aproximación fiel al presupuesto total.</div></div>';
     var revisados=its.length-(cuenta['Por revisar']||0), pct=its.length?Math.round(revisados/its.length*100):0;
-    var pctP=total>0?Math.round(pagado/total*100):0;
+    // Igual que la app de Ankel y la pestaña Pagos: compras + honorarios del estudio (12-11-2026)
+    var hcL=(D.servicio&&D.servicio.cuotas)||[], hTL=hcL.reduce(function(a,c){return a+(+c.monto||0);},0), hPL=hcL.reduce(function(a,c){return a+Math.min(+c.pagado||0,+c.monto||0);},0);
+    var totL=total+hTL, pagL=pagado+hPL;
+    var pctP=totL>0?Math.round(pagL/totL*100):0;
     h+=avisoRespuestas();
-    h+='<div class="tot3"><div><div class="l">Presupuesto total</div><div class="v">'+m(total)+'</div></div><div><div class="l">Pagado</div><div class="v ok">'+m(pagado)+'</div></div><div><div class="l">Por pagar</div><div class="v">'+m(Math.max(0,total-pagado))+'</div></div><div class="prog" title="'+pctP+'% pagado"><div style="width:'+pctP+'%;background:var(--ok);"></div></div></div>';
+    h+='<div class="tot3"><div><div class="l">Presupuesto total</div><div class="v">'+m(totL)+'</div></div><div><div class="l">Pagado</div><div class="v ok">'+m(pagL)+'</div></div><div><div class="l">Por pagar</div><div class="v">'+m(Math.max(0,totL-pagL))+'</div></div><div class="prog" title="'+pctP+'% pagado"><div style="width:'+pctP+'%;background:var(--ok);"></div></div>'
+      +(hcL.length?'<p class="det">Compras '+m(total)+' (pagado '+m(pagado)+') · Honorarios del estudio '+m(hTL)+' (pagado '+m(hPL)+')</p>':'')+'</div>';
     h+='<p class="meta" style="margin:0 6px;">'+cuenta['Aprobado']+' de '+its.length+' productos aprobados'+(porCotizar?' · algunos productos están por cotizar':'')+'</p>';
     // "Todos" no muestra lo descartado: los descartados se ven solo en su filtro
     cuenta['']=its.length-(cuenta['Rechazado']||0);
