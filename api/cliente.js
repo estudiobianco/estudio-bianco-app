@@ -126,26 +126,58 @@ async function servicioDe(p) {
 
 // Cuánto está pagado de cada producto: las cuotas con fecha o medio de pago (una cuota sin fecha ni medio
 // es un pago planificado, no hecho) o, si el producto está marcado "Pagado", el total (error 11-11-2026)
-function pagadoDe(x) {
+// MISMA REGLA QUE LA APP (index.html, rCKPI y Plan de pagos). Si cambias una, cambia la otra.
+// Pagado de un producto = cuotas con fecha o medio + transferencias a proveedores marcadas [it:ID];
+// si está marcado "Pagado", el total. Pagado del proyecto = suma de productos + transferencias sin producto (abonos).
+function pagadoDe(x, mov) {
   const tot = (+x.qty || 1) * (+x.unit || 0) + (+x.ship_cost || 0);
   const pp = [1, 2, 3, 4].reduce((a, n) => a + ((+x['p' + n + 'amt'] > 0 && (String(x['p' + n + 'date'] || '').trim() || String(x['p' + n + 'method'] || '').trim())) ? +x['p' + n + 'amt'] : 0), 0);
   if (x.pay_status === 'Pagado') return tot;
-  return Math.min(pp, tot);
+  return Math.min(pp + (+mov || 0), tot);
+}
+
+// Transferencias a proveedores (pestaña Pagos de la app): las marcadas [it:ID] son de un producto;
+// las demás son abonos del proyecto (ej. "Abono muebles a medida 03").
+async function movimientosDe(p) {
+  const rows = (await sb('supplier_payments?select=id,supplier,amount,pdate,nota&project_id=eq.' + encodeURIComponent(p.id) + '&order=pdate,id')) || [];
+  const porItem = {}, abonos = [];
+  rows.forEach(r => {
+    const m = /^\[it:(\d+)\]/.exec(String(r.nota || ''));
+    if (m) porItem[m[1]] = (porItem[m[1]] || 0) + (+r.amount || 0);
+    else if (+r.amount > 0) abonos.push({ fecha: r.pdate || '', proveedor: (r.supplier || '').trim(), monto: +r.amount });
+  });
+  return { porItem, abonos };
 }
 
 // Plan de pagos: bloques que arma el estudio (fecha + productos del listado). El monto se suma solo
 // con los productos del bloque (por el porcentaje si es un adelanto), salvo que el estudio fije un monto.
-async function planDe(p, items) {
+// Los abonos del proyecto se descuentan de los bloques del mismo proveedor, en orden de fecha.
+async function planDe(p, items, abonos) {
   const bl = (await sb('plan_pagos?select=id,titulo,fecha,fecha_txt,item_ids,porcentaje,monto,estado,nota,color,orden&project_id=eq.' + encodeURIComponent(p.id) + '&order=orden,fecha,id')) || [];
   const porId = {}; items.forEach(x => { porId[x.id] = x; });
-  return bl.map(b => {
+  const out = bl.map(b => {
     const its = (b.item_ids || []).map(i => porId[i]).filter(Boolean);
     const base = its.reduce((a, x) => a + (+x.qty || 1) * (+x.unit || 0) + (+x.ship_cost || 0), 0);
     const pct = b.porcentaje == null || b.porcentaje === '' ? 100 : +b.porcentaje;
     const monto = b.monto != null && b.monto !== '' ? +b.monto : Math.round(base * pct / 100);
     const provs = []; its.forEach(x => { if (x.supplier && provs.indexOf(x.supplier) < 0) provs.push(x.supplier); });
-    return { id: b.id, titulo: b.titulo || '', fecha: b.fecha || '', fechaTxt: b.fecha_txt || '', monto: monto, porcentaje: pct, estado: b.estado || 'Pendiente', nota: b.nota || '', color: b.color || '', items: its.map(x => x.id), proveedores: provs };
+    return { id: b.id, titulo: b.titulo || '', fecha: b.fecha || '', fechaTxt: b.fecha_txt || '', monto: monto, porcentaje: pct, estado: b.estado || 'Pendiente', nota: b.nota || '', color: b.color || '', items: its.map(x => x.id), proveedores: provs, abonado: 0 };
   });
+  repartirAbonos(out, abonos || []);
+  return out;
+}
+function repartirAbonos(bloques, abonos) {
+  const norm = s => String(s || '').trim().toLowerCase();
+  const orden = bloques.slice().sort((a, b) => ((a.fecha || '9999') < (b.fecha || '9999') ? -1 : (a.fecha || '9999') > (b.fecha || '9999') ? 1 : a.id - b.id));
+  abonos.forEach(ab => {
+    let resto = +ab.monto || 0;
+    orden.forEach(b => {
+      if (resto <= 0 || b.proveedores.map(norm).indexOf(norm(ab.proveedor)) < 0) return;
+      const cabe = Math.max(0, b.monto - b.abonado); const pone = Math.min(cabe, resto);
+      b.abonado += pone; resto -= pone;
+    });
+  });
+  bloques.forEach(b => { if (b.estado !== 'Pagado' && b.monto > 0 && b.abonado >= b.monto) b.estado = 'Pagado'; });
 }
 
 // "Cómo va tu proyecto": etapa, próximas reuniones marcadas para el cliente y avances de obra.
@@ -296,6 +328,7 @@ module.exports = async function handler(req, res) {
       // mismo orden manual que en la app del estudio (sin orden guardado, el de creación)
       items.sort((a, b) => (a.sort_order == null ? a.id : a.sort_order) - (b.sort_order == null ? b.id : b.sort_order));
       const provs = await proveedoresDe(items);
+      const mv = await movimientosDe(p).catch(() => ({ porItem: {}, abonos: [] }));
       const docsRaw = (await sb('logs?select=id,date,title,description,status,category,extra&project_id=eq.' + encodeURIComponent(p.id) + '&category=in.(lamina,render,cotizacion)&order=id')) || [];
       const docs = docsRaw.map(d => { let x = {}; try { x = d.extra ? JSON.parse(d.extra) : {}; } catch (e) {} return { d, x }; })
         .filter(o => !o.x.oculto && o.x.url)
@@ -312,11 +345,12 @@ module.exports = async function handler(req, res) {
           espacio: x.space || '', specs: x.specs || '', link: x.product_url || '', imagen: x.image_url || '',
           entrega: x.delivery_status || 'Por pedir', estado: x.client_status || '',
           compra: x.order_date ? { fecha: x.order_date, entrega: x.est_delivery || '', orden: x.order_num || '', por: x.delivery_resp === 'Cliente' ? 'cliente' : 'estudio' } : null, grupo: x.opt_group || '', elegida: x.opt_sel === '1', recomendada: x.opt_rec === '1', nota: x.client_note || '',
-          pagado: pagadoDe(x), llega: x.est_delivery || '', llego: x.actual_delivery || '', pedido: x.order_date || '',
+          pagado: pagadoDe(x, mv.porItem[x.id]), llega: x.est_delivery || '', llego: x.actual_delivery || '', pedido: x.order_date || '',
           instala: x.install_date || '', vence: x.vence || '',
           pagos: [1, 2, 3, 4].filter(n => +x['p' + n + 'amt'] > 0 && x['p' + n + 'date']).map(n => ({ monto: +x['p' + n + 'amt'], fecha: x['p' + n + 'date'] }))
         })),
-        plan: await planDe(p, items).catch(() => []),
+        plan: await planDe(p, items, mv.abonos).catch(() => []),
+        abonos: mv.abonos,
         proveedores: provs,
         documentos: docs,
         respuestas: resp.map(l => {
