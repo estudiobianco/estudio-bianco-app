@@ -89,6 +89,29 @@ async function acceso(q) {
   if (est.fallos || est.bloqueado_hasta) await sb('portal_intentos?slug=eq.' + encodeURIComponent(q.s), { method: 'PATCH', headers: H({ Prefer: 'return=minimal' }), body: JSON.stringify({ fallos: 0, bloqueado_hasta: null, updated_at: new Date().toISOString() }) });
   return { p: r[0] };
 }
+// VISTA EQUIPO (16-11-2026): Javiera (o Ankel) ve el portal de un cliente desde la app, con SU sesión de la app.
+// Sin clave del cliente. El link solo no sirve: hace falta el token de la sesión de la app (encabezado x-equipo),
+// el perfil activo y, para el equipo, haber escrito la clave hace menos de 24 horas.
+// A esta vista nunca se le mandan honorarios, pagos, plan de pagos, abonos, facturación ni "Cómo va tu proyecto".
+async function accesoEquipo(tok, pid) {
+  tok = String(tok || ''); pid = String(pid || '');
+  if (!/^[A-Za-z0-9._-]{20,4000}$/.test(tok) || !/^[A-Za-z0-9_-]{1,80}$/.test(pid)) return { cod: 401, error: 'Entra a la app con tu clave y abre el portal desde el proyecto.' };
+  const r = await fetch(SB_URL + '/auth/v1/user', { headers: { apikey: llave(), Authorization: 'Bearer ' + tok } });
+  if (!r.ok) return { cod: 401, error: 'Tu sesión de la app expiró. Vuelve a la app, entra con tu clave y abre de nuevo el portal.' };
+  const u = await r.json();
+  const pf = ((await sb('perfiles?select=rol,activo,nombre&user_id=eq.' + encodeURIComponent(u.id))) || [])[0];
+  if (!pf || ['admin', 'trabajador'].indexOf(pf.rol) < 0 || (pf.rol !== 'admin' && pf.activo === false)) return { cod: 403, error: 'Tu usuario no tiene acceso a esta vista.' };
+  if (pf.rol !== 'admin') {
+    // 24 horas desde que escribió su clave (el token de Supabase guarda cuándo se entró con contraseña)
+    let pay = {}; try { pay = JSON.parse(Buffer.from(tok.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8')); } catch (e) {}
+    const pw = (pay.amr || []).filter(a => a && a.method === 'password').map(a => +a.timestamp || 0).sort((a, b) => b - a)[0] || 0;
+    if (!pw || Date.now() / 1000 - pw > 24 * 3600) return { cod: 401, error: 'Por seguridad, cada 24 horas debes volver a entrar a la app con tu clave.' };
+  }
+  const pr = await sb('projects?select=' + CAMPOS_PROY + '&id=eq.' + encodeURIComponent(pid) + '&limit=1');
+  if (!pr || !pr[0]) return { cod: 404, error: 'No se encontró el proyecto.' };
+  return { p: pr[0], nombre: pf.nombre || '' };
+}
+
 function negar(res, a) {
   if (a.cod === 429) return res.status(429).json({ ok: false, bloqueado: true, error: 'Hubo demasiados intentos con una clave incorrecta. Intenta de nuevo en ' + (a.min >= 90 ? Math.round(a.min / 60) + ' horas' : (a.min || 15) + ' minutos') + '.' });
   if (a.cod === 401) return res.status(401).json({ ok: false, pin: true, error: a.mala ? 'La clave no es correcta.' + (a.quedan ? ' Te quedan ' + a.quedan + ' intento' + (a.quedan === 1 ? '' : 's') + '.' : '') : '' });
@@ -321,9 +344,16 @@ module.exports = async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const q = req.query || {};
-      const a = await acceso({ k: q.k, s: q.s, pin: req.headers['x-clave'], ip: String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() });
-      if (!a.p) return negar(res, a);
-      const p = a.p;
+      let p, eq = null;
+      if (q.equipo) {
+        eq = await accesoEquipo(req.headers['x-equipo'], q.equipo);
+        if (!eq.p) return res.status(eq.cod || 401).json({ ok: false, equipo: true, error: eq.error });
+        p = eq.p;
+      } else {
+        const a = await acceso({ k: q.k, s: q.s, pin: req.headers['x-clave'], ip: String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() });
+        if (!a.p) return negar(res, a);
+        p = a.p;
+      }
       const items = (await sb('items?select=' + CAMPOS_ITEM + '&project_id=eq.' + encodeURIComponent(p.id) + '&cat=neq.Honorarios&order=id')) || [];
       // mismo orden manual que en la app del estudio (sin orden guardado, el de creación)
       items.sort((a, b) => (a.sort_order == null ? a.id : a.sort_order) - (b.sort_order == null ? b.id : b.sort_order));
@@ -334,12 +364,12 @@ module.exports = async function handler(req, res) {
         .filter(o => !o.x.oculto && o.x.url)
         .map(o => ({ id: o.d.id, tipo: o.d.category, titulo: o.d.title || '', nota: o.d.description || '', estado: o.d.status || '', fecha: o.d.date || '', url: o.x.url, pdf: /pdf/i.test(o.x.mime || '') || /\.pdf($|\?)/i.test(o.x.url), espacio: o.x.espacio || '', proveedor: o.x.proveedor || '', version: (o.x.versiones || []).length + 1, anteriores: (o.x.versiones || []).map(v => ({ url: v.url, pdf: /pdf/i.test(v.mime || ''), fecha: v.fecha || '' })) }));
       const resp = (await sb('logs?select=id,date,title,description,responsible,item_id,extra&project_id=eq.' + encodeURIComponent(p.id) + '&category=eq.cliente&order=id.desc&limit=200')) || [];
-      return res.status(200).json({
+      const out = {
         ok: true,
         proyecto: { nombre: p.name || '', cliente: p.client || '', direccion: p.addr || '', inicio: p.start_date || '', facturacion: p.facturacion || '', requisitos: p.requisitos || '', color: p.color || '', portada: p.portada || '' },
         contactos: CONTACTOS,
-        seguimiento: await seguimientoDe(p),
-        servicio: await servicioDe(p),
+        seguimiento: eq ? null : await seguimientoDe(p),
+        servicio: eq ? null : await servicioDe(p),
         items: items.map(x => ({
           id: x.id, cat: x.cat || '', item: x.item || '', proveedor: x.supplier || '', cant: x.qty || 1, precio: x.unit || 0, despacho: +x.ship_cost || 0,
           espacio: x.space || '', specs: x.specs || '', link: x.product_url || '', imagen: x.image_url || '',
@@ -358,7 +388,14 @@ module.exports = async function handler(req, res) {
           // autor 'estudio' = respuesta del estudio a un comentario del cliente (respondeA = id del comentario)
           return { id: l.id, fecha: l.date, itemId: l.item_id || 0, docId: ex.docId || 0, decision: ex.decision || '', comentario: l.description || '', nombre: ex.autor === 'estudio' ? 'Estudio Bianco' : (l.responsible || ''), autor: ex.autor || 'cliente', respondeA: +ex.respondeA || 0, at: ex.at || '' };
         })
-      });
+      };
+      if (eq) {
+        // Vista equipo: fuera todo lo de plata y datos de facturación
+        out.equipo = true; out.quien = eq.nombre;
+        out.proyecto.facturacion = ''; out.plan = []; out.abonos = [];
+        out.items.forEach(it => { it.pagado = 0; it.pagos = []; it.vence = ''; });
+      }
+      return res.status(200).json(out);
     }
 
     if (req.method === 'POST') {
