@@ -14,11 +14,20 @@
   function guardar(s){ses=s;try{if(s)localStorage.setItem('eb_sesion',JSON.stringify(s));else localStorage.removeItem('eb_sesion');}catch(e){}}
   function auth(path,body){return of(SBU+'/auth/v1/'+path,{method:'POST',headers:{apikey:ANON,'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json().then(function(j){if(!r.ok)throw j;return j;});});}
   function deRespuesta(j){return {access_token:j.access_token,refresh_token:j.refresh_token,expires_at:j.expires_at||Math.floor(Date.now()/1000)+(j.expires_in||3600),uid:j.user&&j.user.id,email:j.user&&j.user.email};}
+  // El equipo (no la administradora) debe volver a escribir su clave cada 24 horas (16-11-2026)
+  var DIA=24*3600*1000;
+  function vencida(){return !!(ses&&ses.rol!=='admin'&&(!ses.login_at||Date.now()-ses.login_at>DIA));}
+  function forzarSalida(){
+    var s=ses; guardar(null); try{localStorage.removeItem('ar6_mode');sessionStorage.setItem('eb_login_msg','Por seguridad, cada 24 horas debes volver a escribir tu clave.');}catch(e){}
+    var fin=function(){location.reload();};
+    if(s&&s.access_token)of(SBU+'/auth/v1/logout',{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+s.access_token}}).catch(function(){}).then(fin); else fin();
+  }
   function asegurar(){
     if(!ses)return Promise.resolve(null);
+    if(vencida()){forzarSalida();return Promise.resolve(null);}
     if(ses.expires_at*1000-Date.now()>60000)return Promise.resolve(ses);
     if(!renovando)renovando=auth('token?grant_type=refresh_token',{refresh_token:ses.refresh_token})
-      .then(function(j){var s=deRespuesta(j);s.rol=ses.rol;s.nombre=ses.nombre;guardar(s);return s;})
+      .then(function(j){var s=deRespuesta(j);s.rol=ses.rol;s.nombre=ses.nombre;s.login_at=ses.login_at;guardar(s);return s;})
       .catch(function(){guardar(null);mostrarLogin('Tu sesión expiró. Vuelve a entrar.');return null;})
       .then(function(s){renovando=null;return s;});
     return renovando;
@@ -61,7 +70,7 @@
       return perfil(s).then(function(p){
         if(!p)return falla('Tu usuario no tiene un perfil asignado. Pídele a Ankel que lo active.');
         if(p.rol!=='admin'&&p.activo===false){of(SBU+'/auth/v1/logout',{method:'POST',headers:{apikey:ANON,Authorization:'Bearer '+s.access_token}}).catch(function(){});return falla('Tu acceso está pausado por ahora. Ankel te avisará cuando esté activo.');}
-        s.rol=p.rol;s.nombre=p.nombre||'';
+        s.rol=p.rol;s.nombre=p.nombre||'';s.login_at=Date.now();
         var antes=''; try{antes=localStorage.getItem('eb_ultimo_usuario')||'';}catch(e){}
         if(p.rol!=='admin'&&antes!==s.uid)limpiarLocal();
         guardar(s);
@@ -100,7 +109,9 @@
     // El modo lo decide el rol del usuario, no un PIN
     window.openAccessModal=function(){ if(ses)window.ebCuenta(); else mostrarLogin(''); };
     window.selectMode=function(){};
-    if(!ses){mostrarLogin('');return;}
+    if(!ses){var _msg='';try{_msg=sessionStorage.getItem('eb_login_msg')||'';sessionStorage.removeItem('eb_login_msg');}catch(e){}mostrarLogin(_msg);return;}
+    if(vencida()){forzarSalida();return;}
+    setInterval(function(){if(vencida())forzarSalida();},5*60*1000);
     var m=ses.rol==='admin'?'admin':'worker';
     try{if(localStorage.getItem('ar6_mode')!==m){localStorage.setItem('ar6_mode',m);location.reload();return;}}catch(e){}
     // Revisa el rol en la nube por si cambió
@@ -11559,6 +11570,35 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
   }
   if(typeof window.go==='function'){var _g=window.go;window.go=function(p){if(p==='planpagos'&&!esAdm()){tst('Solo para la administradora');return;}var r=_g.apply(this,arguments);try{montar();}catch(x){}if(p==='planpagos'){edId=null;dr=null;var b=document.getElementById('ppBody');if(b&&cargadoPid!==currentProjId)b.innerHTML='<p style="color:var(--tx3);">Cargando…</p>';cargar(pintar);}return r;};}
   if(typeof window.applyMode==='function'){var _am=window.applyMode;window.applyMode=function(){var r=_am.apply(this,arguments);try{montar();}catch(x){}return r;};}
+  montar(); setTimeout(montar,1500);
+})();
+</script>
+
+<style>
+/* ══ VER LINK CLIENTES (vista equipo del portal) ══ */
+#ebVerCli{display:block;width:calc(100% - 24px);margin:10px 12px 4px;background:#2A2C29;color:#fff;border:0;border-radius:12px;padding:12px 10px;font-family:inherit;font-weight:700;font-size:13px;line-height:1.25;letter-spacing:.05em;cursor:pointer;text-align:center;}
+#ebVerCli small{display:block;font-weight:400;letter-spacing:0;font-size:11px;opacity:.8;margin-top:3px;}
+#ebVerCli:hover{background:#000;}
+</style>
+<script>
+// ══════════════════════════════════════════════════
+// VER LINK CLIENTES: abre el portal del cliente en "vista equipo" (cliente.html?equipo=<proyecto>).
+// Funciona solo con la sesión de la app de quien lo abre: el servidor revisa el token, el perfil activo
+// y que el equipo haya escrito su clave hace menos de 24 horas. Sin honorarios, pagos ni claves de clientes.
+// ══════════════════════════════════════════════════
+(function(){
+  function montar(){
+    var nb=document.querySelector('nav .nb'); if(!nb||document.getElementById('ebVerCli'))return;
+    var b=document.createElement('button'); b.id='ebVerCli'; b.type='button';
+    b.innerHTML='👁 VER LINK CLIENTES<small>Vista equipo · sin honorarios ni pagos</small>';
+    b.onclick=function(){
+      var pid=currentProjId; if(!pid)return;
+      var w=window.open('about:blank','_blank');
+      var ir=function(){var u='/cliente.html?equipo='+encodeURIComponent(pid);if(w)w.location.href=u;else location.href=u;};
+      if(typeof window.ebToken==='function')window.ebToken().then(ir,ir); else ir();
+    };
+    nb.parentNode.insertBefore(b,nb.nextSibling);
+  }
   montar(); setTimeout(montar,1500);
 })();
 </script>

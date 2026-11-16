@@ -505,6 +505,11 @@ details.sv-det[open] summary h3::after{transform:rotate(-135deg) translateY(-1px
   #flot{padding:8px 8px 8px 16px;border-radius:28px;}
   #flot button{padding:11px 14px;font-size:13px;}
 }
+/* VISTA EQUIPO: franja grande que deja claro que es para el estudio, y solo para mirar */
+.eq-banda{background:#2A2C29;color:#fff;border-radius:16px;padding:16px 20px;margin:16px 0 14px;display:flex;flex-direction:column;gap:4px;}
+.eq-banda b{font:600 20px/1.2 var(--fd);letter-spacing:.06em;}
+.eq-banda span{font-size:13px;opacity:.85;}
+body.eq .acts,body.eq #flot,body.eq .cmc{display:none!important;}
 /* la portada a todo el ancho (100vw) no debe generar barra horizontal */
 html{overflow-x:clip;}
 /* ══ PAGOS: calendario a la izquierda, plan de pagos a la derecha ══ */
@@ -590,8 +595,13 @@ html{overflow-x:clip;}
   // Link con nombre (clientes.estudiobianco.cl/tulio-pulgar o ?s=tulio-pulgar) + clave de 4 números que da el estudio
   var S=String(QS.get('s')||location.pathname.replace(/^\/+|\/+$/g,'')).toLowerCase(); if(K||!/^[a-z0-9][a-z0-9-]{2,60}$/.test(S))S='';
   var PIN=''; try{PIN=S?(localStorage.getItem('ebc_pin_'+S)||''):'';}catch(e){}
+  // VISTA EQUIPO (?equipo=<proyecto>): solo se abre desde la app, con la sesión de la app de quien la abre
+  // (Javiera o Ankel). Sin clave del cliente, sin honorarios ni pagos, solo para mirar.
+  var EQ=String(QS.get('equipo')||''); if(!/^[A-Za-z0-9_-]{1,80}$/.test(EQ))EQ='';
+  if(EQ){K='';S='';}
+  function tokEq(){try{var s=JSON.parse(localStorage.getItem('eb_sesion')||'null');return (s&&s.access_token)||'';}catch(e){return '';}}
   function cred(){return K?{k:K}:{s:S,pin:PIN};}
-  function leer(){return fetch('/api/cliente?'+(K?'k='+encodeURIComponent(K):'s='+encodeURIComponent(S)),{headers:K?{}:{'x-clave':PIN}});}
+  function leer(){if(EQ)return fetch('/api/cliente?equipo='+encodeURIComponent(EQ),{headers:{'x-equipo':tokEq()}});return fetch('/api/cliente?'+(K?'k='+encodeURIComponent(K):'s='+encodeURIComponent(S)),{headers:K?{}:{'x-clave':PIN}});}
   var D=null, filtro='', agrupar='esp', pend=null;
   // Siempre parte viendo por espacio (no se recuerda la vista por categoría)
   try{localStorage.removeItem('ebc_agrupar');}catch(e){}
@@ -610,9 +620,13 @@ html{overflow-x:clip;}
   }
 
   function cargar(){
-    if(!S&&!/^[A-Za-z0-9_-]{20,64}$/.test(K)){mensaje('Link incompleto','Revisa que copiaste el link completo que te envió Estudio Bianco.');return;}
+    if(!EQ&&!S&&!/^[A-Za-z0-9_-]{20,64}$/.test(K)){mensaje('Link incompleto','Revisa que copiaste el link completo que te envió Estudio Bianco.');return;}
     leer().then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
     .then(function(x){
+      if(EQ){
+        if(!x.ok||!x.j.ok||!x.j.equipo){mensaje('Vista equipo',(x.j&&x.j.error)||'Abre esta vista desde la app, dentro del proyecto.');return;}
+        D=normalizar(x.j);document.body.classList.add('eq');post=function(){toast('Vista equipo: solo para mirar. Responde desde la app.');return Promise.resolve({ok:false});};pintar();return;
+      }
       if(x.j&&(x.j.pin||x.j.bloqueado)){if(PIN&&x.j.pin){PIN='';try{localStorage.removeItem('ebc_pin_'+S);}catch(e){}}pedirClave(x.j.error||'',!!x.j.bloqueado);return;}
       if(!x.ok||!x.j.ok){mensaje('No pudimos abrir el proyecto',x.j.error||'Intenta de nuevo en un momento.');return;}
       D=normalizar(x.j);if(miNombre()){pintar();registrarVisita();}else bienvenida();})
@@ -804,7 +818,7 @@ html{overflow-x:clip;}
     var docs=D.documentos||[], nLam=docs.filter(function(d){return d.tipo==='lamina';}).length, nRen=docs.filter(function(d){return d.tipo==='render';}).length, nCot=docs.filter(function(d){return d.tipo==='cotizacion';}).length, nProv=(D.proveedores||[]).length;
     if((vista==='lamina'&&!nLam)||(vista==='render'&&!nRen)||(vista==='cotizacion'&&!nCot)||(vista==='prov'&&!nProv))vista='compras';
     if(vista==='avance'&&!D.seguimiento)vista='compras';
-    var conPagos=hayPagos(); if(vista==='pagos'&&!conPagos)vista='compras';
+    var conPagos=!EQ&&hayPagos(); if(vista==='pagos'&&!conPagos)vista='compras';
     // Cabecera calma: logo chico y portada con el último render del proyecto (como la pantalla "Proyecto" de la app)
     colorProyecto();
     // Portada: la que elige el estudio (projects.portada); si no hay, el último render
@@ -812,7 +826,8 @@ html{overflow-x:clip;}
     var h='<div class="top"><img class="logo" src="/logo-estudio-bianco-t.png" alt="Estudio Bianco®"><span class="priv-t">Plataforma privada</span></div>'
       +'<div class="portada ancha">'+(foto?'<img src="'+e(foto.url)+'" alt="">':'')+'<div class="velo"></div><div class="texto"><h1>'+e(D.proyecto.nombre)+'</h1>'+(D.proyecto.cliente||D.proyecto.direccion?'<span class="cli">'+[D.proyecto.cliente,D.proyecto.direccion].filter(Boolean).map(e).join(' · ')+'</span>':'')+'</div></div>';
     var nom=miNombre();
-    h+='<div class="hola"><h2>Hola'+(nom?', '+e(nom.split(' ')[0]):'')+'</h2>'+(nom?'<span>Respondes como '+e(nom)+' · <a href="#" onclick="ebCambiarNombre();return false;">cambiar</a></span>':'')+'</div>';
+    if(EQ)h+='<div class="eq-banda"><b>VER LINK CLIENTES · VISTA EQUIPO</b><span>Así ve '+e(D.proyecto.cliente||'el cliente')+' su portal. Solo para el equipo de Estudio Bianco: no compartir. Sin honorarios ni pagos. Para responder comentarios, usa la app.</span></div>';
+    if(!EQ)h+='<div class="hola"><h2>Hola'+(nom?', '+e(nom.split(' ')[0]):'')+'</h2>'+(nom?'<span>Respondes como '+e(nom)+' · <a href="#" onclick="ebCambiarNombre();return false;">cambiar</a></span>':'')+'</div>';
     // Punto rojo en la pestaña donde hay algo nuevo para el cliente
     var nv=novedades();
     function tab(v,t,n){var dot=(v==='compras'&&(nv.resp||nv.porRev))||(v==='lamina'&&(nv.lam||nv.ren))||(v==='avance'&&(nv.etapa||nv.reunion));return '<button class="'+(vista===v?'on':'')+'" onclick="ebV(\''+v+'\')">'+t+(n!=null?' <i>'+n+'</i>':'')+(dot&&vista!==v&&!tabVisto[v]?'<span class="tab-dot" title="Hay novedades"></span>':'')+'</button>';}
@@ -833,7 +848,7 @@ html{overflow-x:clip;}
     var totL=total+hTL, pagL=pagado+hPL;
     var pctP=totL>0?Math.round(pagL/totL*100):0;
     h+=avisoRespuestas();
-    h+='<div class="tot3"><div><div class="l">Presupuesto total</div><div class="v">'+m(totL)+'</div></div><div><div class="l">Pagado</div><div class="v ok">'+m(pagL)+'</div></div><div><div class="l">Por pagar</div><div class="v">'+m(Math.max(0,totL-pagL))+'</div></div><div class="prog" title="'+pctP+'% pagado"><div style="width:'+pctP+'%;background:var(--ok);"></div></div>'
+    if(!EQ)h+='<div class="tot3"><div><div class="l">Presupuesto total</div><div class="v">'+m(totL)+'</div></div><div><div class="l">Pagado</div><div class="v ok">'+m(pagL)+'</div></div><div><div class="l">Por pagar</div><div class="v">'+m(Math.max(0,totL-pagL))+'</div></div><div class="prog" title="'+pctP+'% pagado"><div style="width:'+pctP+'%;background:var(--ok);"></div></div>'
       +(hcL.length?'<p class="det">Compras '+m(total)+' (pagado '+m(pagado)+') · Honorarios del estudio '+m(hTL)+' (pagado '+m(hPL)+')</p>':'')+'</div>';
     h+='<p class="meta" style="margin:0 6px;">'+cuenta['Aprobado']+' de '+its.length+' productos aprobados'+(porCotizar?' · algunos productos están por cotizar':'')+'</p>';
     // "Todos" no muestra lo descartado: los descartados se ven solo en su filtro
@@ -1221,7 +1236,7 @@ html{overflow-x:clip;}
   }
   window.ebF=function(f){filtro=f;pintar();};
   window.ebA=function(a){agrupar=a;pintar();};
-  function miNombre(){try{return localStorage.getItem('ebc_nombre')||'';}catch(x){return '';}}
+  function miNombre(){if(EQ)return (D&&D.quien)||'equipo';try{return localStorage.getItem('ebc_nombre')||'';}catch(x){return '';}}
   function nombrePara(fn){var n=miNombre();if(n){fn(n);return;}abrirModal('nombre',null,'',fn);}
   window.ebCambiarNombre=function(){abrirModal('nombre',null,'',function(){pintar();});};
   function post(cuerpo){return fetch('/api/cliente',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign(cred(),cuerpo))}).then(function(r){return r.json();});}
