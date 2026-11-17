@@ -11584,13 +11584,13 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
 // ══════════════════════════════════════════════════
 // VER LINK CLIENTES: abre el portal del cliente en "vista equipo" (cliente.html?equipo=<proyecto>).
 // Funciona solo con la sesión de la app de quien lo abre: el servidor revisa el token, el perfil activo
-// y que el equipo haya escrito su clave hace menos de 24 horas. Sin honorarios, pagos ni claves de clientes.
+// y que el equipo haya escrito su clave hace menos de 24 horas. Sin claves de clientes.
 // ══════════════════════════════════════════════════
 (function(){
   function montar(){
     var nb=document.querySelector('nav .nb'); if(!nb||document.getElementById('ebVerCli'))return;
     var b=document.createElement('button'); b.id='ebVerCli'; b.type='button';
-    b.innerHTML='👁 VER LINK CLIENTES<small>Vista equipo · sin honorarios ni pagos</small>';
+    b.innerHTML='👁 VER LINK CLIENTES<small>Vista equipo</small>';
     b.onclick=function(){
       var pid=currentProjId; if(!pid)return;
       var w=window.open('about:blank','_blank');

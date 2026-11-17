@@ -596,7 +596,7 @@ html{overflow-x:clip;}
   var S=String(QS.get('s')||location.pathname.replace(/^\/+|\/+$/g,'')).toLowerCase(); if(K||!/^[a-z0-9][a-z0-9-]{2,60}$/.test(S))S='';
   var PIN=''; try{PIN=S?(localStorage.getItem('ebc_pin_'+S)||''):'';}catch(e){}
   // VISTA EQUIPO (?equipo=<proyecto>): solo se abre desde la app, con la sesión de la app de quien la abre
-  // (Javiera o Ankel). Sin clave del cliente, sin honorarios ni pagos, solo para mirar.
+  // del estudio. Sin clave del cliente, solo para mirar.
   var EQ=String(QS.get('equipo')||''); if(!/^[A-Za-z0-9_-]{1,80}$/.test(EQ))EQ='';
   if(EQ){K='';S='';}
   function tokEq(){try{var s=JSON.parse(localStorage.getItem('eb_sesion')||'null');return (s&&s.access_token)||'';}catch(e){return '';}}
@@ -826,7 +826,7 @@ html{overflow-x:clip;}
     var h='<div class="top"><img class="logo" src="/logo-estudio-bianco-t.png" alt="Estudio Bianco®"><span class="priv-t">Plataforma privada</span></div>'
       +'<div class="portada ancha">'+(foto?'<img src="'+e(foto.url)+'" alt="">':'')+'<div class="velo"></div><div class="texto"><h1>'+e(D.proyecto.nombre)+'</h1>'+(D.proyecto.cliente||D.proyecto.direccion?'<span class="cli">'+[D.proyecto.cliente,D.proyecto.direccion].filter(Boolean).map(e).join(' · ')+'</span>':'')+'</div></div>';
     var nom=miNombre();
-    if(EQ)h+='<div class="eq-banda"><b>VER LINK CLIENTES · VISTA EQUIPO</b><span>Así ve '+e(D.proyecto.cliente||'el cliente')+' su portal. Solo para el equipo de Estudio Bianco: no compartir. Sin honorarios ni pagos. Para responder comentarios, usa la app.</span></div>';
+    if(EQ)h+='<div class="eq-banda"><b>VER LINK CLIENTES · VISTA EQUIPO</b><span>Así ve '+e(D.proyecto.cliente||'el cliente')+' su portal. Solo para el equipo de Estudio Bianco: no compartir. Para responder comentarios, usa la app.</span></div>';
     if(!EQ)h+='<div class="hola"><h2>Hola'+(nom?', '+e(nom.split(' ')[0]):'')+'</h2>'+(nom?'<span>Respondes como '+e(nom)+' · <a href="#" onclick="ebCambiarNombre();return false;">cambiar</a></span>':'')+'</div>';
     // Punto rojo en la pestaña donde hay algo nuevo para el cliente
     var nv=novedades();
