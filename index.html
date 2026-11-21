@@ -11104,6 +11104,77 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
 #page-proyecto{background:#F6F5F1;margin:-28px -36px;padding:24px 36px 40px;min-height:100vh;}
 @media (max-width:900px){#hsec-hoy{margin:-24px -20px 0;padding:22px 20px 32px;}#page-proyecto{margin:-16px -14px;padding:16px 14px 32px;}.hy .hy-semana{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));}.hy .hy-dosc{grid-template-columns:1fr;}}
 @media (max-width:560px){.hy .hy-bit .cuerpo,.hy .hy-bit .thumbs{padding-left:16px;}.hy .hy-card{padding:18px;}}
+/* ══ INICIO (21-11-2026): una sola pantalla. Sin pestañas: salen Avances y pendientes, Financiero y Mis finanzas ══ */
+#homePage .home-tabs{display:none!important;}
+#hsec-proyectos,#hsec-tablero,#hsec-crm,#hsec-financiero,#hsec-misfinanzas{display:none!important;}
+#hsec-hoy{display:block!important;}
+#homePage .home-header{background:#fff;border-bottom:1px solid #ECEAE4;}
+#homePage .in-logo{font:400 15px/1.15 'Poppins',sans-serif;letter-spacing:.32em;padding-right:22px;margin-right:22px;border-right:1px solid #ECEAE4;display:inline-block;vertical-align:middle;}
+#homePage .in-tt{display:inline-block;vertical-align:middle;}
+#homePage .in-tt b{font:500 17px/1.3 'Poppins',sans-serif;display:block;}
+#homePage .in-tt span{font:400 12.5px/1.3 'Open Sans',sans-serif;color:#6E716B;}
+.in{font-family:'Open Sans',sans-serif;color:#2A2C29;}
+.in h1,.in h2,.in h3{font-family:'Poppins',sans-serif;font-weight:500;margin:0;}
+.in button{font-family:inherit;cursor:pointer;}
+.in-mut{color:#A3A59E;font-size:13px;}
+.in-saludo{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin:6px 0 22px;}
+.in-saludo h1{font-size:32px;letter-spacing:-.01em;}
+.in-saludo p{color:#6E716B;font-size:15px;margin:4px 0 0;}
+.in-btns{display:flex;gap:10px;}
+.in-btns button{border-radius:12px;padding:12px 20px;font:500 14px 'Poppins',sans-serif;border:1px solid #CFCBBF;background:#fff;color:#2A2C29;}
+.in-btns button.prim{background:#5C6B4E;color:#fff;border-color:#5C6B4E;}
+.in-fila{display:grid;grid-template-columns:1.15fr 1fr .85fr;gap:16px;margin-bottom:30px;}
+.in-fila.dos{grid-template-columns:1.3fr 1fr;}
+.in-c{background:#fff;border-radius:20px;padding:22px 24px;box-shadow:0 2px 10px -6px rgba(0,0,0,.08);min-width:0;}
+.in-c.in-hoy{background:#EEF1E8;}
+.in-c h2{font-size:21px;margin-bottom:2px;}
+.in-s{font-size:12.5px;color:#6E716B;margin-bottom:12px;}
+.in-t{display:flex;align-items:center;gap:12px;padding:8px 0;font-size:14px;transition:opacity .3s;}
+.in-t.hecha{opacity:.35;text-decoration:line-through;}
+.in-t span{min-width:0;}
+.in-chk{width:19px;height:19px;border:1.5px solid #9FA68F;border-radius:5px;flex-shrink:0;background:#fff;padding:0;}
+.in-chk:hover{border-color:#5C6B4E;background:#E3E8DA;}
+.in-t.hecha .in-chk{background:#5C6B4E;border-color:#5C6B4E;}
+.in-t small{margin-left:auto;font-size:11px;padding:2px 9px;border-radius:99px;background:#fff;color:#6E716B;white-space:nowrap;}
+.in-t small.v{background:#FBE9E7;color:#B4483C;}
+.in-mas{background:none;border:0;font-size:12.5px;color:#5C6B4E;margin-top:6px;padding:0;}
+.in-nueva{display:flex;gap:8px;margin:0 0 8px;}
+.in-nueva input{flex:1;border:1px solid #CFD5C4;border-radius:10px;padding:9px 12px;font:inherit;font-size:13.5px;background:#fff;}
+.in-nueva button{border:0;border-radius:10px;background:#5C6B4E;color:#fff;padding:0 14px;font-size:13px;}
+.in-ag{display:grid;grid-template-columns:62px 1fr;gap:12px;align-items:start;padding:9px 0;border-top:1px solid #ECEAE4;cursor:pointer;}
+.in-ag:first-of-type{border-top:0;}
+.in-ag .d{background:#F1EFE8;border-radius:10px;padding:6px 0;text-align:center;font:400 12px 'Poppins',sans-serif;color:#6E716B;}
+.in-ag .d b{display:block;font-size:13px;color:#2A2C29;font-weight:500;}
+.in-ag p{font-size:13.5px;line-height:1.35;margin:0;}
+.in-ag p span{display:block;font-size:11.5px;color:#A3A59E;margin-top:2px;}
+.in-k{display:flex;align-items:center;gap:14px;padding:13px 0;border-top:1px solid #ECEAE4;font-size:14px;cursor:pointer;}
+.in-k:first-of-type{border-top:0;}
+.in-k em{width:34px;height:34px;border-radius:10px;background:#F1EFE8;display:flex;align-items:center;justify-content:center;font-style:normal;color:#5C6B4E;}
+.in-k b{margin-left:auto;font:500 24px 'Poppins',sans-serif;color:#5C6B4E;}
+.in-k u{text-decoration:none;color:#A3A59E;width:8px;}
+.in-mp{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+.in-mp h2{font-size:22px;}
+.in-pills{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.in-pills button{border:1px solid #D9D5CA;border-radius:99px;padding:7px 18px;font-size:13px;background:#fff;color:#2A2C29;}
+.in-pills button.on{background:#5C6B4E;border-color:#5C6B4E;color:#fff;}
+.in-busca{border:1px solid #D9D5CA;border-radius:99px;padding:7px 16px;font:inherit;font-size:13px;width:230px;background:#fff;}
+.in-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px;}
+.in-pc{background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 2px 10px -6px rgba(0,0,0,.1);cursor:pointer;transition:transform .15s,box-shadow .15s;}
+.in-pc:hover{transform:translateY(-2px);box-shadow:0 10px 24px -14px rgba(0,0,0,.25);}
+.in-ph{height:150px;position:relative;background-size:cover;background-position:center;background-color:#F1EFE8;}
+.in-ph.sin{display:flex;align-items:center;justify-content:center;color:#fff;font:400 34px 'Poppins',sans-serif;letter-spacing:.05em;}
+.in-st{position:absolute;top:12px;left:12px;background:rgba(255,255,255,.92);border-radius:99px;padding:4px 11px;font-size:11.5px;display:flex;align-items:center;gap:6px;color:#2A2C29;letter-spacing:0;}
+.in-st i{width:7px;height:7px;border-radius:50%;}
+.in-bd{padding:14px 16px 16px;}
+.in-bd h3{font-size:15.5px;}
+.in-bd p{font-size:12px;color:#6E716B;margin:3px 0 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.in-et{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;color:#6E716B;margin-bottom:6px;}
+.in-bar{height:6px;background:#ECEAE4;border-radius:99px;overflow:hidden;}
+.in-bar div{height:100%;border-radius:99px;}
+.in-herr{display:flex;gap:10px;flex-wrap:wrap;margin-top:30px;}
+.in-herr button{background:none;border:1px solid #D9D5CA;border-radius:10px;padding:8px 14px;font-size:12.5px;color:#6E716B;}
+@media (max-width:1100px){.in-fila{grid-template-columns:1fr 1fr;}.in-fila>.in-c:last-child{grid-column:1/-1;}}
+@media (max-width:700px){.in-fila,.in-fila.dos{grid-template-columns:1fr;}.in-saludo h1{font-size:26px;}.in-busca{width:100%;}.in-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;}.in-ph{height:110px;}#homePage .in-tt span{display:none;}}
 </style>
 <script>
 // ══ HOY Y PROYECTO: lógica ══
@@ -11160,8 +11231,14 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
       adm?q('pendientes?select=*&hecho=eq.false&order=vence.nullslast,id'):Promise.resolve([]),
       q('logs?select=id,project_id,date,title,status,extra,category&category=eq.gcal&date=gte.'+h+'&date=lte.'+sumar(h,45)+'&order=date,id'),
       adm?q('items?select=id,project_id,item,unit,qty,pay_status,vence,p1amt,p2amt,p3amt,p4amt&cat=eq.Honorarios'):Promise.resolve([]),
-      adm?q('pagos?select=project_id,date,amount,note&date=gte.'+mes+'&order=date.desc'):Promise.resolve([])
-    ]).then(function(x){D={est:x[0]||[],pend:x[1]||[],gcal:(x[2]||[]).filter(function(l){return !/Completad|Cancelad/i.test(l.status||'');}),hon:x[3]||[],pagos:x[4]||[]};});
+      adm?q('pagos?select=project_id,date,amount,note&date=gte.'+mes+'&order=date.desc'):Promise.resolve([]),
+      q('projects?select=id,portada'),
+      q('logs?select=project_id,extra&category=eq.render&order=id.desc&limit=400')
+    ]).then(function(x){
+      // Foto de cada proyecto en el inicio: la portada elegida o, si no hay, el último render (imagen)
+      var fotos={}; (x[5]||[]).forEach(function(p){if(p.portada)fotos[p.id]=p.portada;});
+      (x[6]||[]).forEach(function(l){if(fotos[l.project_id])return;var e=ex(l);if(e.oculto||!e.url)return;if(/pdf/i.test(e.mime||'')||/\.pdf($|\?)/i.test(e.url))return;fotos[l.project_id]=e.url;});
+      D={est:x[0]||[],pend:x[1]||[],gcal:(x[2]||[]).filter(function(l){return !/Completad|Cancelad/i.test(l.status||'');}),hon:x[3]||[],pagos:x[4]||[],fotos:fotos};});
   }
   function estDe(pid){return (D&&D.est||[]).find(function(s){return s.project_id===pid;});}
   // Eventos de la semana: reuniones del calendario y, si no hay, los pasos del proceso con fecha
@@ -11184,7 +11261,59 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     return T;
   }
   function filaT(t){var p=proyDe(t.pid);return '<div class="hy-tarea" data-t="'+e2(t.id)+'"><button class="hy-chk" aria-label="Marcar hecha" onclick="ebHoy.hecha(\''+e2(String(t.id))+'\',this)"></button><div class="t">'+e2(corta(t.t,110))+(t.sub?'<small>'+e2(t.sub)+'</small>':'')+'</div>'+(p?'<span class="hy-p" style="background:'+hexA(p.color,.12)+';color:'+e2(p.color)+';">'+e2(nomCorto(p))+'</span>':'<span></span>')+'</div>';}
+  /* ── INICIO (21-11-2026): una sola pantalla con Hoy, Agenda, En curso y Mis proyectos (aprobado por Ankel, propuesta 3 v1) ── */
+  var filtroP='activos', busca='', abiertaTarea=false, verTodas=false;
+  function lugar(p){var a=String(p.addr||'').split(',').map(function(s){return s.trim();}).filter(Boolean);return a.length?a[a.length-1]:'';}
+  function iniciales(p){return nomCorto(p).split(/\s+/).filter(function(w){return /^[A-Za-zÁÉÍÓÚÑáéíóúñ]/.test(w);}).slice(0,2).map(function(w){return w[0].toUpperCase();}).join('');}
+  function tarjeta(p){
+    var L=pasos(p), ix=idxEtapa(p,L), fin=p.status==='Finalizado'||p.stage==='cerrado';
+    var et=fin?'Terminado':(ix>=0&&L[ix]?L[ix].nombre:'Sin etapa marcada'), pct=fin?100:(ix>=0?Math.round((ix+1)/L.length*100):0);
+    var foto=D.fotos&&D.fotos[p.id], c=p.color||'#5C6B4E', sub=[p.client,lugar(p)].filter(Boolean).join(' · ');
+    return '<div class="in-pc" onclick="ebHoy.abrir(\''+e2(p.id)+'\')">'
+      +(foto?'<div class="in-ph" style="background-image:url(\''+e2(foto).replace(/'/g,'%27')+'\')">':'<div class="in-ph sin" style="background:'+e2(c)+'">'+e2(iniciales(p)))
+      +'<span class="in-st"><i style="background:'+e2(c)+'"></i>'+e2(fin?'Finalizado':et)+'</span></div>'
+      +'<div class="in-bd"><h3>'+e2(nomCorto(p))+'</h3><p>'+e2(sub||' ')+'</p><div class="in-et"><span>'+(fin?'Proyecto terminado':(ix>=0?'Etapa '+(ix+1)+' de '+L.length:'Sin etapa marcada'))+'</span><span>'+(fin||ix<0?'':e2(et))+'</span></div><div class="in-bar"><div style="width:'+pct+'%;background:'+e2(c)+'"></div></div></div></div>';
+  }
   function pintarHoy(){
+    var box=document.getElementById('hoyBox'); if(!box)return;
+    var h=hoy(), adm=esAdm(), nombre='';try{var s=window.EB_SESION&&window.EB_SESION();nombre=s&&s.nombre?String(s.nombre).split(' ')[0]:'';}catch(e){}
+    var hr=+new Date().toLocaleTimeString('es-CL',{hour:'2-digit',hour12:false,timeZone:'America/Santiago'}).slice(0,2);
+    var saludo=hr<12?'¡Buen día':(hr<20?'¡Buenas tardes':'¡Buenas noches');
+    var html='<div class="in"><div class="in-saludo"><div><h1>'+saludo+(nombre?', '+e2(nombre):'')+'!</h1><p>'+e2(fLargo(h))+'</p></div><div class="in-btns">'+(adm?'<button onclick="ebHoy.nueva()">＋ Tarea rápida</button>':'')+'<button class="prim" onclick="openNewProj()">＋ Nuevo proyecto</button></div></div>';
+    if(!D){box.innerHTML=html+'<p class="in-mut">Cargando…</p></div>';return;}
+    var ev=eventos(h,sumar(h,6)), T=adm?tareas():[];
+    html+='<div class="in-fila'+(adm?'':' dos')+'">';
+    // Hoy: tareas (solo la administradora)
+    if(adm){
+      var vis=verTodas?T:T.slice(0,4);
+      html+='<div class="in-c in-hoy"><h2>Hoy</h2><div class="in-s">Lo más importante del día</div>'
+        +(abiertaTarea?'<div class="in-nueva"><input id="inTarea" maxlength="200" placeholder="Escribe la tarea y presiona Enter" onkeydown="if(event.key===\'Enter\')ebHoy.guardar();if(event.key===\'Escape\')ebHoy.nueva()"><button onclick="ebHoy.guardar()">Guardar</button></div>':'')
+        +(vis.length?vis.map(function(t){var p=proyDe(t.pid);var et=t.g==='atras'?'<small class="v">'+e2(t.sub||'Atrasada')+(p?' · '+e2(nomCorto(p)):'')+'</small>':(p?'<small>'+e2(nomCorto(p))+'</small>':(t.sub?'<small>'+e2(t.sub)+'</small>':''));return '<div class="in-t hy-tarea"><button class="in-chk" aria-label="Marcar hecha" onclick="ebHoy.hecha(\''+e2(String(t.id))+'\',this)"></button><span>'+e2(corta(t.t,90))+'</span>'+et+'</div>';}).join(''):'<p class="in-mut" style="padding:8px 0;">Nada pendiente. Qué bien.</p>')
+        +(T.length>4?'<button class="in-mas" onclick="ebHoy.todas()">'+(verTodas?'Ver menos':'＋ '+(T.length-4)+' tarea'+(T.length-4===1?'':'s')+' más · ver todas')+'</button>':'')+'</div>';
+    }
+    // Agenda de la semana
+    var ag=ev.slice(0,5);
+    html+='<div class="in-c"><h2>Agenda de la semana</h2><div class="in-s">Desde tu Google Calendar</div>'
+      +(ag.length?ag.map(function(e){var d=aF(e.date),p=proyDe(e.pid);var t=String(e.t||'').replace(/^.*?·\s*/,'');var sub=[e.x.start||'',p?nomCorto(p):''].filter(Boolean).join(' · ');return '<div class="in-ag" onclick="ebHoy.abrir(\''+e2(e.pid)+'\')"><div class="d">'+DIAS[d.getDay()]+'<b>'+d.getDate()+'</b></div><p>'+e2(corta(t,70))+(sub?'<span>'+e2(sub)+'</span>':'')+'</p></div>';}).join(''):'<p class="in-mut" style="padding:8px 0;">Sin reuniones esta semana.</p>')+'</div>';
+    // En curso
+    var nAct=activos().length;
+    html+='<div class="in-c"><h2>En curso</h2><div class="in-s">Tu semana en números</div>'
+      +'<div class="in-k" onclick="ebHoy.filtro(\'activos\')"><em>▦</em>Proyectos activos<b>'+nAct+'</b><u>›</u></div>'
+      +(adm?'<div class="in-k" onclick="ebHoy.todas(true)"><em>✓</em>Tareas pendientes<b>'+T.length+'</b><u>›</u></div>':'')
+      +'<div class="in-k"><em>◷</em>Reuniones esta semana<b>'+ev.filter(function(e){return e.src==='gcal';}).length+'</b><u></u></div></div>';
+    html+='</div>';
+    // Mis proyectos
+    var todos=proys().filter(function(p){return p.id!=='tienda-tazas';}), fin=todos.filter(function(p){return p.status==='Finalizado';});
+    var lista=filtroP==='activos'?activos():(filtroP==='finalizados'?fin:todos);
+    if(busca){var b=busca.toLowerCase();lista=lista.filter(function(p){return (String(p.name||'')+' '+String(p.client||'')+' '+String(p.addr||'')).toLowerCase().indexOf(b)>=0;});}
+    html+='<div class="in-mp"><h2>Mis proyectos</h2><div class="in-pills"><input class="in-busca" placeholder="Buscar proyecto o cliente" value="'+e2(busca)+'" oninput="ebHoy.buscar(this.value)">'
+      +[['activos','Activos',activos().length],['finalizados','Finalizados',fin.length],['todos','Todos',todos.length]].map(function(f){return '<button class="'+(filtroP===f[0]?'on':'')+'" onclick="ebHoy.filtro(\''+f[0]+'\')">'+f[1]+' ('+f[2]+')</button>';}).join('')+'</div></div>';
+    html+='<div class="in-grid">'+(lista.length?lista.map(tarjeta).join(''):'<p class="in-mut">No hay proyectos'+(busca?' que coincidan con "'+e2(busca)+'"':'')+'.</p>')+'</div>';
+    html+='<div class="in-herr"><button onclick="abrirBotonTiendas()">🔖 Botón para tiendas</button>'+(adm?'<button onclick="descargarTodo()">⬇ Descargar respaldo de todos los proyectos</button>':'')+'</div>';
+    box.innerHTML=html+'</div>';
+    if(abiertaTarea){var i=document.getElementById('inTarea');if(i)i.focus();}
+  }
+  function pintarHoyAnterior(){
     var box=document.getElementById('hoyBox'); if(!box)return;
     if(!D){box.innerHTML='<div class="hy"><div class="hy-saludo"><h1>Hola</h1><p>Cargando lo que viene…</p></div></div>';return;}
     var h=hoy(), adm=esAdm(), nombre='';try{var s=window.EB_SESION&&window.EB_SESION();nombre=s&&s.nombre?String(s.nombre).split(' ')[0]:'';}catch(e){}
@@ -11248,7 +11377,17 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
       }
       setTimeout(pintarHoy,700);
     },
-    pintar:function(){pintarHoy();cargarHoy().then(pintarHoy);}
+    pintar:function(){pintarHoy();cargarHoy().then(pintarHoy);},
+    filtro:function(f){filtroP=f;pintarHoy();var g=document.querySelector('.in-mp');if(g)g.scrollIntoView({behavior:'smooth',block:'start'});},
+    buscar:function(v){busca=String(v||'');var pos=document.activeElement&&document.activeElement.selectionStart;pintarHoy();var i=document.querySelector('.in-busca');if(i){i.focus();try{i.setSelectionRange(pos,pos);}catch(e){}}},
+    todas:function(abrir){verTodas=abrir===true?true:!verTodas;pintarHoy();},
+    nueva:function(){abiertaTarea=!abiertaTarea;pintarHoy();},
+    guardar:function(){
+      var i=document.getElementById('inTarea'), t=i?String(i.value||'').trim():''; if(!t)return;
+      var row={id:Date.now(),texto:t,project_id:null,vence:hoy(),prioridad:'normal',responsable:'Ankel',hecho:false,updated_at:new Date().toISOString()};
+      D.pend=(D.pend||[]).concat([row]); abiertaTarea=false; pintarHoy();
+      fetch(SB+'/rest/v1/pendientes',{method:'POST',headers:Object.assign({},H,{Prefer:'return=minimal'}),body:JSON.stringify(row)}).then(function(r){if(!r.ok)throw 0;toast('Tarea agregada ✓');}).catch(function(){toast('No se pudo guardar la tarea');});
+    }
   };
 
   /* ── PROYECTO ── */
@@ -11349,6 +11488,10 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
   if(typeof window.renderHome==='function'){var _rh=window.renderHome;window.renderHome=function(){var r=_rh.apply(this,arguments);try{var t=document.getElementById('htab-hoy');if(t&&t.classList.contains('active')&&D)pintarHoy();}catch(e){}return r;};}
   if(typeof window.go==='function'){var _g=window.go;window.go=function(id){var r=_g.apply(this,arguments);if(id==='proyecto'){try{window.ebProy.pintar();}catch(e){}}return r;};}
   if(typeof window.goHome==='function'){var _gh=window.goHome;window.goHome=function(){var r=_gh.apply(this,arguments);try{if(homeCurrentTab==='hoy')window.ebHoy.pintar();}catch(e){}return r;};}
+  // INICIO (21-11-2026): ya no hay pestañas; cualquier pestaña lleva a la pantalla única de inicio
+  if(typeof window.homeTab==='function'){var _ht2=window.homeTab;window.homeTab=function(){return _ht2.call(this,'hoy');};}
+  // Cabecera con el logo en letras, como la propuesta aprobada
+  (function(){var n=document.querySelector('#homePage .app-name'), s=document.querySelector('#homePage .app-sub');if(n&&!n.querySelector('.in-logo')){n.innerHTML='<span class="in-logo">ESTUDIO<br>BIANCO</span><span class="in-tt"><b>Gestión de Proyectos</b><span>Administración de remodelaciones e interiorismo</span></span>';if(s)s.style.display='none';}})();
   // "Hoy" es la primera pantalla al entrar
   setTimeout(function(){try{if(window.EB_SESION&&window.EB_SESION()&&document.getElementById('htab-hoy'))homeTab('hoy');}catch(e){}},250);
 })();
