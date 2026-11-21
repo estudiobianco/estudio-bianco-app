@@ -11174,7 +11174,34 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
 .in-bar div{height:100%;border-radius:99px;}
 .in-herr{display:flex;gap:10px;flex-wrap:wrap;margin-top:30px;}
 .in-herr button{background:none;border:1px solid #D9D5CA;border-radius:10px;padding:8px 14px;font-size:12.5px;color:#6E716B;}
-@media (max-width:1100px){.in-fila{grid-template-columns:1fr 1fr;}.in-fila>.in-c:last-child{grid-column:1/-1;}}
+/* Franja corta (21-11): los tres recuadros bajos, con scroll adentro; los proyectos se ven al entrar */
+#hsec-hoy{padding-top:18px!important;}
+.in-saludo{margin:0 0 14px;align-items:center;}
+.in-saludo h1{font-size:22px;}
+.in-saludo p{font-size:13px;margin-top:1px;}
+.in-btns button{padding:8px 14px;font-size:13px;border-radius:10px;}
+.in-fila{margin-bottom:22px;gap:12px;}
+.in-c{padding:14px 18px 10px;border-radius:16px;height:200px;display:flex;flex-direction:column;}
+.in-c h2{font-size:15px;margin-bottom:6px;display:flex;align-items:baseline;gap:8px;flex-shrink:0;}
+.in-c h2 .in-s{font:400 11.5px 'Open Sans',sans-serif;margin:0;}
+.in-c>.in-t:first-of-type,.in-c>.in-ag:first-of-type,.in-c>.in-k:first-of-type{margin-top:0;}
+.in-c{overflow-y:auto;scrollbar-width:thin;}
+.in-t{padding:5px 0;font-size:13px;gap:10px;}
+.in-t span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.in-t small{font-size:10.5px;padding:1px 8px;}
+.in-chk{width:16px;height:16px;border-radius:4px;}
+.in-nueva{margin-bottom:4px;}.in-nueva input{padding:6px 10px;font-size:13px;}
+.in-ag{grid-template-columns:52px 1fr;gap:10px;padding:5px 0;align-items:center;}
+.in-ag .d{padding:3px 0;font-size:10.5px;border-radius:8px;}
+.in-ag .d b{display:inline;font-size:11.5px;}
+.in-ag p{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.in-ag p span{display:inline;font-size:11px;}
+.in-k{padding:7px 0;font-size:13px;gap:10px;}
+.in-k em{width:26px;height:26px;border-radius:8px;font-size:12px;}
+.in-k b{font-size:20px;}
+.in-mp{margin-bottom:12px;}
+.in-mp h2{font-size:19px;}
+@media (max-width:1100px){.in-fila{grid-template-columns:1fr 1fr;}.in-fila>.in-c:last-child{grid-column:1/-1;height:auto;}}
 @media (max-width:700px){.in-fila,.in-fila.dos{grid-template-columns:1fr;}.in-saludo h1{font-size:26px;}.in-busca{width:100%;}.in-grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;}.in-ph{height:110px;}#homePage .in-tt span{display:none;}}
 </style>
 <script>
@@ -11286,19 +11313,19 @@ tr.drop-abajo td{box-shadow:inset 0 -2px 0 var(--ac);}
     html+='<div class="in-fila'+(adm?'':' dos')+'">';
     // Hoy: tareas (solo la administradora)
     if(adm){
-      var vis=verTodas?T:T.slice(0,4);
-      html+='<div class="in-c in-hoy"><h2>Hoy</h2><div class="in-s">Lo más importante del día</div>'
+      var vis=T; // franja corta: todas las tareas, con scroll dentro del recuadro
+      html+='<div class="in-c in-hoy"><h2>Hoy <span class="in-s">'+T.length+' pendiente'+(T.length===1?'':'s')+'</span></h2>'
         +(abiertaTarea?'<div class="in-nueva"><input id="inTarea" maxlength="200" placeholder="Escribe la tarea y presiona Enter" onkeydown="if(event.key===\'Enter\')ebHoy.guardar();if(event.key===\'Escape\')ebHoy.nueva()"><button onclick="ebHoy.guardar()">Guardar</button></div>':'')
-        +(vis.length?vis.map(function(t){var p=proyDe(t.pid);var et=t.g==='atras'?'<small class="v">'+e2(t.sub||'Atrasada')+(p?' · '+e2(nomCorto(p)):'')+'</small>':(p?'<small>'+e2(nomCorto(p))+'</small>':(t.sub?'<small>'+e2(t.sub)+'</small>':''));return '<div class="in-t hy-tarea"><button class="in-chk" aria-label="Marcar hecha" onclick="ebHoy.hecha(\''+e2(String(t.id))+'\',this)"></button><span>'+e2(corta(t.t,90))+'</span>'+et+'</div>';}).join(''):'<p class="in-mut" style="padding:8px 0;">Nada pendiente. Qué bien.</p>')
-        +(T.length>4?'<button class="in-mas" onclick="ebHoy.todas()">'+(verTodas?'Ver menos':'＋ '+(T.length-4)+' tarea'+(T.length-4===1?'':'s')+' más · ver todas')+'</button>':'')+'</div>';
+        +(vis.length?vis.map(function(t){var p=proyDe(t.pid);var et=t.g==='atras'?'<small class="v">'+e2(t.sub||'Atrasada')+(p?' · '+e2(nomCorto(p)):'')+'</small>':(p?'<small>'+e2(nomCorto(p))+'</small>':(t.sub?'<small>'+e2(t.sub)+'</small>':''));return '<div class="in-t hy-tarea" title="'+e2(t.t)+'"><button class="in-chk" aria-label="Marcar hecha" onclick="ebHoy.hecha(\''+e2(String(t.id))+'\',this)"></button><span>'+e2(t.t)+'</span>'+et+'</div>';}).join(''):'<p class="in-mut" style="padding:8px 0;">Nada pendiente. Qué bien.</p>')+'</div>';
     }
     // Agenda de la semana
     var ag=ev.slice(0,5);
-    html+='<div class="in-c"><h2>Agenda de la semana</h2><div class="in-s">Desde tu Google Calendar</div>'
-      +(ag.length?ag.map(function(e){var d=aF(e.date),p=proyDe(e.pid);var t=String(e.t||'').replace(/^.*?·\s*/,'');var sub=[e.x.start||'',p?nomCorto(p):''].filter(Boolean).join(' · ');return '<div class="in-ag" onclick="ebHoy.abrir(\''+e2(e.pid)+'\')"><div class="d">'+DIAS[d.getDay()]+'<b>'+d.getDate()+'</b></div><p>'+e2(corta(t,70))+(sub?'<span>'+e2(sub)+'</span>':'')+'</p></div>';}).join(''):'<p class="in-mut" style="padding:8px 0;">Sin reuniones esta semana.</p>')+'</div>';
+    ag=ev;
+    html+='<div class="in-c"><h2>Agenda de la semana <span class="in-s">Google Calendar</span></h2>'
+      +(ag.length?ag.map(function(e){var d=aF(e.date),p=proyDe(e.pid);var t=String(e.t||'').replace(/^.*?·\s*/,'');var sub=[e.x.start||'',p?nomCorto(p):''].filter(Boolean).join(' · ');return '<div class="in-ag" title="'+e2(t+(sub?' · '+sub:''))+'" onclick="ebHoy.abrir(\''+e2(e.pid)+'\')"><div class="d">'+DIAS[d.getDay()]+' <b>'+d.getDate()+'</b></div><p>'+e2(t)+(sub?' <span>'+e2(sub)+'</span>':'')+'</p></div>';}).join(''):'<p class="in-mut" style="padding:8px 0;">Sin reuniones esta semana.</p>')+'</div>';
     // En curso
     var nAct=activos().length;
-    html+='<div class="in-c"><h2>En curso</h2><div class="in-s">Tu semana en números</div>'
+    html+='<div class="in-c"><h2>En curso</h2>'
       +'<div class="in-k" onclick="ebHoy.filtro(\'activos\')"><em>▦</em>Proyectos activos<b>'+nAct+'</b><u>›</u></div>'
       +(adm?'<div class="in-k" onclick="ebHoy.todas(true)"><em>✓</em>Tareas pendientes<b>'+T.length+'</b><u>›</u></div>':'')
       +'<div class="in-k"><em>◷</em>Reuniones esta semana<b>'+ev.filter(function(e){return e.src==='gcal';}).length+'</b><u></u></div></div>';
